@@ -337,6 +337,25 @@ function App() {
     }
   }, []);
 
+  const handleSpin = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cx = W / 2;
+    const cy = H / 2;
+    for (const orb of orbsRef.current) {
+      const dx = orb.x - cx;
+      const dy = orb.y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const strength = 3 + Math.random() * 2;
+      // tangential velocity (perpendicular to radial direction)
+      orb.vx += (-dy / dist) * strength;
+      orb.vy += (dx / dist) * strength;
+      // slight inward pull to keep the vortex tight
+      orb.vx -= (dx / dist) * 0.5;
+      orb.vy -= (dy / dist) * 0.5;
+    }
+  }, []);
+
   return (
     <Wrapper>
       <Canvas
@@ -366,6 +385,12 @@ function App() {
               <polyline points="8 12 12 12 12 16" />
               <line x1="19" y1="19" x2="12" y2="12" />
               <polyline points="16 12 12 12 12 16" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleSpin} title="Spin orbs">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12a9 9 0 1 1-6.22-8.56" />
+              <polyline points="21 3 21 9 15 9" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleScatter} title="Scatter orbs">
