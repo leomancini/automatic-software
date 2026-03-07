@@ -49,8 +49,15 @@ function App() {
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.width = canvas.parentElement.clientWidth;
-    canvas.height = canvas.parentElement.clientHeight;
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.parentElement.clientWidth;
+    const h = canvas.parentElement.clientHeight;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
   }, []);
 
   const getPos = useCallback((e) => {
@@ -135,8 +142,9 @@ function App() {
     let time = 0;
     function draw() {
       time += 0.02;
-      const W = canvas.width;
-      const H = canvas.height;
+      const dpr = window.devicePixelRatio || 1;
+      const W = canvas.width / dpr;
+      const H = canvas.height / dpr;
       const orbs = orbsRef.current;
 
       // fade trail background
