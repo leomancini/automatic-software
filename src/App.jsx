@@ -16,6 +16,8 @@ const CONNECTION_DIST = 160;
 const FRICTION = 0.98;
 const REPEL_DIST = 50;
 const REPEL_FORCE = 0.3;
+const ATTRACT_DIST = 180;
+const ATTRACT_FORCE = 0.015;
 
 function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
@@ -153,6 +155,18 @@ function App() {
             orb.vx += (dx / dist) * force;
             orb.vy += (dy / dist) * force;
           }
+        }
+
+        // gentle attraction toward cursor
+        const mx = mouseRef.current.x;
+        const my = mouseRef.current.y;
+        const mdx = mx - orb.x;
+        const mdy = my - orb.y;
+        const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+        if (mDist < ATTRACT_DIST && mDist > 0) {
+          const pull = ATTRACT_FORCE * (1 - mDist / ATTRACT_DIST);
+          orb.vx += (mdx / mDist) * pull;
+          orb.vy += (mdy / mDist) * pull;
         }
 
         orb.vx *= FRICTION;
