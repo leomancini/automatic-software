@@ -22,6 +22,7 @@ const REPEL_DIST = 50;
 const REPEL_FORCE = 0.3;
 const ATTRACT_DIST = 180;
 const ATTRACT_FORCE = 0.015;
+const GRAVITY = 0.12;
 
 function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
@@ -51,6 +52,8 @@ function App() {
   const ripplesRef = useRef([]);
   const burstsRef = useRef([]);
   const [orbCount, setOrbCount] = useState(0);
+  const [gravityOn, setGravityOn] = useState(false);
+  const gravityRef = useRef(false);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -200,6 +203,11 @@ function App() {
           const pull = ATTRACT_FORCE * (1 - mDist / ATTRACT_DIST);
           orb.vx += (mdx / mDist) * pull;
           orb.vy += (mdy / mDist) * pull;
+        }
+
+        // gravity
+        if (gravityRef.current) {
+          orb.vy += GRAVITY;
         }
 
         orb.vx *= FRICTION;
@@ -374,6 +382,13 @@ function App() {
     }
   }, []);
 
+  const handleGravity = useCallback(() => {
+    setGravityOn((prev) => {
+      gravityRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleSpin = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -428,6 +443,13 @@ function App() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 12a9 9 0 1 1-6.22-8.56" />
               <polyline points="21 3 21 9 15 9" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleGravity} title="Toggle gravity" $active={gravityOn}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="2" x2="12" y2="18" />
+              <polyline points="6 14 12 20 18 14" />
+              <line x1="4" y1="22" x2="20" y2="22" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleScatter} title="Scatter orbs">
@@ -514,9 +536,9 @@ const ActionButton = styled.button`
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  border: 1px solid rgba(102, 126, 234, 0.3);
-  background: rgba(15, 15, 26, 0.7);
-  color: rgba(102, 126, 234, 0.7);
+  border: 1px solid ${(p) => p.$active ? "rgba(67, 233, 123, 0.6)" : "rgba(102, 126, 234, 0.3)"};
+  background: ${(p) => p.$active ? "rgba(67, 233, 123, 0.15)" : "rgba(15, 15, 26, 0.7)"};
+  color: ${(p) => p.$active ? "#43e97b" : "rgba(102, 126, 234, 0.7)"};
   cursor: pointer;
   display: flex;
   align-items: center;
