@@ -54,6 +54,8 @@ function App() {
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
+  const [frozen, setFrozen] = useState(false);
+  const frozenRef = useRef(false);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -179,6 +181,7 @@ function App() {
       // update physics
       for (const orb of orbs) {
         if (orb === dragRef.current) continue;
+        if (frozenRef.current) continue;
 
         // soft repulsion between orbs
         for (const other of orbs) {
@@ -412,6 +415,13 @@ function App() {
     });
   }, []);
 
+  const handleFreeze = useCallback(() => {
+    setFrozen((prev) => {
+      frozenRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleClearAll = useCallback(() => {
     const now = performance.now();
     for (const orb of orbsRef.current) {
@@ -493,6 +503,20 @@ function App() {
               <line x1="12" y1="2" x2="12" y2="18" />
               <polyline points="6 14 12 20 18 14" />
               <line x1="4" y1="22" x2="20" y2="22" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleFreeze} title="Freeze orbs" $active={frozen}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {frozen ? (
+                <>
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </>
+              ) : (
+                <>
+                  <rect x="6" y="4" width="4" height="16" />
+                  <rect x="14" y="4" width="4" height="16" />
+                </>
+              )}
             </svg>
           </ActionButton>
           <ActionButton onClick={handleScatter} title="Scatter orbs">
