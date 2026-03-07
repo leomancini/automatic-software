@@ -475,6 +475,13 @@ function App() {
         ctx.fill();
       }
 
+      // draw vignette overlay for cinematic depth
+      const vignetteGrad = ctx.createRadialGradient(W / 2, H / 2, W * 0.25, W / 2, H / 2, W * 0.75);
+      vignetteGrad.addColorStop(0, "transparent");
+      vignetteGrad.addColorStop(1, "rgba(0, 0, 0, 0.4)");
+      ctx.fillStyle = vignetteGrad;
+      ctx.fillRect(0, 0, W, H);
+
       animRef.current = requestAnimationFrame(draw);
     }
 
