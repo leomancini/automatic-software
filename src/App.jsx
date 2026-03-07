@@ -2,6 +2,8 @@ import React, { useRef, useEffect, useCallback, useState } from "react";
 import styled, { keyframes } from "styled-components";
 
 const RIPPLE_DURATION = 600; // ms
+const BURST_DURATION = 500; // ms
+const BURST_PARTICLE_COUNT = 8;
 
 const COLORS = [
   "#667eea",
@@ -47,6 +49,7 @@ function App() {
   const mouseRef = useRef({ x: 0, y: 0 });
   const animRef = useRef(null);
   const ripplesRef = useRef([]);
+  const burstsRef = useRef([]);
   const [orbCount, setOrbCount] = useState(0);
 
   const resize = useCallback(() => {
@@ -127,6 +130,20 @@ function App() {
       const pos = getPos(e);
       const hit = findOrb(pos.x, pos.y);
       if (hit) {
+        // spawn burst particles
+        const born = performance.now();
+        for (let i = 0; i < BURST_PARTICLE_COUNT; i++) {
+          const angle = (Math.PI * 2 * i) / BURST_PARTICLE_COUNT;
+          burstsRef.current.push({
+            x: hit.x,
+            y: hit.y,
+            vx: Math.cos(angle) * (2 + Math.random() * 2),
+            vy: Math.sin(angle) * (2 + Math.random() * 2),
+            color: hit.color,
+            radius: hit.radius * 0.4,
+            born,
+          });
+        }
         orbsRef.current = orbsRef.current.filter((o) => o.id !== hit.id);
         setOrbCount(orbsRef.current.length);
       }
@@ -283,6 +300,26 @@ function App() {
         ctx.strokeStyle = ripple.color + Math.round(alpha * 0.6 * 255).toString(16).padStart(2, "0");
         ctx.lineWidth = 2 * (1 - progress);
         ctx.stroke();
+      }
+
+      // draw burst particles
+      burstsRef.current = burstsRef.current.filter((p) => now - p.born < BURST_DURATION);
+      for (const p of burstsRef.current) {
+        const progress = (now - p.born) / BURST_DURATION;
+        const alpha = 1 - progress;
+        const r = p.radius * (1 - progress * 0.5);
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.96;
+        p.vy *= 0.96;
+
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 2);
+        grad.addColorStop(0, p.color + Math.round(alpha * 255).toString(16).padStart(2, "0"));
+        grad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r * 2, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
       }
 
       animRef.current = requestAnimationFrame(draw);
