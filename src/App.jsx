@@ -461,6 +461,24 @@ function App() {
     }
   }, []);
 
+  const handleBurst = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cx = W / 2;
+    const cy = H / 2;
+    const count = 6;
+    const now = performance.now();
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count;
+      const orb = createOrb(cx, cy);
+      orb.vx = Math.cos(angle) * (3 + Math.random() * 2);
+      orb.vy = Math.sin(angle) * (3 + Math.random() * 2);
+      orbsRef.current.push(orb);
+      ripplesRef.current.push({ x: cx, y: cy, color: orb.color, born: now });
+    }
+    setOrbCount(orbsRef.current.length);
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -482,6 +500,9 @@ function App() {
         case "r":
           handleSpin();
           break;
+        case "b":
+          handleBurst();
+          break;
         case "x":
           handleClearAll();
           break;
@@ -489,7 +510,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleClearAll]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleClearAll]);
 
   return (
     <Wrapper>
@@ -506,11 +527,25 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove</Hint>
-        <Hint>keys: space c r g s x</Hint>
+        <Hint>keys: space b c r g s x</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
       </HUD>
-      {orbCount > 0 && (
-        <ButtonGroup>
+      <ButtonGroup>
+          <ActionButton onClick={handleBurst} title="Burst spawn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <line x1="12" y1="2" x2="12" y2="6" />
+              <line x1="12" y1="18" x2="12" y2="22" />
+              <line x1="2" y1="12" x2="6" y2="12" />
+              <line x1="18" y1="12" x2="22" y2="12" />
+              <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+              <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+              <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+              <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+            </svg>
+          </ActionButton>
+        {orbCount > 0 && (
+          <>
           <ActionButton onClick={handleGather} title="Gather orbs">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="5" y1="5" x2="12" y2="12" />
@@ -568,8 +603,9 @@ function App() {
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </ActionButton>
+          </>
+        )}
         </ButtonGroup>
-      )}
     </Wrapper>
   );
 }
