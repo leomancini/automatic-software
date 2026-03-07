@@ -19,6 +19,7 @@ const COLORS = [
 const CONNECTION_DIST = 160;
 const MERGE_DIST_FACTOR = 0.7; // merge when distance < smaller radius * this
 const MERGE_FLASH_DURATION = 400;
+const STAR_COUNT = 80;
 const FRICTION = 0.98;
 const REPEL_DIST = 50;
 const REPEL_FORCE = 0.3;
@@ -54,6 +55,7 @@ function App() {
   const ripplesRef = useRef([]);
   const burstsRef = useRef([]);
   const flashesRef = useRef([]);
+  const starsRef = useRef([]);
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -182,6 +184,16 @@ function App() {
       // fade trail background
       ctx.fillStyle = "rgba(15, 15, 26, 0.25)";
       ctx.fillRect(0, 0, W, H);
+
+      // draw twinkling star field
+      for (const star of starsRef.current) {
+        const twinkle = 0.25 + 0.75 * ((1 + Math.sin(time * star.speed + star.phase)) * 0.5);
+        const alpha = twinkle * 0.5;
+        ctx.beginPath();
+        ctx.arc(star.x * W, star.y * H, star.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200, 210, 255, ${alpha})`;
+        ctx.fill();
+      }
 
       // update physics
       for (const orb of orbs) {
@@ -427,7 +439,7 @@ function App() {
     return () => cancelAnimationFrame(animRef.current);
   }, []);
 
-  // seed a few initial orbs
+  // seed initial orbs and stars
   useEffect(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -440,6 +452,14 @@ function App() {
       );
     }
     setOrbCount(orbsRef.current.length);
+    // generate star field (positions stored as 0-1 fractions so they scale with resize)
+    starsRef.current = Array.from({ length: STAR_COUNT }, () => ({
+      x: Math.random(),
+      y: Math.random(),
+      size: 0.5 + Math.random() * 1.5,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.3 + Math.random() * 0.7,
+    }));
   }, []);
 
   const handleScatter = useCallback(() => {
