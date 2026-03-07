@@ -641,6 +641,23 @@ function App() {
     }
   }, []);
 
+  const handleShuffle = useCallback(() => {
+    const now = performance.now();
+    for (const orb of orbsRef.current) {
+      const oldColor = orb.color;
+      let newColor;
+      do { newColor = randomColor(); } while (newColor === oldColor && COLORS.length > 1);
+      orb.color = newColor;
+      flashesRef.current.push({
+        x: orb.x,
+        y: orb.y,
+        color: newColor,
+        radius: orb.radius,
+        born: now,
+      });
+    }
+  }, []);
+
   const handleBurst = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -689,11 +706,14 @@ function App() {
         case "p":
           handlePaintMode();
           break;
+        case "h":
+          handleShuffle();
+          break;
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleClearAll, handlePaintMode]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleClearAll, handlePaintMode, handleShuffle]);
 
   return (
     <Wrapper>
@@ -710,7 +730,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; overlap to merge</Hint>
-        <Hint>keys: space b c r g s p x</Hint>
+        <Hint>keys: space b c r h g s p x</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
       </HUD>
       <ButtonGroup>
@@ -745,6 +765,15 @@ function App() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 12a9 9 0 1 1-6.22-8.56" />
               <polyline points="21 3 21 9 15 9" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleShuffle} title="Shuffle colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="16 3 21 3 21 8" />
+              <line x1="4" y1="20" x2="21" y2="3" />
+              <polyline points="21 16 21 21 16 21" />
+              <line x1="15" y1="15" x2="21" y2="21" />
+              <line x1="4" y1="4" x2="9" y2="9" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handlePaintMode} title="Paint mode" $active={paintMode}>
