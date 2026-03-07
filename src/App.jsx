@@ -93,12 +93,49 @@ const CTAButton = styled.a`
   }
 `;
 
+const ContactSection = styled.section`
+  margin-top: 4rem;
+  padding: 2.5rem 2rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  text-align: center;
+  max-width: 420px;
+  width: 100%;
+  animation: ${fadeUp} 0.8s ease-out 0.6s both;
+`;
+
+const ContactHeading = styled.h2`
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #c0c0d8;
+  margin: 0 0 0.5rem;
+`;
+
+const ContactText = styled.p`
+  font-size: 0.95rem;
+  color: #888;
+  margin: 0 0 1.25rem;
+  line-height: 1.5;
+`;
+
+const EmailLink = styled.a`
+  color: #667eea;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s;
+
+  &:hover {
+    color: #764ba2;
+  }
+`;
+
 const Footer = styled.footer`
-  position: absolute;
-  bottom: 1.5rem;
+  margin-top: 3rem;
+  padding-bottom: 1.5rem;
   font-size: 0.8rem;
   color: #555;
-  animation: ${fadeUp} 0.8s ease-out 0.6s both;
+  animation: ${fadeUp} 0.8s ease-out 0.8s both;
 `;
 
 function App() {
@@ -112,6 +149,15 @@ function App() {
         Building the future of software, one automation at a time.
       </Tagline>
       <CTAButton href="#contact">Get in Touch</CTAButton>
+      <ContactSection id="contact">
+        <ContactHeading>Let's Talk</ContactHeading>
+        <ContactText>
+          Have a project in mind? We'd love to hear from you.
+        </ContactText>
+        <EmailLink href="mailto:hello@automaticsoftware.com">
+          hello@automaticsoftware.com
+        </EmailLink>
+      </ContactSection>
       <Footer>&copy; {new Date().getFullYear()} Automatic Software</Footer>
     </Page>
   );
