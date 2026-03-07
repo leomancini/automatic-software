@@ -12,6 +12,17 @@ const fadeUp = keyframes`
   }
 `;
 
+const pulse = keyframes`
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.15);
+  }
+`;
+
 const Page = styled.div`
   display: flex;
   flex-direction: column;
@@ -23,7 +34,24 @@ const Page = styled.div`
   padding: 2rem;
 `;
 
+const LogoWrapper = styled.div`
+  position: relative;
+  display: inline-block;
+`;
+
+const LogoGlow = styled.div`
+  position: absolute;
+  inset: -30px -40px;
+  background: radial-gradient(ellipse, rgba(102, 126, 234, 0.3), transparent 70%);
+  border-radius: 50%;
+  animation: ${pulse} 4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+`;
+
 const Logo = styled.h1`
+  position: relative;
+  z-index: 1;
   font-size: clamp(2rem, 6vw, 4rem);
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -65,14 +93,26 @@ const CTAButton = styled.a`
   }
 `;
 
+const Footer = styled.footer`
+  position: absolute;
+  bottom: 1.5rem;
+  font-size: 0.8rem;
+  color: #555;
+  animation: ${fadeUp} 0.8s ease-out 0.6s both;
+`;
+
 function App() {
   return (
     <Page>
-      <Logo>Automatic Software</Logo>
+      <LogoWrapper>
+        <LogoGlow />
+        <Logo>Automatic Software</Logo>
+      </LogoWrapper>
       <Tagline>
         Building the future of software, one automation at a time.
       </Tagline>
       <CTAButton href="#contact">Get in Touch</CTAButton>
+      <Footer>&copy; {new Date().getFullYear()} Automatic Software</Footer>
     </Page>
   );
 }
