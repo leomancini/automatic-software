@@ -24,6 +24,8 @@ const SHOOTING_STAR_CHANCE = 0.003; // probability per frame
 const SHOOTING_STAR_DURATION = 800; // ms
 const MOTE_COUNT = 40;
 const MOTE_SPEED = 0.15;
+const SPLIT_COUNT = 3;
+const LONG_PRESS_MS = 500;
 const FRICTION = 0.98;
 const REPEL_DIST = 50;
 const REPEL_FORCE = 0.3;
@@ -70,6 +72,7 @@ function App() {
   const [paintMode, setPaintMode] = useState(false);
   const paintModeRef = useRef(false);
   const [showHelp, setShowHelp] = useState(false);
+  const longPressRef = useRef(null);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -102,22 +105,52 @@ function App() {
     });
   }, []);
 
+  const splitOrb = useCallback((orb) => {
+    const now = performance.now();
+    const childRadius = orb.radius / Math.sqrt(SPLIT_COUNT);
+    if (childRadius < 4) return; // too small to split
+    orbsRef.current = orbsRef.current.filter((o) => o.id !== orb.id);
+    for (let i = 0; i < SPLIT_COUNT; i++) {
+      const angle = (Math.PI * 2 * i) / SPLIT_COUNT + Math.random() * 0.3;
+      const child = createOrb(orb.x, orb.y);
+      child.radius = childRadius;
+      child.vx = orb.vx + Math.cos(angle) * (2 + Math.random());
+      child.vy = orb.vy + Math.sin(angle) * (2 + Math.random());
+      orbsRef.current.push(child);
+    }
+    ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+    setOrbCount(orbsRef.current.length);
+  }, []);
+
   const handleDown = useCallback(
     (e) => {
       const pos = getPos(e);
       const hit = findOrb(pos.x, pos.y);
       if (hit) {
         dragRef.current = hit;
+        // start long-press timer for mobile split
+        if (e.touches) {
+          longPressRef.current = setTimeout(() => {
+            dragRef.current = null;
+            splitOrb(hit);
+            longPressRef.current = null;
+          }, LONG_PRESS_MS);
+        }
       }
       mouseRef.current = pos;
     },
-    [getPos, findOrb]
+    [getPos, findOrb, splitOrb]
   );
 
   const handleMove = useCallback(
     (e) => {
       const pos = getPos(e);
       if (dragRef.current) {
+        // cancel long-press if finger moves
+        if (longPressRef.current) {
+          clearTimeout(longPressRef.current);
+          longPressRef.current = null;
+        }
         dragRef.current.x = pos.x;
         dragRef.current.y = pos.y;
         dragRef.current.vx = 0;
@@ -130,6 +163,10 @@ function App() {
 
   const handleUp = useCallback(
     (e) => {
+      if (longPressRef.current) {
+        clearTimeout(longPressRef.current);
+        longPressRef.current = null;
+      }
       if (!dragRef.current) {
         const pos = e.changedTouches
           ? { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
@@ -142,6 +179,18 @@ function App() {
       dragRef.current = null;
     },
     [getPos]
+  );
+
+  const handleContextMenu = useCallback(
+    (e) => {
+      e.preventDefault();
+      const pos = getPos(e);
+      const hit = findOrb(pos.x, pos.y);
+      if (hit) {
+        splitOrb(hit);
+      }
+    },
+    [getPos, findOrb, splitOrb]
   );
 
   const handleDblClick = useCallback(
@@ -726,6 +775,7 @@ function App() {
         onMouseDown={handleDown}
         onMouseMove={handleMove}
         onMouseUp={handleUp}
+        onContextMenu={handleContextMenu}
         onDoubleClick={handleDblClick}
         onTouchStart={handleDown}
         onTouchMove={handleMove}
@@ -733,7 +783,7 @@ function App() {
       />
       <HUD>
         <Title>Automatic Software</Title>
-        <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; overlap to merge</Hint>
+        <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; overlap to merge</Hint>
         <Hint>keys: space b c r h g s p x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
       </HUD>
@@ -845,6 +895,8 @@ function App() {
               <Shortcut><Key>click</Key><span>Create orb</span></Shortcut>
               <Shortcut><Key>drag</Key><span>Move orb</span></Shortcut>
               <Shortcut><Key>dbl-click</Key><span>Remove orb</span></Shortcut>
+              <Shortcut><Key>right-click</Key><span>Split orb</span></Shortcut>
+              <Shortcut><Key>long-press</Key><span>Split orb (mobile)</span></Shortcut>
               <hr />
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
