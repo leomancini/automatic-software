@@ -280,6 +280,21 @@ function App() {
     setOrbCount(orbsRef.current.length);
   }, []);
 
+  const handleScatter = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cx = W / 2;
+    const cy = H / 2;
+    for (const orb of orbsRef.current) {
+      const dx = orb.x - cx;
+      const dy = orb.y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const strength = 4 + Math.random() * 4;
+      orb.vx += (dx / dist) * strength;
+      orb.vy += (dy / dist) * strength;
+    }
+  }, []);
+
   return (
     <Wrapper>
       <Canvas
@@ -297,6 +312,20 @@ function App() {
         <Hint>click to create &middot; drag to move &middot; double-click to remove</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
       </HUD>
+      {orbCount > 0 && (
+        <ScatterButton onClick={handleScatter} title="Scatter orbs">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="12" x2="5" y2="5" />
+            <polyline points="5 11 5 5 11 5" />
+            <line x1="12" y1="12" x2="19" y2="5" />
+            <polyline points="13 5 19 5 19 11" />
+            <line x1="12" y1="12" x2="5" y2="19" />
+            <polyline points="11 19 5 19 5 13" />
+            <line x1="12" y1="12" x2="19" y2="19" />
+            <polyline points="19 13 19 19 13 19" />
+          </svg>
+        </ScatterButton>
+      )}
     </Wrapper>
   );
 }
@@ -348,6 +377,42 @@ const Count = styled.p`
   color: rgba(102, 126, 234, 0.5);
   margin: 0;
   font-variant-numeric: tabular-nums;
+`;
+
+const ScatterButton = styled.button`
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  background: rgba(15, 15, 26, 0.7);
+  color: rgba(102, 126, 234, 0.7);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(102, 126, 234, 0.15);
+    color: #667eea;
+    border-color: rgba(102, 126, 234, 0.6);
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  @media (max-width: 600px) {
+    bottom: 16px;
+    right: 16px;
+    width: 44px;
+    height: 44px;
+  }
 `;
 
 export default App;
