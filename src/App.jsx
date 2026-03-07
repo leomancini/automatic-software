@@ -22,6 +22,8 @@ const MERGE_FLASH_DURATION = 400;
 const STAR_COUNT = 80;
 const SHOOTING_STAR_CHANCE = 0.003; // probability per frame
 const SHOOTING_STAR_DURATION = 800; // ms
+const MOTE_COUNT = 40;
+const MOTE_SPEED = 0.15;
 const FRICTION = 0.98;
 const REPEL_DIST = 50;
 const REPEL_FORCE = 0.3;
@@ -59,6 +61,7 @@ function App() {
   const flashesRef = useRef([]);
   const starsRef = useRef([]);
   const shootingStarsRef = useRef([]);
+  const motesRef = useRef([]);
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -236,6 +239,23 @@ function App() {
         ctx.lineWidth = 1.5;
         ctx.lineCap = "round";
         ctx.stroke();
+      }
+
+      // update and draw ambient motes
+      for (const mote of motesRef.current) {
+        mote.y -= MOTE_SPEED * mote.speed;
+        mote.x += mote.drift;
+        if (mote.y < -5) {
+          mote.y = H + 5;
+          mote.x = Math.random() * W;
+        }
+        if (mote.x < -5) mote.x = W + 5;
+        if (mote.x > W + 5) mote.x = -5;
+        const flicker = 0.15 + 0.15 * Math.sin(time * mote.speed * 2 + mote.phase);
+        ctx.beginPath();
+        ctx.arc(mote.x, mote.y, mote.size, 0, Math.PI * 2);
+        ctx.fillStyle = mote.color + Math.round(flicker * 255).toString(16).padStart(2, "0");
+        ctx.fill();
       }
 
       // update physics
@@ -509,6 +529,15 @@ function App() {
       size: 0.5 + Math.random() * 1.5,
       phase: Math.random() * Math.PI * 2,
       speed: 0.3 + Math.random() * 0.7,
+    }));
+    motesRef.current = Array.from({ length: MOTE_COUNT }, () => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      size: 0.8 + Math.random() * 1.2,
+      drift: (Math.random() - 0.5) * 0.3,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.5 + Math.random() * 0.5,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
     }));
   }, []);
 
