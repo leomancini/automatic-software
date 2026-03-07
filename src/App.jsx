@@ -56,6 +56,7 @@ function App() {
   const canvasRef = useRef(null);
   const orbsRef = useRef([]);
   const dragRef = useRef(null);
+  const dragHistoryRef = useRef([]);
   const mouseRef = useRef({ x: 0, y: 0 });
   const animRef = useRef(null);
   const ripplesRef = useRef([]);
@@ -128,6 +129,7 @@ function App() {
       const hit = findOrb(pos.x, pos.y);
       if (hit) {
         dragRef.current = hit;
+        dragHistoryRef.current = [{ x: pos.x, y: pos.y, t: performance.now() }];
         // start long-press timer for mobile split
         if (e.touches) {
           longPressRef.current = setTimeout(() => {
@@ -155,6 +157,10 @@ function App() {
         dragRef.current.y = pos.y;
         dragRef.current.vx = 0;
         dragRef.current.vy = 0;
+        const history = dragHistoryRef.current;
+        history.push({ x: pos.x, y: pos.y, t: performance.now() });
+        // keep only last 5 samples
+        if (history.length > 5) history.shift();
       }
       mouseRef.current = pos;
     },
@@ -167,16 +173,31 @@ function App() {
         clearTimeout(longPressRef.current);
         longPressRef.current = null;
       }
-      if (!dragRef.current) {
-        const pos = e.changedTouches
-          ? { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
-          : getPos(e);
-        const newOrb = createOrb(pos.x, pos.y);
-        orbsRef.current.push(newOrb);
-        ripplesRef.current.push({ x: pos.x, y: pos.y, color: newOrb.color, born: performance.now() });
-        setOrbCount(orbsRef.current.length);
+      if (dragRef.current) {
+        // fling: compute velocity from recent drag history
+        const history = dragHistoryRef.current;
+        if (history.length >= 2) {
+          const recent = history[history.length - 1];
+          const older = history[0];
+          const dt = recent.t - older.t;
+          if (dt > 0) {
+            // convert px/ms to px/frame (~16.67ms per frame)
+            const fling = 16.67 / dt;
+            dragRef.current.vx = (recent.x - older.x) * fling;
+            dragRef.current.vy = (recent.y - older.y) * fling;
+          }
+        }
+        dragHistoryRef.current = [];
+        dragRef.current = null;
+        return;
       }
-      dragRef.current = null;
+      const pos = e.changedTouches
+        ? { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
+        : getPos(e);
+      const newOrb = createOrb(pos.x, pos.y);
+      orbsRef.current.push(newOrb);
+      ripplesRef.current.push({ x: pos.x, y: pos.y, color: newOrb.color, born: performance.now() });
+      setOrbCount(orbsRef.current.length);
     },
     [getPos]
   );
