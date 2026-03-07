@@ -887,8 +887,12 @@ const ButtonGroup = styled.div`
 
   @media (max-width: 600px) {
     bottom: 16px;
-    right: 16px;
+    right: 50%;
+    transform: translateX(50%);
     gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: calc(100vw - 32px);
   }
 `;
 
