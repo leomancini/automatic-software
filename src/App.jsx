@@ -257,6 +257,29 @@ function App() {
         }
       }
 
+      // draw comet trails
+      for (const orb of orbs) {
+        const speed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+        if (speed > 0.8) {
+          const tailLen = Math.min(speed * 12, 60);
+          const nx = orb.vx / speed;
+          const ny = orb.vy / speed;
+          const tailX = orb.x - nx * tailLen;
+          const tailY = orb.y - ny * tailLen;
+          const grad = ctx.createLinearGradient(orb.x, orb.y, tailX, tailY);
+          const alpha = Math.min((speed - 0.8) / 3, 0.7);
+          grad.addColorStop(0, orb.color + Math.round(alpha * 255).toString(16).padStart(2, "0"));
+          grad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.moveTo(orb.x, orb.y);
+          ctx.lineTo(tailX, tailY);
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = orb.radius * 0.8;
+          ctx.lineCap = "round";
+          ctx.stroke();
+        }
+      }
+
       // draw orbs
       for (const orb of orbs) {
         const pulse = 1 + 0.12 * Math.sin(time * 1.5 + orb.pulsePhase);
