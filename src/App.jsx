@@ -295,6 +295,21 @@ function App() {
     }
   }, []);
 
+  const handleGather = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cx = W / 2;
+    const cy = H / 2;
+    for (const orb of orbsRef.current) {
+      const dx = cx - orb.x;
+      const dy = cy - orb.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const strength = 3 + Math.random() * 3;
+      orb.vx += (dx / dist) * strength;
+      orb.vy += (dy / dist) * strength;
+    }
+  }, []);
+
   return (
     <Wrapper>
       <Canvas
@@ -313,18 +328,32 @@ function App() {
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
       </HUD>
       {orbCount > 0 && (
-        <ScatterButton onClick={handleScatter} title="Scatter orbs">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="12" x2="5" y2="5" />
-            <polyline points="5 11 5 5 11 5" />
-            <line x1="12" y1="12" x2="19" y2="5" />
-            <polyline points="13 5 19 5 19 11" />
-            <line x1="12" y1="12" x2="5" y2="19" />
-            <polyline points="11 19 5 19 5 13" />
-            <line x1="12" y1="12" x2="19" y2="19" />
-            <polyline points="19 13 19 19 13 19" />
-          </svg>
-        </ScatterButton>
+        <ButtonGroup>
+          <ActionButton onClick={handleGather} title="Gather orbs">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="5" x2="12" y2="12" />
+              <polyline points="12 8 12 12 8 12" />
+              <line x1="19" y1="5" x2="12" y2="12" />
+              <polyline points="12 8 12 12 16 12" />
+              <line x1="5" y1="19" x2="12" y2="12" />
+              <polyline points="8 12 12 12 12 16" />
+              <line x1="19" y1="19" x2="12" y2="12" />
+              <polyline points="16 12 12 12 12 16" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleScatter} title="Scatter orbs">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="12" x2="5" y2="5" />
+              <polyline points="5 11 5 5 11 5" />
+              <line x1="12" y1="12" x2="19" y2="5" />
+              <polyline points="13 5 19 5 19 11" />
+              <line x1="12" y1="12" x2="5" y2="19" />
+              <polyline points="11 19 5 19 5 13" />
+              <line x1="12" y1="12" x2="19" y2="19" />
+              <polyline points="19 13 19 19 13 19" />
+            </svg>
+          </ActionButton>
+        </ButtonGroup>
       )}
     </Wrapper>
   );
@@ -333,9 +362,12 @@ function App() {
 const Wrapper = styled.div`
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   background: #0f0f1a;
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
 `;
 
 const Canvas = styled.canvas`
@@ -379,10 +411,21 @@ const Count = styled.p`
   font-variant-numeric: tabular-nums;
 `;
 
-const ScatterButton = styled.button`
+const ButtonGroup = styled.div`
   position: fixed;
   bottom: 24px;
   right: 24px;
+  display: flex;
+  gap: 10px;
+
+  @media (max-width: 600px) {
+    bottom: 16px;
+    right: 16px;
+    gap: 8px;
+  }
+`;
+
+const ActionButton = styled.button`
   width: 48px;
   height: 48px;
   border-radius: 50%;
@@ -408,8 +451,6 @@ const ScatterButton = styled.button`
   }
 
   @media (max-width: 600px) {
-    bottom: 16px;
-    right: 16px;
     width: 44px;
     height: 44px;
   }
