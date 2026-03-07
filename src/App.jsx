@@ -32,6 +32,10 @@ const REPEL_FORCE = 0.3;
 const ATTRACT_DIST = 180;
 const ATTRACT_FORCE = 0.015;
 const GRAVITY = 0.12;
+const WAVE_SPEED = 5; // px per frame
+const WAVE_FORCE = 6;
+const WAVE_WIDTH = 40; // thickness of the ring
+const WAVE_MAX_RADIUS_FACTOR = 1.2; // expand to 120% of screen diagonal
 
 function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
@@ -65,6 +69,7 @@ function App() {
   const starsRef = useRef([]);
   const shootingStarsRef = useRef([]);
   const motesRef = useRef([]);
+  const wavesRef = useRef([]);
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -432,6 +437,44 @@ function App() {
         setOrbCount(orbsRef.current.length);
       }
 
+      // update and draw shockwaves
+      const maxWaveRadius = Math.sqrt(W * W + H * H) * WAVE_MAX_RADIUS_FACTOR;
+      wavesRef.current = wavesRef.current.filter((w) => w.radius < maxWaveRadius);
+      for (const wave of wavesRef.current) {
+        wave.radius += WAVE_SPEED;
+        // push orbs that fall within the ring
+        for (const orb of orbs) {
+          if (orb === dragRef.current) continue;
+          const dx = orb.x - wave.cx;
+          const dy = orb.y - wave.cy;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > wave.radius - WAVE_WIDTH && dist < wave.radius + WAVE_WIDTH && dist > 0) {
+            const proximity = 1 - Math.abs(dist - wave.radius) / WAVE_WIDTH;
+            const force = WAVE_FORCE * proximity * (1 - wave.radius / maxWaveRadius);
+            orb.vx += (dx / dist) * force;
+            orb.vy += (dy / dist) * force;
+          }
+        }
+        // draw the ring
+        const alpha = 0.6 * (1 - wave.radius / maxWaveRadius);
+        if (alpha > 0.01) {
+          ctx.beginPath();
+          ctx.arc(wave.cx, wave.cy, wave.radius, 0, Math.PI * 2);
+          const ringGrad = ctx.createRadialGradient(
+            wave.cx, wave.cy, Math.max(0, wave.radius - WAVE_WIDTH),
+            wave.cx, wave.cy, wave.radius + WAVE_WIDTH
+          );
+          ringGrad.addColorStop(0, "transparent");
+          ringGrad.addColorStop(0.3, wave.color + Math.round(alpha * 0.5 * 255).toString(16).padStart(2, "0"));
+          ringGrad.addColorStop(0.5, wave.color + Math.round(alpha * 255).toString(16).padStart(2, "0"));
+          ringGrad.addColorStop(0.7, wave.color + Math.round(alpha * 0.5 * 255).toString(16).padStart(2, "0"));
+          ringGrad.addColorStop(1, "transparent");
+          ctx.strokeStyle = ringGrad;
+          ctx.lineWidth = WAVE_WIDTH * 2;
+          ctx.stroke();
+        }
+      }
+
       // draw connections
       for (let i = 0; i < orbs.length; i++) {
         for (let j = i + 1; j < orbs.length; j++) {
@@ -712,6 +755,17 @@ function App() {
     }
   }, []);
 
+  const handleWave = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    wavesRef.current.push({
+      cx: W / 2,
+      cy: H / 2,
+      radius: 0,
+      color: randomColor(),
+    });
+  }, []);
+
   const handleShuffle = useCallback(() => {
     const now = performance.now();
     for (const orb of orbsRef.current) {
@@ -771,6 +825,9 @@ function App() {
         case "b":
           handleBurst();
           break;
+        case "w":
+          handleWave();
+          break;
         case "x":
           handleClearAll();
           break;
@@ -787,7 +844,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleClearAll, handlePaintMode, handleShuffle, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, setShowHelp]);
 
   return (
     <Wrapper>
@@ -805,7 +862,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; overlap to merge</Hint>
-        <Hint>keys: space b c r h g s p x &middot; press ? for help</Hint>
+        <Hint>keys: space b c r w h g s p x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
       </HUD>
       <ButtonGroup>
@@ -840,6 +897,13 @@ function App() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 12a9 9 0 1 1-6.22-8.56" />
               <polyline points="21 3 21 9 15 9" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleWave} title="Shockwave">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <circle cx="12" cy="12" r="7" opacity="0.6" />
+              <circle cx="12" cy="12" r="11" opacity="0.3" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleShuffle} title="Shuffle colors">
@@ -923,6 +987,7 @@ function App() {
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
+              <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>G</Key><span>Toggle gravity</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
