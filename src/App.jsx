@@ -49,8 +49,8 @@ function App() {
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = canvas.parentElement.clientHeight;
   }, []);
 
   const getPos = useCallback((e) => {
