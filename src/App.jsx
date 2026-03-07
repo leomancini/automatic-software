@@ -34,6 +34,7 @@ function createOrb(x, y) {
     vy: Math.sin(angle) * speed,
     radius: 8 + Math.random() * 12,
     color: randomColor(),
+    pulsePhase: Math.random() * Math.PI * 2,
   };
 }
 
@@ -131,7 +132,9 @@ function App() {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
+    let time = 0;
     function draw() {
+      time += 0.02;
       const W = canvas.width;
       const H = canvas.height;
       const orbs = orbsRef.current;
@@ -218,6 +221,9 @@ function App() {
 
       // draw orbs
       for (const orb of orbs) {
+        const pulse = 1 + 0.12 * Math.sin(time * 1.5 + orb.pulsePhase);
+        const r = orb.radius * pulse;
+
         // outer glow
         const grad = ctx.createRadialGradient(
           orb.x,
@@ -225,29 +231,29 @@ function App() {
           0,
           orb.x,
           orb.y,
-          orb.radius * 3
+          r * 3
         );
         grad.addColorStop(0, orb.color + "66");
         grad.addColorStop(1, "transparent");
         ctx.beginPath();
-        ctx.arc(orb.x, orb.y, orb.radius * 3, 0, Math.PI * 2);
+        ctx.arc(orb.x, orb.y, r * 3, 0, Math.PI * 2);
         ctx.fillStyle = grad;
         ctx.fill();
 
         // core
         const coreGrad = ctx.createRadialGradient(
-          orb.x - orb.radius * 0.3,
-          orb.y - orb.radius * 0.3,
+          orb.x - r * 0.3,
+          orb.y - r * 0.3,
           0,
           orb.x,
           orb.y,
-          orb.radius
+          r
         );
         coreGrad.addColorStop(0, "#fff");
         coreGrad.addColorStop(0.3, orb.color);
         coreGrad.addColorStop(1, orb.color + "88");
         ctx.beginPath();
-        ctx.arc(orb.x, orb.y, orb.radius, 0, Math.PI * 2);
+        ctx.arc(orb.x, orb.y, r, 0, Math.PI * 2);
         ctx.fillStyle = coreGrad;
         ctx.fill();
       }
