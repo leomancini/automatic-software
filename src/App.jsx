@@ -360,14 +360,10 @@ function App() {
 }
 
 const Wrapper = styled.div`
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
+  position: fixed;
+  inset: 0;
   overflow: hidden;
   background: #0f0f1a;
-  position: fixed;
-  top: 0;
-  left: 0;
 `;
 
 const Canvas = styled.canvas`
