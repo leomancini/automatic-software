@@ -20,6 +20,8 @@ const CONNECTION_DIST = 160;
 const MERGE_DIST_FACTOR = 0.7; // merge when distance < smaller radius * this
 const MERGE_FLASH_DURATION = 400;
 const STAR_COUNT = 80;
+const SHOOTING_STAR_CHANCE = 0.003; // probability per frame
+const SHOOTING_STAR_DURATION = 800; // ms
 const FRICTION = 0.98;
 const REPEL_DIST = 50;
 const REPEL_FORCE = 0.3;
@@ -56,6 +58,7 @@ function App() {
   const burstsRef = useRef([]);
   const flashesRef = useRef([]);
   const starsRef = useRef([]);
+  const shootingStarsRef = useRef([]);
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -193,6 +196,42 @@ function App() {
         ctx.arc(star.x * W, star.y * H, star.size, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(200, 210, 255, ${alpha})`;
         ctx.fill();
+      }
+
+      // spawn shooting stars
+      if (Math.random() < SHOOTING_STAR_CHANCE) {
+        const startX = Math.random() * W;
+        const startY = Math.random() * H * 0.5;
+        const angle = Math.PI * 0.15 + Math.random() * Math.PI * 0.2; // mostly diagonal down-right
+        const speed = W * 0.6 + Math.random() * W * 0.4;
+        shootingStarsRef.current.push({
+          x: startX, y: startY,
+          dx: Math.cos(angle) * speed, dy: Math.sin(angle) * speed,
+          born: now,
+        });
+      }
+
+      // draw shooting stars
+      shootingStarsRef.current = shootingStarsRef.current.filter((s) => now - s.born < SHOOTING_STAR_DURATION);
+      for (const s of shootingStarsRef.current) {
+        const progress = (now - s.born) / SHOOTING_STAR_DURATION;
+        const headT = Math.min(progress * 2, 1); // head moves fast
+        const hx = s.x + s.dx * headT;
+        const hy = s.y + s.dy * headT;
+        const tailT = Math.max(0, headT - 0.15);
+        const tx = s.x + s.dx * tailT;
+        const ty = s.y + s.dy * tailT;
+        const alpha = progress < 0.7 ? 0.7 : 0.7 * (1 - (progress - 0.7) / 0.3);
+        const grad = ctx.createLinearGradient(hx, hy, tx, ty);
+        grad.addColorStop(0, `rgba(220, 230, 255, ${alpha})`);
+        grad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.moveTo(hx, hy);
+        ctx.lineTo(tx, ty);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 1.5;
+        ctx.lineCap = "round";
+        ctx.stroke();
       }
 
       // update physics
