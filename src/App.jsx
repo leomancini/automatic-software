@@ -17,6 +17,8 @@ const COLORS = [
 ];
 
 const CONNECTION_DIST = 160;
+const MERGE_DIST_FACTOR = 0.7; // merge when distance < smaller radius * this
+const MERGE_FLASH_DURATION = 400;
 const FRICTION = 0.98;
 const REPEL_DIST = 50;
 const REPEL_FORCE = 0.3;
@@ -51,6 +53,7 @@ function App() {
   const animRef = useRef(null);
   const ripplesRef = useRef([]);
   const burstsRef = useRef([]);
+  const flashesRef = useRef([]);
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -174,6 +177,8 @@ function App() {
       const H = canvas.height / dpr;
       const orbs = orbsRef.current;
 
+      const now = performance.now();
+
       // fade trail background
       ctx.fillStyle = "rgba(15, 15, 26, 0.25)";
       ctx.fillRect(0, 0, W, H);
@@ -235,6 +240,50 @@ function App() {
           orb.y = H - orb.radius;
           orb.vy *= -0.6;
         }
+      }
+
+      // merge overlapping orbs
+      const toRemove = new Set();
+      for (let i = 0; i < orbs.length; i++) {
+        if (toRemove.has(i)) continue;
+        for (let j = i + 1; j < orbs.length; j++) {
+          if (toRemove.has(j)) continue;
+          const a = orbs[i];
+          const b = orbs[j];
+          if (a === dragRef.current || b === dragRef.current) continue;
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const smaller = Math.min(a.radius, b.radius);
+          if (dist < smaller * MERGE_DIST_FACTOR) {
+            // merge b into a (conserve area)
+            const newArea = Math.PI * a.radius * a.radius + Math.PI * b.radius * b.radius;
+            const bigger = a.radius >= b.radius ? a : b;
+            const lesser = a.radius >= b.radius ? b : a;
+            bigger.radius = Math.sqrt(newArea / Math.PI);
+            // blend velocity weighted by size
+            const totalR = a.radius + b.radius;
+            bigger.vx = (a.vx * a.radius + b.vx * b.radius) / totalR;
+            bigger.vy = (a.vy * a.radius + b.vy * b.radius) / totalR;
+            // position at center of mass
+            bigger.x = (a.x * a.radius + b.x * b.radius) / totalR;
+            bigger.y = (a.y * a.radius + b.y * b.radius) / totalR;
+            bigger.pulsePhase = Math.random() * Math.PI * 2;
+            // flash effect
+            flashesRef.current.push({
+              x: bigger.x,
+              y: bigger.y,
+              color: bigger.color,
+              radius: bigger.radius,
+              born: now,
+            });
+            toRemove.add(a === bigger ? j : i);
+          }
+        }
+      }
+      if (toRemove.size > 0) {
+        orbsRef.current = orbs.filter((_, idx) => !toRemove.has(idx));
+        setOrbCount(orbsRef.current.length);
       }
 
       // draw connections
@@ -323,7 +372,6 @@ function App() {
       }
 
       // draw spawn ripples
-      const now = performance.now();
       ripplesRef.current = ripplesRef.current.filter((r) => now - r.born < RIPPLE_DURATION);
       for (const ripple of ripplesRef.current) {
         const progress = (now - ripple.born) / RIPPLE_DURATION;
@@ -352,6 +400,22 @@ function App() {
         grad.addColorStop(1, "transparent");
         ctx.beginPath();
         ctx.arc(p.x, p.y, r * 2, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
+
+      // draw merge flashes
+      flashesRef.current = flashesRef.current.filter((f) => now - f.born < MERGE_FLASH_DURATION);
+      for (const f of flashesRef.current) {
+        const progress = (now - f.born) / MERGE_FLASH_DURATION;
+        const alpha = (1 - progress) * 0.8;
+        const r = f.radius * (1.5 + progress * 3);
+        const grad = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
+        grad.addColorStop(0, "#ffffff" + Math.round(alpha * 255).toString(16).padStart(2, "0"));
+        grad.addColorStop(0.4, f.color + Math.round(alpha * 0.5 * 255).toString(16).padStart(2, "0"));
+        grad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
         ctx.fillStyle = grad;
         ctx.fill();
       }
@@ -526,7 +590,7 @@ function App() {
       />
       <HUD>
         <Title>Automatic Software</Title>
-        <Hint>click to create &middot; drag to move &middot; double-click to remove</Hint>
+        <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; overlap to merge</Hint>
         <Hint>keys: space b c r g s x</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
       </HUD>
