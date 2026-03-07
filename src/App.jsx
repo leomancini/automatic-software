@@ -412,6 +412,26 @@ function App() {
     });
   }, []);
 
+  const handleClearAll = useCallback(() => {
+    const now = performance.now();
+    for (const orb of orbsRef.current) {
+      for (let i = 0; i < BURST_PARTICLE_COUNT; i++) {
+        const angle = (Math.PI * 2 * i) / BURST_PARTICLE_COUNT;
+        burstsRef.current.push({
+          x: orb.x,
+          y: orb.y,
+          vx: Math.cos(angle) * (2 + Math.random() * 2),
+          vy: Math.sin(angle) * (2 + Math.random() * 2),
+          color: orb.color,
+          radius: orb.radius * 0.4,
+          born: now,
+        });
+      }
+    }
+    orbsRef.current = [];
+    setOrbCount(0);
+  }, []);
+
   const handleSpin = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -487,6 +507,12 @@ function App() {
               <polyline points="19 13 19 19 13 19" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </ActionButton>
         </ButtonGroup>
       )}
     </Wrapper>
@@ -559,9 +585,9 @@ const ActionButton = styled.button`
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  border: 1px solid ${(p) => p.$active ? "rgba(67, 233, 123, 0.6)" : "rgba(102, 126, 234, 0.3)"};
+  border: 1px solid ${(p) => p.$active ? "rgba(67, 233, 123, 0.6)" : p.$danger ? "rgba(250, 112, 154, 0.3)" : "rgba(102, 126, 234, 0.3)"};
   background: ${(p) => p.$active ? "rgba(67, 233, 123, 0.15)" : "rgba(15, 15, 26, 0.7)"};
-  color: ${(p) => p.$active ? "#43e97b" : "rgba(102, 126, 234, 0.7)"};
+  color: ${(p) => p.$active ? "#43e97b" : p.$danger ? "rgba(250, 112, 154, 0.7)" : "rgba(102, 126, 234, 0.7)"};
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -570,9 +596,9 @@ const ActionButton = styled.button`
   transition: all 0.2s ease;
 
   &:hover {
-    background: rgba(102, 126, 234, 0.15);
-    color: #667eea;
-    border-color: rgba(102, 126, 234, 0.6);
+    background: ${(p) => p.$danger ? "rgba(250, 112, 154, 0.15)" : "rgba(102, 126, 234, 0.15)"};
+    color: ${(p) => p.$danger ? "#fa709a" : "#667eea"};
+    border-color: ${(p) => p.$danger ? "rgba(250, 112, 154, 0.6)" : "rgba(102, 126, 234, 0.6)"};
     transform: scale(1.1);
   }
 
