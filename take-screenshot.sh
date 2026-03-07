@@ -15,6 +15,7 @@ mkdir -p "$SCREENSHOTS_DIR"
 # Take screenshot (virtual-time-budget gives the page time to render animations)
 chromium-browser --headless --no-sandbox --disable-gpu \
   --window-size=1440,1024 --virtual-time-budget=5000 \
+  --hide-scrollbars \
   --screenshot="$SCREENSHOT_PATH" \
   "$URL" 2>/dev/null
 
