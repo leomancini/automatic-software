@@ -461,6 +461,36 @@ function App() {
     }
   }, []);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.repeat) return;
+      switch (e.key.toLowerCase()) {
+        case " ":
+          e.preventDefault();
+          handleFreeze();
+          break;
+        case "g":
+          handleGravity();
+          break;
+        case "s":
+          handleScatter();
+          break;
+        case "c":
+          handleGather();
+          break;
+        case "r":
+          handleSpin();
+          break;
+        case "x":
+          handleClearAll();
+          break;
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleClearAll]);
+
   return (
     <Wrapper>
       <Canvas
@@ -476,6 +506,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove</Hint>
+        <Hint>keys: space c r g s x</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
       </HUD>
       {orbCount > 0 && (
