@@ -69,6 +69,7 @@ function App() {
   const frozenRef = useRef(false);
   const [paintMode, setPaintMode] = useState(false);
   const paintModeRef = useRef(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -709,11 +710,14 @@ function App() {
         case "h":
           handleShuffle();
           break;
+        case "?":
+          setShowHelp((prev) => !prev);
+          break;
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleClearAll, handlePaintMode, handleShuffle]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleClearAll, handlePaintMode, handleShuffle, setShowHelp]);
 
   return (
     <Wrapper>
@@ -730,7 +734,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; overlap to merge</Hint>
-        <Hint>keys: space b c r h g s p x</Hint>
+        <Hint>keys: space b c r h g s p x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
       </HUD>
       <ButtonGroup>
@@ -826,6 +830,37 @@ function App() {
           </>
         )}
         </ButtonGroup>
+      <HelpButton onClick={() => setShowHelp((prev) => !prev)} title="Keyboard shortcuts">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+      </HelpButton>
+      {showHelp && (
+        <HelpOverlay onClick={() => setShowHelp(false)}>
+          <HelpPanel onClick={(e) => e.stopPropagation()}>
+            <HelpTitle>Keyboard Shortcuts</HelpTitle>
+            <ShortcutList>
+              <Shortcut><Key>click</Key><span>Create orb</span></Shortcut>
+              <Shortcut><Key>drag</Key><span>Move orb</span></Shortcut>
+              <Shortcut><Key>dbl-click</Key><span>Remove orb</span></Shortcut>
+              <hr />
+              <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
+              <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
+              <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
+              <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
+              <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
+              <Shortcut><Key>G</Key><span>Toggle gravity</span></Shortcut>
+              <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
+              <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
+              <Shortcut><Key>X</Key><span>Clear all orbs</span></Shortcut>
+              <Shortcut><Key>?</Key><span>Toggle this help</span></Shortcut>
+            </ShortcutList>
+            <HelpClose onClick={() => setShowHelp(false)}>Got it</HelpClose>
+          </HelpPanel>
+        </HelpOverlay>
+      )}
     </Wrapper>
   );
 }
@@ -924,6 +959,128 @@ const ActionButton = styled.button`
   @media (max-width: 600px) {
     width: 44px;
     height: 44px;
+  }
+`;
+
+const HelpButton = styled.button`
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  background: rgba(15, 15, 26, 0.7);
+  color: rgba(102, 126, 234, 0.7);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(102, 126, 234, 0.15);
+    color: #667eea;
+    border-color: rgba(102, 126, 234, 0.6);
+    transform: scale(1.1);
+  }
+
+  @media (max-width: 600px) {
+    top: 16px;
+    right: 16px;
+    width: 32px;
+    height: 32px;
+  }
+`;
+
+const HelpOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.15s ease;
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+`;
+
+const HelpPanel = styled.div`
+  background: rgba(20, 20, 36, 0.95);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 16px;
+  padding: 28px 32px;
+  max-width: 340px;
+  width: calc(100vw - 48px);
+  backdrop-filter: blur(12px);
+`;
+
+const HelpTitle = styled.h2`
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 16px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-align: center;
+`;
+
+const ShortcutList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  hr {
+    border: none;
+    border-top: 1px solid rgba(102, 126, 234, 0.15);
+    margin: 4px 0;
+  }
+`;
+
+const Shortcut = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: rgba(160, 160, 184, 0.8);
+`;
+
+const Key = styled.span`
+  display: inline-block;
+  min-width: 56px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(102, 126, 234, 0.25);
+  background: rgba(102, 126, 234, 0.08);
+  color: rgba(102, 126, 234, 0.9);
+  font-size: 0.75rem;
+  font-family: inherit;
+  text-align: center;
+`;
+
+const HelpClose = styled.button`
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  background: rgba(102, 126, 234, 0.1);
+  color: rgba(102, 126, 234, 0.8);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(102, 126, 234, 0.2);
+    color: #667eea;
   }
 `;
 
