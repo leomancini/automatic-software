@@ -1,6 +1,8 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import styled, { keyframes } from "styled-components";
 
+const RIPPLE_DURATION = 600; // ms
+
 const COLORS = [
   "#667eea",
   "#764ba2",
@@ -44,6 +46,7 @@ function App() {
   const dragRef = useRef(null);
   const mouseRef = useRef({ x: 0, y: 0 });
   const animRef = useRef(null);
+  const ripplesRef = useRef([]);
   const [orbCount, setOrbCount] = useState(0);
 
   const resize = useCallback(() => {
@@ -109,7 +112,9 @@ function App() {
         const pos = e.changedTouches
           ? { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
           : getPos(e);
-        orbsRef.current.push(createOrb(pos.x, pos.y));
+        const newOrb = createOrb(pos.x, pos.y);
+        orbsRef.current.push(newOrb);
+        ripplesRef.current.push({ x: pos.x, y: pos.y, color: newOrb.color, born: performance.now() });
         setOrbCount(orbsRef.current.length);
       }
       dragRef.current = null;
@@ -264,6 +269,20 @@ function App() {
         ctx.arc(orb.x, orb.y, r, 0, Math.PI * 2);
         ctx.fillStyle = coreGrad;
         ctx.fill();
+      }
+
+      // draw spawn ripples
+      const now = performance.now();
+      ripplesRef.current = ripplesRef.current.filter((r) => now - r.born < RIPPLE_DURATION);
+      for (const ripple of ripplesRef.current) {
+        const progress = (now - ripple.born) / RIPPLE_DURATION;
+        const radius = 10 + progress * 60;
+        const alpha = 1 - progress;
+        ctx.beginPath();
+        ctx.arc(ripple.x, ripple.y, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = ripple.color + Math.round(alpha * 0.6 * 255).toString(16).padStart(2, "0");
+        ctx.lineWidth = 2 * (1 - progress);
+        ctx.stroke();
       }
 
       animRef.current = requestAnimationFrame(draw);
