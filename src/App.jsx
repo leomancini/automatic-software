@@ -203,10 +203,13 @@ function App() {
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < CONNECTION_DIST) {
             const alpha = 1 - dist / CONNECTION_DIST;
+            const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+            grad.addColorStop(0, a.color + Math.round(alpha * 0.5 * 255).toString(16).padStart(2, "0"));
+            grad.addColorStop(1, b.color + Math.round(alpha * 0.5 * 255).toString(16).padStart(2, "0"));
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.lineTo(b.x, b.y);
-            ctx.strokeStyle = `rgba(102, 126, 234, ${alpha * 0.4})`;
+            ctx.strokeStyle = grad;
             ctx.lineWidth = alpha * 2;
             ctx.stroke();
           }
