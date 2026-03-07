@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PATH="$PATH:/home/leo/.local/bin"
+
 cd /home/leo/react-apps/automatic-software
 
 echo "$(date): Starting claude improvement run..."
