@@ -64,6 +64,8 @@ function App() {
   const gravityRef = useRef(false);
   const [frozen, setFrozen] = useState(false);
   const frozenRef = useRef(false);
+  const [paintMode, setPaintMode] = useState(false);
+  const paintModeRef = useRef(false);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -184,9 +186,11 @@ function App() {
 
       const now = performance.now();
 
-      // fade trail background
-      ctx.fillStyle = "rgba(15, 15, 26, 0.25)";
-      ctx.fillRect(0, 0, W, H);
+      // fade trail background (skip in paint mode for persistent trails)
+      if (!paintModeRef.current) {
+        ctx.fillStyle = "rgba(15, 15, 26, 0.25)";
+        ctx.fillRect(0, 0, W, H);
+      }
 
       // draw twinkling star field
       for (const star of starsRef.current) {
@@ -545,6 +549,23 @@ function App() {
     });
   }, []);
 
+  const handlePaintMode = useCallback(() => {
+    setPaintMode((prev) => {
+      paintModeRef.current = !prev;
+      // clear the canvas when exiting paint mode to remove persistent trails
+      if (prev) {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const ctx = canvas.getContext("2d");
+          const dpr = window.devicePixelRatio || 1;
+          ctx.fillStyle = "#0f0f1a";
+          ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+        }
+      }
+      return !prev;
+    });
+  }, []);
+
   const handleClearAll = useCallback(() => {
     const now = performance.now();
     for (const orb of orbsRef.current) {
@@ -629,11 +650,14 @@ function App() {
         case "x":
           handleClearAll();
           break;
+        case "p":
+          handlePaintMode();
+          break;
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleClearAll]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleClearAll, handlePaintMode]);
 
   return (
     <Wrapper>
@@ -650,7 +674,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; overlap to merge</Hint>
-        <Hint>keys: space b c r g s x</Hint>
+        <Hint>keys: space b c r g s p x</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
       </HUD>
       <ButtonGroup>
@@ -685,6 +709,14 @@ function App() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 12a9 9 0 1 1-6.22-8.56" />
               <polyline points="21 3 21 9 15 9" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handlePaintMode} title="Paint mode" $active={paintMode}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 19l7-7 3 3-7 7-3-3z" />
+              <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+              <path d="M2 2l7.586 7.586" />
+              <circle cx="11" cy="11" r="2" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleGravity} title="Toggle gravity" $active={gravityOn}>
