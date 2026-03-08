@@ -127,6 +127,13 @@ const KALEIDOSCOPE_FOLDS = 4; // 4-fold symmetry (mirrors across X and Y axes)
 const TSUNAMI_SPEED = 10; // px per frame — fast sweep
 const TSUNAMI_WIDTH = 100; // wall thickness in px
 const TSUNAMI_FORCE = 7; // horizontal push on orbs
+
+// ── Gravity painter ─────────────────────────────────────────────────
+const GPAINT_DOT_LIFETIME = 4000; // ms before dot fades
+const GPAINT_DOT_RANGE = 100; // attraction radius per dot
+const GPAINT_DOT_FORCE = 0.05; // attraction strength per dot
+const GPAINT_DOT_INTERVAL = 22; // px between dots when dragging
+const GPAINT_DOT_MAX = 150; // max active dots
 const TSUNAMI_TUMBLE = 2.5; // random vertical scatter
 const TSUNAMI_FOAM_COUNT = 18; // foam particles at leading edge
 
@@ -708,6 +715,9 @@ function App() {
   const flockModeRef = useRef(false);
   const [kaleidoscopeMode, setKaleidoscopeMode] = useState(false);
   const kaleidoscopeModeRef = useRef(false);
+  const [gravityPaintMode, setGravityPaintMode] = useState(false);
+  const gravityPaintModeRef = useRef(false);
+  const gravityDotsRef = useRef([]);
   const blackHoleRef = useRef(null); // {x, y, born, absorbed, mass, diskDots[]}
   const longPressRef = useRef(null);
   const [audioEnabled, setAudioEnabled] = useState(true);
@@ -821,7 +831,19 @@ function App() {
           const dy = pos.y - lastSprayPosRef.current.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           const interval = orbsRef.current.length > 200 ? 30 : 18;
-          if (dist >= interval) {
+          const gpaintInterval = GPAINT_DOT_INTERVAL;
+          if (gravityPaintModeRef.current && dist >= gpaintInterval) {
+            // gravity paint mode: place gravity dots instead of orbs
+            sprayActiveRef.current = true;
+            if (gravityDotsRef.current.length < GPAINT_DOT_MAX) {
+              gravityDotsRef.current.push({
+                x: pos.x, y: pos.y,
+                color: randomColor(),
+                born: performance.now(),
+              });
+            }
+            lastSprayPosRef.current = { x: pos.x, y: pos.y };
+          } else if (!gravityPaintModeRef.current && dist >= interval) {
             sprayActiveRef.current = true;
             const nx = dist > 0 ? -dy / dist : 0;
             const ny = dist > 0 ? dx / dist : 0;
@@ -1166,6 +1188,9 @@ function App() {
         ctx.fill();
       }
 
+      // expire old gravity paint dots
+      gravityDotsRef.current = gravityDotsRef.current.filter((d) => now - d.born < GPAINT_DOT_LIFETIME);
+
       // fountain spawning
       if (!frozenRef.current) {
         for (const fountain of fountainsRef.current) {
@@ -1349,6 +1374,19 @@ function App() {
             const force = WELL_GRAVITY / (1 + wDist * 0.01);
             orb.vx += (wdx / wDist) * force;
             orb.vy += (wdy / wDist) * force;
+          }
+        }
+
+        // gravity paint dot attraction
+        for (const dot of gravityDotsRef.current) {
+          const gdx = dot.x - orb.x;
+          const gdy = dot.y - orb.y;
+          const gDist = Math.sqrt(gdx * gdx + gdy * gdy);
+          if (gDist < GPAINT_DOT_RANGE && gDist > 3) {
+            const fade = 1 - (now - dot.born) / GPAINT_DOT_LIFETIME;
+            const force = GPAINT_DOT_FORCE * fade / (1 + gDist * 0.008);
+            orb.vx += (gdx / gDist) * force;
+            orb.vy += (gdy / gDist) * force;
           }
         }
 
@@ -2283,6 +2321,35 @@ function App() {
         ctx.fill();
       }
 
+      // draw gravity paint dots
+      for (const dot of gravityDotsRef.current) {
+        const dotAge = now - dot.born;
+        const fade = 1 - dotAge / GPAINT_DOT_LIFETIME;
+        const pulse = 0.5 + 0.5 * Math.sin(time * 4 + dot.born * 0.01);
+
+        // outer attraction field
+        const fieldRadius = GPAINT_DOT_RANGE * 0.5 * fade;
+        const fieldGrad = ctx.createRadialGradient(dot.x, dot.y, 2, dot.x, dot.y, fieldRadius);
+        fieldGrad.addColorStop(0, dot.color + hexAlpha(fade * pulse * 60));
+        fieldGrad.addColorStop(0.6, dot.color + hexAlpha(fade * 15));
+        fieldGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(dot.x, dot.y, fieldRadius, 0, Math.PI * 2);
+        ctx.fillStyle = fieldGrad;
+        ctx.fill();
+
+        // bright core
+        const coreRadius = 3 * fade + pulse * 1.5;
+        const coreGrad = ctx.createRadialGradient(dot.x, dot.y, 0, dot.x, dot.y, coreRadius);
+        coreGrad.addColorStop(0, "#ffffff" + hexAlpha(fade * 200));
+        coreGrad.addColorStop(0.4, dot.color + hexAlpha(fade * 180));
+        coreGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(dot.x, dot.y, coreRadius, 0, Math.PI * 2);
+        ctx.fillStyle = coreGrad;
+        ctx.fill();
+      }
+
       // draw fountains
       for (const fountain of fountainsRef.current) {
         const fAge = (now - fountain.born) / 1000;
@@ -3180,6 +3247,15 @@ function App() {
     });
   }, []);
 
+  const handleGravityPaintMode = useCallback(() => {
+    setGravityPaintMode((prev) => {
+      gravityPaintModeRef.current = !prev;
+      // clear existing dots when turning off
+      if (prev) gravityDotsRef.current = [];
+      return !prev;
+    });
+  }, []);
+
   const handleShuffle = useCallback(() => {
     const now = performance.now();
     for (const orb of orbsRef.current) {
@@ -3684,6 +3760,9 @@ function App() {
         case "3":
           handlePlaceFountain();
           break;
+        case "4":
+          handleGravityPaintMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -3691,7 +3770,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, setShowHelp]);
 
   return (
     <Wrapper>
@@ -3727,6 +3806,7 @@ function App() {
           {colorCycle && <ModePill $color="#667eea">rainbow</ModePill>}
           {flockMode && <ModePill $color="#43e97b">flock</ModePill>}
           {kaleidoscopeMode && <ModePill $color="#f093fb">kaleidoscope</ModePill>}
+          {gravityPaintMode && <ModePill $color="#43e97b">gravity paint</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -3778,13 +3858,6 @@ function App() {
               <line x1="12" y1="8" x2="16" y2="12" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleIgnite} title="Ignite">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22c-4-3-8-7.5-8-12a8 8 0 0 1 14-5.3" />
-              <path d="M12 22c2-2 4-5 4-8a4 4 0 0 0-7-2.6" />
-              <circle cx="12" cy="14" r="1.5" fill="currentColor" />
-            </svg>
-          </ActionButton>
           <ActionButton onClick={handleStrike} title="Orbital strike">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="1" x2="12" y2="11" />
@@ -3794,23 +3867,6 @@ function App() {
               <line x1="12" y1="19" x2="12" y2="23" />
               <line x1="5" y1="15" x2="1" y2="15" />
               <line x1="23" y1="15" x2="19" y2="15" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleStorm} title="Magnetic storm">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="5" />
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" opacity="0.6" transform="scale(0.5) translate(12, 12)" />
-              <path d="M2 12c0-5.52 4.48-10 10-10" strokeDasharray="3 3" />
-              <path d="M22 12c0 5.52-4.48 10-10 10" strokeDasharray="3 3" />
-              <path d="M12 2c5.52 0 10 4.48 10 10" strokeDasharray="3 3" opacity="0.5" />
-              <path d="M12 22c-5.52 0-10-4.48-10-10" strokeDasharray="3 3" opacity="0.5" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleTsunami} title="Tsunami wave">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 16c2-3 4-4 6-3s4 3 6 2 4-4 6-3" />
-              <path d="M2 11c2-3 4-4 6-3s4 3 6 2 4-4 6-3" opacity="0.6" />
-              <path d="M2 21c2-3 4-4 6-3s4 3 6 2 4-4 6-3" opacity="0.3" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handlePlaceWell} title="Place gravity well">
@@ -3871,11 +3927,14 @@ function App() {
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handlePortal} title="Wormhole portal">
+          <ActionButton onClick={handleGravityPaintMode} title="Gravity painter" $active={gravityPaintMode}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="7" cy="12" r="5" />
-              <circle cx="17" cy="12" r="5" />
-              <line x1="12" y1="9" x2="12" y2="15" strokeDasharray="2 2" />
+              <path d="M3 17c3-4 6-2 9-6s3-6 6-8" />
+              <circle cx="5" cy="15" r="2" strokeDasharray="2 2" opacity="0.5" />
+              <circle cx="12" cy="9" r="2" strokeDasharray="2 2" opacity="0.5" />
+              <circle cx="17" cy="5" r="2" strokeDasharray="2 2" opacity="0.5" />
+              <circle cx="8" cy="12" r="1" fill="currentColor" />
+              <circle cx="14" cy="7" r="1" fill="currentColor" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleShuffle} title="Shuffle colors">
@@ -4032,17 +4091,13 @@ function App() {
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
-              <Shortcut><Key>I</Key><span>Ignite (chain combustion)</span></Shortcut>
               <Shortcut><Key>K</Key><span>Orbital strike</span></Shortcut>
-              <Shortcut><Key>Z</Key><span>Magnetic storm</span></Shortcut>
-              <Shortcut><Key>Y</Key><span>Tsunami wave (alternates dir)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
-              <Shortcut><Key>T</Key><span>Wormhole portal (x2, then clear)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>G</Key><span>Toggle gravity</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
@@ -4054,6 +4109,7 @@ function App() {
               <Shortcut><Key>1</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
               <Shortcut><Key>2</Key><span>Kaleidoscope mode (4-fold symmetry)</span></Shortcut>
               <Shortcut><Key>3</Key><span>Place / remove particle fountain</span></Shortcut>
+              <Shortcut><Key>4</Key><span>Gravity painter (draw gravity trails)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
