@@ -103,6 +103,13 @@ const STORM_SPIN_FORCE = 0.35; // tangential chaos force
 const STORM_RADIAL_FORCE = 0.2; // oscillating push/pull
 const STORM_ARC_COUNT = 6; // visual energy arcs from epicenter
 
+// ── Tsunami wave ────────────────────────────────────────────────────
+const TSUNAMI_SPEED = 10; // px per frame — fast sweep
+const TSUNAMI_WIDTH = 100; // wall thickness in px
+const TSUNAMI_FORCE = 7; // horizontal push on orbs
+const TSUNAMI_TUMBLE = 2.5; // random vertical scatter
+const TSUNAMI_FOAM_COUNT = 18; // foam particles at leading edge
+
 // ── Audio engine ──────────────────────────────────────────────────────
 let audioCtx = null;
 let masterGain = null;
@@ -478,6 +485,41 @@ function playStormSound() {
   noise.stop(t + 3.3);
 }
 
+function playTsunamiSound() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  // deep rushing sweep
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(55, t);
+  osc.frequency.linearRampToValueAtTime(110, t + 0.6);
+  osc.frequency.exponentialRampToValueAtTime(30, t + 1.8);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.1, t + 0.15);
+  g.gain.setValueAtTime(0.1, t + 1.0);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 2.1);
+  // high foamy hiss
+  const hiss = audioCtx.createOscillator();
+  const hg = audioCtx.createGain();
+  hiss.type = "square";
+  hiss.frequency.setValueAtTime(250, t);
+  hiss.frequency.linearRampToValueAtTime(500, t + 0.4);
+  hiss.frequency.exponentialRampToValueAtTime(120, t + 1.8);
+  hg.gain.setValueAtTime(0, t);
+  hg.gain.linearRampToValueAtTime(0.025, t + 0.1);
+  hg.gain.setValueAtTime(0.025, t + 0.8);
+  hg.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
+  hiss.connect(hg);
+  hg.connect(masterGain);
+  hiss.start(t);
+  hiss.stop(t + 2.1);
+}
+
 function generateBolt(x1, y1, x2, y2, segments = LIGHTNING_SEGMENTS) {
   const points = [{ x: x1, y: y1 }];
   const dx = x2 - x1;
@@ -574,6 +616,8 @@ function App() {
   const embersRef = useRef([]); // fire ember particles
   const strikesRef = useRef([]); // active orbital strikes
   const stormRef = useRef(null); // active magnetic storm {born, cx, cy, lastZap}
+  const tsunamisRef = useRef([]); // active tsunami waves [{x, dir, born, color, foam}]
+  const tsunamiDirRef = useRef(1); // alternates direction each trigger
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -1085,6 +1129,22 @@ function App() {
           // random jitter
           orb.vx += (Math.random() - 0.5) * 0.5 * intensity;
           orb.vy += (Math.random() - 0.5) * 0.5 * intensity;
+        }
+
+        // tsunami wave forces
+        for (const tsunami of tsunamisRef.current) {
+          const wallX = tsunami.x;
+          const leading = wallX;
+          const trailing = wallX - TSUNAMI_WIDTH * tsunami.dir;
+          const minX = Math.min(leading, trailing);
+          const maxX = Math.max(leading, trailing);
+          if (orb.x > minX - orb.radius && orb.x < maxX + orb.radius) {
+            // proximity to leading edge (0 at trailing, 1 at leading)
+            const proximity = 1 - Math.abs(orb.x - leading) / TSUNAMI_WIDTH;
+            const force = TSUNAMI_FORCE * Math.max(0, proximity);
+            orb.vx += tsunami.dir * force;
+            orb.vy += (Math.random() - 0.5) * TSUNAMI_TUMBLE;
+          }
         }
 
         // gravity well attraction
@@ -2403,6 +2463,97 @@ function App() {
         }
       }
 
+      // ── Tsunami wave update & render ──
+      tsunamisRef.current = tsunamisRef.current.filter((t) => {
+        return t.dir > 0 ? t.x < W + TSUNAMI_WIDTH : t.x > -TSUNAMI_WIDTH;
+      });
+      for (const tsunami of tsunamisRef.current) {
+        const speedFactor = slowMoRef.current ? 0.3 : 1;
+        tsunami.x += TSUNAMI_SPEED * tsunami.dir * speedFactor;
+
+        // update foam particles
+        for (const foam of tsunami.foam) {
+          foam.x += foam.vx * speedFactor;
+          foam.y += foam.vy * speedFactor;
+          foam.vy += 0.05; // slight gravity
+          foam.life -= 16;
+        }
+        tsunami.foam = tsunami.foam.filter((f) => f.life > 0);
+
+        // spawn new foam at leading edge
+        if (Math.random() < 0.6) {
+          tsunami.foam.push({
+            x: tsunami.x + (Math.random() - 0.5) * 10,
+            y: Math.random() * H,
+            vx: tsunami.dir * (2 + Math.random() * 3),
+            vy: (Math.random() - 0.5) * 4,
+            life: 300 + Math.random() * 400,
+            maxLife: 700,
+            radius: 1.5 + Math.random() * 3,
+          });
+        }
+
+        // screen shake while active
+        shakeRef.current = Math.max(shakeRef.current, 6);
+
+        // ── Draw the wall ──
+        const age = now - tsunami.born;
+        const fadeIn = Math.min(age / 200, 1);
+        const offScreenProgress = tsunami.dir > 0
+          ? Math.max(0, (tsunami.x - W) / TSUNAMI_WIDTH)
+          : Math.max(0, -tsunami.x / TSUNAMI_WIDTH);
+        const fadeOut = Math.max(0, 1 - offScreenProgress);
+        const alpha = fadeIn * fadeOut;
+
+        if (alpha > 0.01) {
+          // main wall gradient
+          const grad = ctx.createLinearGradient(
+            tsunami.x - TSUNAMI_WIDTH * tsunami.dir, 0,
+            tsunami.x, 0
+          );
+          const col = tsunami.color;
+          grad.addColorStop(0, "transparent");
+          grad.addColorStop(0.3, col + hexAlpha(alpha * 0.15 * 255));
+          grad.addColorStop(0.7, col + hexAlpha(alpha * 0.35 * 255));
+          grad.addColorStop(0.9, `rgba(255, 255, 255, ${alpha * 0.3})`);
+          grad.addColorStop(1, `rgba(255, 255, 255, ${alpha * 0.5})`);
+          ctx.fillStyle = grad;
+          ctx.fillRect(
+            Math.min(tsunami.x, tsunami.x - TSUNAMI_WIDTH * tsunami.dir),
+            0,
+            TSUNAMI_WIDTH,
+            H
+          );
+
+          // leading edge bright line
+          ctx.beginPath();
+          ctx.moveTo(tsunami.x, 0);
+          ctx.lineTo(tsunami.x, H);
+          ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.7})`;
+          ctx.lineWidth = 3;
+          ctx.stroke();
+
+          // secondary glow line
+          ctx.beginPath();
+          ctx.moveTo(tsunami.x - 6 * tsunami.dir, 0);
+          ctx.lineTo(tsunami.x - 6 * tsunami.dir, H);
+          ctx.strokeStyle = col + hexAlpha(alpha * 0.4 * 255);
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // foam particles
+          for (const foam of tsunami.foam) {
+            const foamAlpha = (foam.life / foam.maxLife) * alpha;
+            if (foamAlpha > 0.01) {
+              ctx.beginPath();
+              ctx.arc(foam.x, foam.y, foam.radius, 0, Math.PI * 2);
+              ctx.fillStyle = `rgba(255, 255, 255, ${foamAlpha * 0.6})`;
+              ctx.fill();
+            }
+          }
+        }
+      }
+
       // draw vignette overlay for cinematic depth
       const vignetteGrad = ctx.createRadialGradient(W / 2, H / 2, W * 0.25, W / 2, H / 2, W * 0.75);
       vignetteGrad.addColorStop(0, "transparent");
@@ -2937,6 +3088,21 @@ function App() {
     playStormSound();
   }, []);
 
+  const handleTsunami = useCallback(() => {
+    const dir = tsunamiDirRef.current;
+    tsunamiDirRef.current = -dir; // alternate direction each time
+    const startX = dir > 0 ? -TSUNAMI_WIDTH : window.innerWidth + TSUNAMI_WIDTH;
+    tsunamisRef.current.push({
+      x: startX,
+      dir,
+      born: performance.now(),
+      color: randomColor(),
+      foam: [],
+    });
+    shakeRef.current = Math.max(shakeRef.current, 20);
+    playTsunamiSound();
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -3015,6 +3181,9 @@ function App() {
         case "z":
           handleStorm();
           break;
+        case "y":
+          handleTsunami();
+          break;
         case "v":
           handleToggleAudio();
           break;
@@ -3025,7 +3194,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -3043,7 +3212,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to spray &middot; drag orb to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
-        <Hint>keys: space b q e i k z f t n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k z y f t n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -3136,6 +3305,13 @@ function App() {
               <path d="M22 12c0 5.52-4.48 10-10 10" strokeDasharray="3 3" />
               <path d="M12 2c5.52 0 10 4.48 10 10" strokeDasharray="3 3" opacity="0.5" />
               <path d="M12 22c-5.52 0-10-4.48-10-10" strokeDasharray="3 3" opacity="0.5" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleTsunami} title="Tsunami wave">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 16c2-3 4-4 6-3s4 3 6 2 4-4 6-3" />
+              <path d="M2 11c2-3 4-4 6-3s4 3 6 2 4-4 6-3" opacity="0.6" />
+              <path d="M2 21c2-3 4-4 6-3s4 3 6 2 4-4 6-3" opacity="0.3" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handlePlaceWell} title="Place gravity well">
@@ -3321,6 +3497,7 @@ function App() {
               <Shortcut><Key>I</Key><span>Ignite (chain combustion)</span></Shortcut>
               <Shortcut><Key>K</Key><span>Orbital strike</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Magnetic storm</span></Shortcut>
+              <Shortcut><Key>Y</Key><span>Tsunami wave (alternates dir)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
