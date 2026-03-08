@@ -316,6 +316,13 @@ const TAP_SPARKLE_COUNT = 8;       // particles per tap
 const TAP_SPARKLE_SPEED = 2.5;     // outward velocity
 const TAP_SPARKLE_LIFETIME = 600;  // ms before fade
 
+// ── Gravity harp strings ────────────────────────────────────────────
+const HARP_STRING_COUNT = 7;              // horizontal strings across canvas
+const HARP_VIBRATION_DURATION = 1200;     // ms for vibration to fade
+const HARP_PLUCK_SPEED_THRESHOLD = 1.8;   // min orb speed to pluck
+const HARP_PLUCK_COOLDOWN = 50;           // ms between pluck sounds
+let lastHarpPluckTime = 0;
+
 // ── Audio engine ──────────────────────────────────────────────────────
 let audioCtx = null;
 let masterGain = null;
@@ -1025,6 +1032,7 @@ function App() {
   const vortexStormRef = useRef(null); // {cx, cy, born, exploded}
   const nebulaRef = useRef([]); // ambient nebula glow points
   const tapSparklesRef = useRef([]); // tiny sparkle particles from taps
+  const harpVibrationsRef = useRef([]); // gravity harp string pluck visuals
   const formationRef = useRef(null); // {targets, born, type}
   const formationIndexRef = useRef(0);
   const tornadoRef = useRef(null); // {x, y, born, dir, debris[]}
@@ -2451,6 +2459,32 @@ function App() {
         orb.x += orb.vx * speed_factor;
         orb.y += orb.vy * speed_factor;
 
+        // gravity harp: detect string crossings
+        {
+          const prevY = orb.y - orb.vy * speed_factor;
+          const stringSpacing = H / (HARP_STRING_COUNT + 1);
+          const orbSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+          if (orbSpeed > HARP_PLUCK_SPEED_THRESHOLD && !orb.spark) {
+            for (let si = 1; si <= HARP_STRING_COUNT; si++) {
+              const stringY = si * stringSpacing;
+              if ((prevY < stringY && orb.y >= stringY) || (prevY > stringY && orb.y <= stringY)) {
+                harpVibrationsRef.current.push({
+                  x: orb.x, stringIndex: si - 1, born: now,
+                  intensity: Math.min(orbSpeed / 8, 1),
+                  color: orb.color,
+                });
+                // rate-limited pluck sound
+                if (now - lastHarpPluckTime > HARP_PLUCK_COOLDOWN) {
+                  lastHarpPluckTime = now;
+                  const noteIdx = Math.floor((si - 1) * PENTATONIC.length / HARP_STRING_COUNT);
+                  playTone(PENTATONIC[Math.min(noteIdx, PENTATONIC.length - 1)], 0.5, "triangle", 0.05 * Math.min(orbSpeed / 5, 1));
+                }
+                break; // one string per orb per frame
+              }
+            }
+          }
+        }
+
         // record position for light trails
         if (trailModeRef.current) {
           if (!orb.trail) orb.trail = [];
@@ -3431,6 +3465,65 @@ function App() {
                 ctx.stroke();
               }
             }
+          }
+        }
+      }
+
+      // ── Gravity harp strings + vibrations ──
+      {
+        const stringSpacing = H / (HARP_STRING_COUNT + 1);
+        // draw base strings (very faint)
+        for (let si = 0; si < HARP_STRING_COUNT; si++) {
+          const y = (si + 1) * stringSpacing;
+          ctx.beginPath();
+          ctx.setLineDash([4, 12]);
+          ctx.moveTo(0, y);
+          ctx.lineTo(W, y);
+          ctx.strokeStyle = "rgba(102, 126, 234, 0.04)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+        // draw vibrations
+        harpVibrationsRef.current = harpVibrationsRef.current.filter(v => now - v.born < HARP_VIBRATION_DURATION);
+        for (const vib of harpVibrationsRef.current) {
+          const age = now - vib.born;
+          const progress = age / HARP_VIBRATION_DURATION;
+          const y = (vib.stringIndex + 1) * stringSpacing;
+          const amplitude = vib.intensity * 10 * (1 - progress);
+          const waveWidth = 50 + progress * 250;
+          const fadeAlpha = (1 - progress) * 0.6;
+
+          ctx.beginPath();
+          const startX = Math.max(0, vib.x - waveWidth);
+          const endX = Math.min(W, vib.x + waveWidth);
+          ctx.moveTo(startX, y);
+          for (let px = startX; px <= endX; px += 4) {
+            const relX = px - vib.x;
+            const distNorm = Math.abs(relX) / waveWidth;
+            const envelope = Math.cos(distNorm * Math.PI * 0.5);
+            const dy = Math.sin(relX * 0.12 + age * 0.012) * amplitude * envelope;
+            ctx.lineTo(px, y + dy);
+          }
+          // hex color to rgba with fade
+          const r = parseInt(vib.color.slice(1, 3), 16);
+          const g = parseInt(vib.color.slice(3, 5), 16);
+          const b = parseInt(vib.color.slice(5, 7), 16);
+          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${fadeAlpha})`;
+          ctx.lineWidth = 1.5 + vib.intensity;
+          ctx.stroke();
+
+          // glow at pluck point
+          if (progress < 0.3) {
+            const glowAlpha = (1 - progress / 0.3) * 0.25 * vib.intensity;
+            const glowR = 15 + vib.intensity * 10;
+            const grad = ctx.createRadialGradient(vib.x, y, 0, vib.x, y, glowR);
+            grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${glowAlpha})`);
+            grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+            ctx.beginPath();
+            ctx.arc(vib.x, y, glowR, 0, Math.PI * 2);
+            ctx.fillStyle = grad;
+            ctx.fill();
           }
         }
       }
