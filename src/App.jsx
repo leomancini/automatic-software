@@ -811,6 +811,26 @@ function App() {
     setOrbCount(orbsRef.current.length);
   }, []);
 
+  const handleFirework = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const launchX = W * 0.2 + Math.random() * W * 0.6;
+    const peakY = H * 0.15 + Math.random() * H * 0.25;
+    const count = 8;
+    const now = performance.now();
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+      const orb = createOrb(launchX, H);
+      orb.radius = 5 + Math.random() * 6;
+      // launch upward with spread
+      orb.vx = Math.cos(angle) * (1.5 + Math.random() * 1.5);
+      orb.vy = -(H - peakY) / 60 + Math.sin(angle) * (1 + Math.random());
+      orbsRef.current.push(orb);
+      ripplesRef.current.push({ x: launchX, y: H, color: orb.color, born: now });
+    }
+    setOrbCount(orbsRef.current.length);
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -850,6 +870,9 @@ function App() {
         case "m":
           handleSlowMo();
           break;
+        case "f":
+          handleFirework();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -857,7 +880,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, setShowHelp]);
 
   return (
     <Wrapper>
@@ -875,7 +898,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; overlap to merge</Hint>
-        <Hint>keys: space b c r w h g s p m x &middot; press ? for help</Hint>
+        <Hint>keys: space b f c r w h g s p m x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
       </HUD>
       <ButtonGroup>
@@ -890,6 +913,18 @@ function App() {
               <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
               <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
               <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleFirework} title="Firework">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="22" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12" y2="4" />
+              <line x1="12" y1="8" x2="8" y2="4" />
+              <line x1="12" y1="8" x2="16" y2="4" />
+              <line x1="12" y1="8" x2="6" y2="8" />
+              <line x1="12" y1="8" x2="18" y2="8" />
+              <line x1="12" y1="8" x2="8" y2="12" />
+              <line x1="12" y1="8" x2="16" y2="12" />
             </svg>
           </ActionButton>
         {orbCount > 0 && (
@@ -1003,6 +1038,7 @@ function App() {
               <Shortcut><Key>long-press</Key><span>Split orb (mobile)</span></Shortcut>
               <hr />
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
+              <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
