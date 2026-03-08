@@ -1011,6 +1011,7 @@ function App() {
   const slowMoRef = useRef(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showModes, setShowModes] = useState(false);
+  const [autoPlay, setAutoPlay] = useState(false);
   const [repelMode, setRepelMode] = useState(false);
   const repelModeRef = useRef(false);
   const [orbitMode, setOrbitMode] = useState(false);
@@ -5772,6 +5773,10 @@ function App() {
     pool[Math.floor(Math.random() * pool.length)]();
   }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova]);
 
+  const handleAutoPlay = useCallback(() => {
+    setAutoPlay(prev => !prev);
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -5841,6 +5846,9 @@ function App() {
         case "v":
           handleToggleAudio();
           break;
+        case "z":
+          handleAutoPlay();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -5848,7 +5856,27 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleRewind, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleRewind, handleToggleAudio, handleAutoPlay, setShowHelp]);
+
+  // ── Autoplay timer ──
+  useEffect(() => {
+    if (!autoPlay) return;
+    let timeoutId;
+    const scheduleNext = () => {
+      const delay = 2000 + Math.random() * 2500;
+      timeoutId = setTimeout(() => {
+        if (orbsRef.current.length < 5) {
+          handleBurst();
+        } else {
+          handleRandomEffect();
+        }
+        scheduleNext();
+      }, delay);
+    };
+    if (orbsRef.current.length === 0) handleBurst();
+    scheduleNext();
+    return () => clearTimeout(timeoutId);
+  }, [autoPlay, handleRandomEffect, handleBurst]);
 
   return (
     <Wrapper>
@@ -5891,6 +5919,7 @@ function App() {
           {attractMode && <ModePill $color="#f093fb">magnet</ModePill>}
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
+          {autoPlay && <ModePill $color="#43e97b">autoplay</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -6001,6 +6030,18 @@ function App() {
               <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
               <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleAutoPlay} title="Autoplay" $active={autoPlay}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {autoPlay ? (
+                <>
+                  <rect x="6" y="4" width="4" height="16" />
+                  <rect x="14" y="4" width="4" height="16" />
+                </>
+              ) : (
+                <polygon points="5 3 19 12 5 21 5 3" />
+              )}
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -6122,6 +6163,7 @@ function App() {
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
+              <Shortcut><Key>Z</Key><span>Autoplay (ambient mode)</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all orbs</span></Shortcut>
               <Shortcut><Key>?</Key><span>Toggle this help</span></Shortcut>
