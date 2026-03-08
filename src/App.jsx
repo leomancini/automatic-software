@@ -295,7 +295,8 @@ const VORTEX_STORM_EXPLODE_SPEED = 8;   // outward velocity on release
 const VORTEX_STORM_ARM_COUNT = 5;       // visible spiral arms
 
 // ── Light trails (comet tails behind orbs) ──────────────────────────
-const LIGHT_TRAIL_LENGTH = 50; // positions stored per orb trail
+const LIGHT_TRAIL_LENGTH = 24; // positions stored per orb trail
+const TRAIL_SPEED_MIN = 1.5;   // min speed for visible trail
 
 // ── Ambient nebula (responsive background glow) ─────────────────────
 const NEBULA_COUNT = 5;
@@ -1041,10 +1042,8 @@ function App() {
   // showMoreButtons state removed — rarely-used effects culled from UI (still accessible via keyboard)
   const bigBangRef = useRef(null); // {born, detonated, detonateTime}
   const slingshotRef = useRef(null); // {startX, startY} when flick-aiming
-  const [trailMode, setTrailMode] = useState(false);
   const [sparklerMode, setSparklerMode] = useState(false);
   const sparklerModeRef = useRef(false);
-  const trailModeRef = useRef(false);
   const warpRef = useRef(null); // {born} active warp drive
   const [magnetMode, setMagnetMode] = useState(false);
   const magnetModeRef = useRef(false);
@@ -2643,12 +2642,10 @@ function App() {
           }
         }
 
-        // record position for light trails
-        if (trailModeRef.current) {
-          if (!orb.trail) orb.trail = [];
-          orb.trail.push({ x: orb.x, y: orb.y });
-          if (orb.trail.length > LIGHT_TRAIL_LENGTH) orb.trail.shift();
-        }
+        // record position for comet trails (always-on)
+        if (!orb.trail) orb.trail = [];
+        orb.trail.push({ x: orb.x, y: orb.y });
+        if (orb.trail.length > LIGHT_TRAIL_LENGTH) orb.trail.shift();
 
         // bounce off walls (or wrap around in wrap mode)
         if (wrapModeRef.current) {
@@ -3369,35 +3366,37 @@ function App() {
         }
       }
 
-      // ── Light trails: glowing comet tails behind each orb ──
-      if (trailModeRef.current) {
-        ctx.lineCap = "round";
-        for (const orb of orbs) {
-          const trail = orb.trail;
-          if (!trail || trail.length < 2) continue;
-          for (let t = 1; t < trail.length; t++) {
-            const progress = t / trail.length; // 0 at tail, 1 at head
-            const alpha = progress * progress * 0.55; // quadratic fade
-            const width = progress * orb.radius * 0.7;
-            ctx.beginPath();
-            ctx.moveTo(trail[t - 1].x, trail[t - 1].y);
-            ctx.lineTo(trail[t].x, trail[t].y);
-            ctx.strokeStyle = orb.color + hexAlpha(alpha * 255);
-            ctx.lineWidth = Math.max(0.5, width);
-            ctx.stroke();
-          }
-          // soft glow at trail head
-          if (trail.length > 2) {
-            const head = trail[trail.length - 1];
-            const glowR = orb.radius * 1.2;
-            const glow = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, glowR);
-            glow.addColorStop(0, orb.color + "30");
-            glow.addColorStop(1, orb.color + "00");
-            ctx.beginPath();
-            ctx.arc(head.x, head.y, glowR, 0, Math.PI * 2);
-            ctx.fillStyle = glow;
-            ctx.fill();
-          }
+      // ── Comet trails: speed-proportional tails behind every orb ──
+      ctx.lineCap = "round";
+      for (const orb of orbs) {
+        const trail = orb.trail;
+        if (!trail || trail.length < 3) continue;
+        const speed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+        if (speed < TRAIL_SPEED_MIN) continue;
+        // intensity ramps from 0 at threshold to 1 at high speed
+        const intensity = Math.min((speed - TRAIL_SPEED_MIN) / 5, 1);
+        for (let t = 1; t < trail.length; t++) {
+          const progress = t / trail.length; // 0 at tail, 1 at head
+          const alpha = progress * progress * 0.45 * intensity;
+          const width = progress * orb.radius * 0.6 * intensity;
+          ctx.beginPath();
+          ctx.moveTo(trail[t - 1].x, trail[t - 1].y);
+          ctx.lineTo(trail[t].x, trail[t].y);
+          ctx.strokeStyle = orb.color + hexAlpha(alpha * 255);
+          ctx.lineWidth = Math.max(0.5, width);
+          ctx.stroke();
+        }
+        // soft glow at trail head for fast-moving orbs
+        if (intensity > 0.4 && trail.length > 2) {
+          const head = trail[trail.length - 1];
+          const glowR = orb.radius * (0.8 + intensity * 0.6);
+          const glow = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, glowR);
+          glow.addColorStop(0, orb.color + hexAlpha(intensity * 40));
+          glow.addColorStop(1, orb.color + "00");
+          ctx.beginPath();
+          ctx.arc(head.x, head.y, glowR, 0, Math.PI * 2);
+          ctx.fillStyle = glow;
+          ctx.fill();
         }
       }
 
