@@ -673,6 +673,30 @@ function App() {
         ctx.fill();
       }
 
+      // draw cursor influence radius when attract or repel mode is active
+      if (attractModeRef.current || repelModeRef.current) {
+        const mx = mouseRef.current.x;
+        const my = mouseRef.current.y;
+        const radius = attractModeRef.current ? ATTRACT_DIST * 2.5 : ATTRACT_DIST;
+        const color = attractModeRef.current ? "rgba(240,147,251," : "rgba(250,112,154,";
+        const pulse = 1 + 0.06 * Math.sin(now / 400);
+        const r = radius * pulse;
+        const grad = ctx.createRadialGradient(mx, my, r * 0.85, mx, my, r);
+        grad.addColorStop(0, color + "0)");
+        grad.addColorStop(0.7, color + "0.07)");
+        grad.addColorStop(1, color + "0)");
+        ctx.beginPath();
+        ctx.arc(mx, my, r, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        // thin ring at edge
+        ctx.beginPath();
+        ctx.arc(mx, my, r, 0, Math.PI * 2);
+        ctx.strokeStyle = color + (0.25 * pulse).toFixed(2) + ")";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
       // draw vignette overlay for cinematic depth
       const vignetteGrad = ctx.createRadialGradient(W / 2, H / 2, W * 0.25, W / 2, H / 2, W * 0.75);
       vignetteGrad.addColorStop(0, "transparent");
