@@ -135,6 +135,12 @@ const FLOCK_ALIGNMENT_FORCE = 0.05; // match neighbor velocity direction
 const FLOCK_COHESION_FORCE = 0.02; // steer toward neighbor center of mass
 const FLOCK_MAX_SPEED = 4; // speed cap to keep flock coherent
 
+// ── Merge sparks (collision particles) ──────────────────────────────
+const MERGE_SPARK_COUNT = 10;     // particles per merge event
+const MERGE_SPARK_SPEED = 3.5;    // initial outward velocity
+const MERGE_SPARK_LIFETIME = 450; // ms before spark fades
+const MERGE_SPARK_SIZE = 2.5;     // base radius
+
 // ── Magnetic polarity ────────────────────────────────────────────────
 const MAGNET_RANGE = 160;      // interaction range between orb pairs
 const MAGNET_FORCE = 0.045;    // base force strength (opposites attract, likes repel)
@@ -805,6 +811,7 @@ function App() {
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
   const supernovaRef = useRef(null); // active supernova {cx, cy, born, phase}
   const embersRef = useRef([]); // fire ember particles
+  const mergeSparksRef = useRef([]); // collision spark particles
   const strikesRef = useRef([]); // active orbital strikes
   const stormRef = useRef(null); // active magnetic storm {born, cx, cy, lastZap}
   const tsunamisRef = useRef([]); // active tsunami waves [{x, dir, born, color, foam}]
@@ -2276,6 +2283,21 @@ function App() {
               radius: bigger.radius,
               born: now,
             });
+            // collision sparks
+            const sparkColors = [a.color, b.color];
+            for (let s = 0; s < MERGE_SPARK_COUNT; s++) {
+              const angle = (Math.PI * 2 * s) / MERGE_SPARK_COUNT + (Math.random() - 0.5) * 0.6;
+              const speed = MERGE_SPARK_SPEED * (0.5 + Math.random());
+              mergeSparksRef.current.push({
+                x: bigger.x,
+                y: bigger.y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                color: sparkColors[s % 2],
+                size: MERGE_SPARK_SIZE * (0.6 + Math.random() * 0.8),
+                born: now,
+              });
+            }
             toRemove.add(a === bigger ? j : i);
           }
         }
@@ -2863,6 +2885,32 @@ function App() {
           ctx.fillStyle = glowGrad;
           ctx.fill();
         }
+      }
+
+      // draw merge collision sparks
+      mergeSparksRef.current = mergeSparksRef.current.filter((s) => now - s.born < MERGE_SPARK_LIFETIME);
+      for (const spark of mergeSparksRef.current) {
+        const age = (now - spark.born) / MERGE_SPARK_LIFETIME;
+        spark.x += spark.vx;
+        spark.y += spark.vy;
+        spark.vx *= 0.94;
+        spark.vy *= 0.94;
+        const alpha = (1 - age) * (1 - age); // quadratic fade for snappy pop
+        const r = spark.size * (1 - age * 0.4);
+        // bright core
+        ctx.beginPath();
+        ctx.arc(spark.x, spark.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.9})`;
+        ctx.fill();
+        // colored glow
+        const glowR = r * 3;
+        const grad = ctx.createRadialGradient(spark.x, spark.y, 0, spark.x, spark.y, glowR);
+        grad.addColorStop(0, spark.color + hexAlpha(alpha * 0.6 * 255));
+        grad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(spark.x, spark.y, glowR, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
       }
 
       // draw orbital strikes
