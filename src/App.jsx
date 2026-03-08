@@ -199,6 +199,11 @@ const COLOR_WAVE_SPEED = 3.5; // px per frame
 const COLOR_WAVE_WIDTH = 55; // visual width of the ring
 const COLOR_WAVE_SEGMENTS = 36; // arc segments for rainbow rendering
 
+// ── N-body gravity (mutual gravitational attraction) ────────────
+const NBODY_G = 0.06;         // gravitational constant
+const NBODY_RANGE = 400;      // max interaction range
+const NBODY_MIN_DIST = 18;    // softening distance to prevent infinite force
+
 // ── Autoplay (light show) ───────────────────────────────────────
 const AUTOPLAY_SPAWN_INTERVAL = 2000; // ms between auto-spawning orb clusters
 const AUTOPLAY_EFFECT_INTERVAL = 3500; // ms between auto-triggering effects
@@ -909,6 +914,8 @@ function App() {
   const warpRef = useRef(null); // {born} active warp drive
   const [magnetMode, setMagnetMode] = useState(false);
   const magnetModeRef = useRef(false);
+  const [nbodyMode, setNbodyMode] = useState(false);
+  const nbodyModeRef = useRef(false);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1935,6 +1942,22 @@ function App() {
           }
         }
 
+        // n-body gravity: orbs attract each other based on mass
+        if (nbodyModeRef.current) {
+          for (const other of orbs) {
+            if (other === orb) continue;
+            const ndx = other.x - orb.x;
+            const ndy = other.y - orb.y;
+            const nDist = Math.sqrt(ndx * ndx + ndy * ndy);
+            if (nDist < NBODY_RANGE && nDist > NBODY_MIN_DIST) {
+              const mass = other.radius * other.radius;
+              const force = NBODY_G * mass / (nDist * nDist);
+              orb.vx += (ndx / nDist) * force;
+              orb.vy += (ndy / nDist) * force;
+            }
+          }
+        }
+
         // black hole gravity (much stronger, wider range)
         if (blackHoleRef.current) {
           const bh = blackHoleRef.current;
@@ -2914,6 +2937,36 @@ function App() {
                 ctx.arc(mx, my, starSize, 0, Math.PI * 2);
                 ctx.fillStyle = `rgba(255, 255, 255, ${starAlpha})`;
                 ctx.fill();
+              }
+            }
+          }
+        }
+      }
+
+      // n-body gravity field lines
+      if (nbodyModeRef.current && orbs.length > 1) {
+        ctx.lineCap = "round";
+        for (let i = 0; i < orbs.length; i++) {
+          for (let j = i + 1; j < orbs.length; j++) {
+            const a = orbs[i];
+            const b = orbs[j];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < NBODY_RANGE && dist > NBODY_MIN_DIST) {
+              const massA = a.radius * a.radius;
+              const massB = b.radius * b.radius;
+              const totalMass = massA + massB;
+              const proximity = 1 - dist / NBODY_RANGE;
+              const intensity = Math.min(totalMass / 400, 1);
+              const alpha = proximity * proximity * intensity * 0.2;
+              if (alpha > 0.01) {
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.strokeStyle = `rgba(245, 158, 11, ${alpha})`;
+                ctx.lineWidth = 0.5 + proximity * intensity * 1.5;
+                ctx.stroke();
               }
             }
           }
@@ -4362,6 +4415,13 @@ function App() {
     });
   }, []);
 
+  const handleNbodyMode = useCallback(() => {
+    setNbodyMode((prev) => {
+      nbodyModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleClearAll = useCallback(() => {
     const now = performance.now();
     for (const orb of orbsRef.current) {
@@ -5139,11 +5199,14 @@ function App() {
         case ";":
           handleMagnetMode();
           break;
+        case "'":
+          handleNbodyMode();
+          break;
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, handleWarpDrive, handleMagnetMode, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, handleWarpDrive, handleMagnetMode, handleNbodyMode, setShowHelp]);
 
   return (
     <Wrapper>
@@ -5161,7 +5224,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to launch &middot; drag orb to fling &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big ones divide</Hint>
-        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j ; 2 5 6 7 8 9 s p m - v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j ; ' 2 5 6 7 8 9 s p m - v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -5184,6 +5247,7 @@ function App() {
           {trailMode && <ModePill $color="#fa709a">trails</ModePill>}
           {sparklerMode && <ModePill $color="#feb47b">sparkler</ModePill>}
           {magnetMode && <ModePill $color="#c084fc">magnetic</ModePill>}
+          {nbodyMode && <ModePill $color="#f59e0b">n-body</ModePill>}
           {autoplayMode && <ModePill $color="#feb47b">autoplay</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -5445,6 +5509,17 @@ function App() {
               <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleNbodyMode} title="N-body gravity" $active={nbodyMode}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="10" r="4" fill="currentColor" opacity="0.7" />
+              <circle cx="6" cy="16" r="2" fill="currentColor" opacity="0.5" />
+              <circle cx="19" cy="14" r="2.5" fill="currentColor" opacity="0.5" />
+              <circle cx="16" cy="19" r="1.5" fill="currentColor" opacity="0.4" />
+              <path d="M6 16Q9 12 12 10" opacity="0.3" strokeDasharray="2 2" />
+              <path d="M19 14Q15 11 12 10" opacity="0.3" strokeDasharray="2 2" />
+              <path d="M16 19Q14 14 12 10" opacity="0.3" strokeDasharray="2 2" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleFlockMode} title="Flock mode" $active={flockMode}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 17c1-2 3-3 5-2s3 3 5 2" />
@@ -5590,6 +5665,7 @@ function App() {
               <Shortcut><Key>-</Key><span>Light trails (comet tails)</span></Shortcut>
               <Shortcut><Key>=</Key><span>Warp drive (hyperspace jump)</span></Shortcut>
               <Shortcut><Key>;</Key><span>Magnetic polarity (attract/repel by charge)</span></Shortcut>
+              <Shortcut><Key>'</Key><span>N-body gravity (mutual mass attraction)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
