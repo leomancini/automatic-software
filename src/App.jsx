@@ -5233,6 +5233,41 @@ function App() {
     shakeRef.current = 20;
   }, []);
 
+  const handleBloom = useCallback(() => {
+    const orbs = orbsRef.current;
+    if (orbs.length === 0 || orbs.length > 300) return;
+    const now = performance.now();
+    const newOrbs = [];
+    for (const orb of orbs) {
+      const angle = Math.random() * Math.PI * 2;
+      const childRadius = orb.radius / Math.sqrt(2);
+      if (childRadius < 3) {
+        newOrbs.push(orb);
+        continue;
+      }
+      const splitSpeed = 1.5 + Math.random() * 1.5;
+      for (let i = 0; i < 2; i++) {
+        const a = angle + Math.PI * i;
+        const child = createOrb(orb.x + Math.cos(a) * 4, orb.y + Math.sin(a) * 4);
+        child.radius = childRadius;
+        child.color = orb.color;
+        child.vx = orb.vx + Math.cos(a) * splitSpeed;
+        child.vy = orb.vy + Math.sin(a) * splitSpeed;
+        if (orb.isNova) {
+          child.isNova = true;
+          child.novaBorn = orb.novaBorn;
+          child.novaFuse = orb.novaFuse;
+        }
+        newOrbs.push(child);
+      }
+      ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+    }
+    orbsRef.current = newOrbs;
+    setOrbCount(newOrbs.length);
+    shakeRef.current = Math.max(shakeRef.current, 8);
+    playBurstSound();
+  }, []);
+
   const handleSpin = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -5730,6 +5765,9 @@ function App() {
         case "e":
           handleSupernova();
           break;
+        case "j":
+          handleBloom();
+          break;
         case "v":
           handleToggleAudio();
           break;
@@ -5740,7 +5778,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBloom, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -5930,6 +5968,16 @@ function App() {
                 <polyline points="19 13 19 19 13 19" />
               </svg>
             </ActionButton>
+            <ActionButton onClick={handleBloom} title="Bloom">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="9" cy="12" r="4" />
+                <circle cx="15" cy="12" r="4" />
+                <line x1="5" y1="12" x2="2" y2="12" />
+                <polyline points="4 10 2 12 4 14" />
+                <line x1="19" y1="12" x2="22" y2="12" />
+                <polyline points="20 10 22 12 20 14" />
+              </svg>
+            </ActionButton>
             <ActionButton onClick={handleSpin} title="Spin orbs">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 12a9 9 0 1 1-6.22-8.56" />
@@ -6008,6 +6056,7 @@ function App() {
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
+              <Shortcut><Key>J</Key><span>Bloom (split all orbs)</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all orbs</span></Shortcut>
               <Shortcut><Key>?</Key><span>Toggle this help</span></Shortcut>
             </ShortcutList>
