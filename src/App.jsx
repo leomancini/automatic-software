@@ -2632,15 +2632,20 @@ function App() {
           }
         }
 
-        // gravity well attraction
+        // gravity well attraction + orbital force
         for (const well of wellsRef.current) {
           const wdx = well.x - orb.x;
           const wdy = well.y - orb.y;
           const wDist = Math.sqrt(wdx * wdx + wdy * wdy);
           if (wDist < WELL_RANGE && wDist > 3) {
             const force = WELL_GRAVITY / (1 + wDist * 0.01);
+            // radial attraction
             orb.vx += (wdx / wDist) * force;
             orb.vy += (wdy / wDist) * force;
+            // tangential orbital force — orbs spiral around wells
+            const orbitalForce = force * 0.6 * (well.spinDir || 1);
+            orb.vx += (-wdy / wDist) * orbitalForce;
+            orb.vy += (wdx / wDist) * orbitalForce;
           }
         }
 
@@ -4172,7 +4177,7 @@ function App() {
         // rotating accretion rings
         for (let ring = 0; ring < 3; ring++) {
           const ringRadius = well.radius * (2.2 + ring * 1.4);
-          const rotSpeed = (ring % 2 === 0 ? 1 : -1) * (2.0 - ring * 0.4);
+          const rotSpeed = (ring % 2 === 0 ? 1 : -1) * (2.0 - ring * 0.4) * (well.spinDir || 1);
           const rotation = wellAge * rotSpeed;
           const ringAlpha = 0.35 - ring * 0.08;
           ctx.save();
@@ -6139,6 +6144,7 @@ function App() {
       radius: 12,
       color,
       born: performance.now(),
+      spinDir: Math.random() < 0.5 ? 1 : -1,
     });
     ripplesRef.current.push({ x: mx, y: my, color, born: performance.now() });
     shakeRef.current = 6;
