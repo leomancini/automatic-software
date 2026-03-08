@@ -103,6 +103,15 @@ const STORM_SPIN_FORCE = 0.35; // tangential chaos force
 const STORM_RADIAL_FORCE = 0.2; // oscillating push/pull
 const STORM_ARC_COUNT = 6; // visual energy arcs from epicenter
 
+// ── Black hole ────────────────────────────────────────────────────────
+const BLACK_HOLE_RANGE = 450; // attraction radius
+const BLACK_HOLE_GRAVITY = 0.35; // base gravity (much stronger than wells)
+const BLACK_HOLE_EVENT_HORIZON = 25; // absorb orbs within this distance
+const BLACK_HOLE_ABSORB_TO_EXPLODE = 10; // absorb this many orbs to trigger explosion
+const BLACK_HOLE_RING_SPEED = 6; // explosion ring speed
+const BLACK_HOLE_RING_COUNT = 14; // orbs spawned on explosion
+const BLACK_HOLE_DISK_DOTS = 20; // orbiting accretion disk dots
+
 // ── Flock mode (boid swarm behavior) ──────────────────────────────────
 const FLOCK_NEIGHBOR_DIST = 120; // radius to consider neighbors
 const FLOCK_SEPARATION_DIST = 40; // minimum comfortable distance
@@ -528,6 +537,46 @@ function playTsunamiSound() {
   hiss.stop(t + 2.1);
 }
 
+function playBlackHoleSound() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  // deep ominous drone
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(40, t);
+  osc.frequency.exponentialRampToValueAtTime(25, t + 1.5);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.15, t + 0.3);
+  g.gain.setValueAtTime(0.12, t + 1.0);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 2.1);
+  // eerie harmonic
+  const osc2 = audioCtx.createOscillator();
+  const g2 = audioCtx.createGain();
+  osc2.type = "triangle";
+  osc2.frequency.setValueAtTime(80, t);
+  osc2.frequency.exponentialRampToValueAtTime(50, t + 1.8);
+  g2.gain.setValueAtTime(0, t);
+  g2.gain.linearRampToValueAtTime(0.06, t + 0.4);
+  g2.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
+  osc2.connect(g2);
+  g2.connect(masterGain);
+  osc2.start(t);
+  osc2.stop(t + 2.1);
+}
+
+function playBlackHoleAbsorbSound() {
+  if (!audioCtx || audioMuted) return;
+  const t = audioCtx.currentTime;
+  const base = 60 + Math.random() * 40;
+  playTone(base, 0.3, "sine", 0.1);
+  playTone(base * 0.5, 0.4, "triangle", 0.05);
+}
+
 function generateBolt(x1, y1, x2, y2, segments = LIGHTNING_SEGMENTS) {
   const points = [{ x: x1, y: y1 }];
   const dx = x2 - x1;
@@ -646,6 +695,7 @@ function App() {
   const attractModeRef = useRef(false);
   const [flockMode, setFlockMode] = useState(false);
   const flockModeRef = useRef(false);
+  const blackHoleRef = useRef(null); // {x, y, born, absorbed, mass, diskDots[]}
   const longPressRef = useRef(null);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const streakRef = useRef(0);
@@ -1163,6 +1213,25 @@ function App() {
           }
         }
 
+        // black hole gravity (much stronger, wider range)
+        if (blackHoleRef.current) {
+          const bh = blackHoleRef.current;
+          const bdx = bh.x - orb.x;
+          const bdy = bh.y - orb.y;
+          const bDist = Math.sqrt(bdx * bdx + bdy * bdy);
+          if (bDist < BLACK_HOLE_RANGE && bDist > 3) {
+            // gravity intensifies closer you get (inverse-ish)
+            const pull = BLACK_HOLE_GRAVITY * (1 + bh.mass * 0.1) / (1 + bDist * 0.005);
+            orb.vx += (bdx / bDist) * pull;
+            orb.vy += (bdy / bDist) * pull;
+            // slight spiral (tangential force near event horizon)
+            if (bDist < BLACK_HOLE_EVENT_HORIZON * 4) {
+              orb.vx += (-bdy / bDist) * pull * 0.3;
+              orb.vy += (bdx / bDist) * pull * 0.3;
+            }
+          }
+        }
+
         // magnetic storm chaos forces
         if (stormRef.current) {
           const storm = stormRef.current;
@@ -1325,6 +1394,74 @@ function App() {
               b.pulsePhase -= diff * syncRate;
             }
           }
+        }
+      }
+
+      // ── Black hole absorption ──
+      if (blackHoleRef.current) {
+        const bh = blackHoleRef.current;
+        const horizon = BLACK_HOLE_EVENT_HORIZON + bh.mass * 2;
+        let absorbed = false;
+        for (let i = orbsRef.current.length - 1; i >= 0; i--) {
+          const orb = orbsRef.current[i];
+          if (orb === dragRef.current) continue;
+          const dx = bh.x - orb.x;
+          const dy = bh.y - orb.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < horizon) {
+            // absorb: burst particles spiraling in
+            for (let j = 0; j < 4; j++) {
+              const angle = (Math.PI * 2 * j) / 4 + Math.random();
+              burstsRef.current.push({
+                x: orb.x, y: orb.y,
+                vx: Math.cos(angle) * 1.5 + (dx / dist) * 2,
+                vy: Math.sin(angle) * 1.5 + (dy / dist) * 2,
+                color: orb.color, radius: orb.radius * 0.3, born: now,
+              });
+            }
+            // add to disk visuals
+            bh.diskDots.push({
+              angle: Math.atan2(orb.y - bh.y, orb.x - bh.x),
+              dist: 20 + Math.random() * 25,
+              speed: 2 + Math.random() * 2,
+              color: orb.color,
+              radius: 2 + Math.random() * 2,
+            });
+            orbsRef.current.splice(i, 1);
+            bh.absorbed++;
+            bh.mass += 1;
+            absorbed = true;
+            playBlackHoleAbsorbSound();
+          }
+        }
+        if (absorbed) setOrbCount(orbsRef.current.length);
+
+        // check for explosion threshold
+        if (bh.absorbed >= BLACK_HOLE_ABSORB_TO_EXPLODE) {
+          // explode! spawn ring of orbs outward
+          for (let i = 0; i < BLACK_HOLE_RING_COUNT; i++) {
+            const angle = (Math.PI * 2 * i) / BLACK_HOLE_RING_COUNT + (Math.random() - 0.5) * 0.3;
+            const orb = createOrb(bh.x, bh.y);
+            orb.radius = 10 + Math.random() * 12;
+            orb.vx = Math.cos(angle) * (BLACK_HOLE_RING_SPEED + Math.random() * 3);
+            orb.vy = Math.sin(angle) * (BLACK_HOLE_RING_SPEED + Math.random() * 3);
+            orbsRef.current.push(orb);
+            ripplesRef.current.push({ x: bh.x, y: bh.y, color: orb.color, born: now });
+          }
+          // massive shockwave
+          wavesRef.current.push({
+            cx: bh.x, cy: bh.y, radius: 0,
+            color: "#a855f7", generation: 0,
+            hitOrbs: new Set(), delay: 0,
+          });
+          flashesRef.current.push({
+            x: bh.x, y: bh.y, color: "#a855f7",
+            radius: 80, born: now,
+          });
+          shakeRef.current = Math.max(shakeRef.current, 45);
+          playBoom();
+          blackHoleRef.current = null;
+          setOrbCount(orbsRef.current.length);
         }
       }
 
@@ -2078,6 +2215,86 @@ function App() {
         ctx.fill();
       }
 
+      // draw black hole
+      if (blackHoleRef.current) {
+        const bh = blackHoleRef.current;
+        const bhAge = (now - bh.born) / 1000;
+        const horizon = BLACK_HOLE_EVENT_HORIZON + bh.mass * 2;
+        const massScale = 1 + bh.mass * 0.08;
+
+        // gravitational field (outer glow — purple void)
+        const fieldR = BLACK_HOLE_RANGE * 0.5 * massScale;
+        const fieldAlpha = 0.06 + 0.03 * Math.sin(time * 1.5);
+        const fieldGrad = ctx.createRadialGradient(bh.x, bh.y, horizon, bh.x, bh.y, fieldR);
+        fieldGrad.addColorStop(0, `rgba(120, 40, 200, ${fieldAlpha})`);
+        fieldGrad.addColorStop(0.5, `rgba(80, 20, 160, ${fieldAlpha * 0.4})`);
+        fieldGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(bh.x, bh.y, fieldR, 0, Math.PI * 2);
+        ctx.fillStyle = fieldGrad;
+        ctx.fill();
+
+        // distortion rings (concentric warping rings)
+        for (let ring = 0; ring < 4; ring++) {
+          const ringR = horizon * (1.8 + ring * 1.2) * massScale;
+          const rot = bhAge * (1.5 - ring * 0.3) * (ring % 2 === 0 ? 1 : -1);
+          const ringAlpha = 0.15 - ring * 0.03;
+          ctx.save();
+          ctx.translate(bh.x, bh.y);
+          ctx.rotate(rot);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, ringR, ringR * 0.35, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(168, 85, 247, ${ringAlpha})`;
+          ctx.lineWidth = 2 - ring * 0.3;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // orbiting accretion disk dots
+        for (const dot of bh.diskDots) {
+          dot.angle += dot.speed * 0.02;
+          const dx = Math.cos(dot.angle) * dot.dist * massScale;
+          const dy = Math.sin(dot.angle) * dot.dist * 0.4 * massScale;
+          ctx.beginPath();
+          ctx.arc(bh.x + dx, bh.y + dy, dot.radius, 0, Math.PI * 2);
+          ctx.fillStyle = dot.color + "cc";
+          ctx.fill();
+        }
+
+        // photon ring (bright edge)
+        const edgePulse = 0.5 + 0.2 * Math.sin(time * 4 + bh.born);
+        ctx.beginPath();
+        ctx.arc(bh.x, bh.y, horizon * 1.1, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(168, 85, 247, ${edgePulse})`;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // event horizon core (deep black with purple rim)
+        const coreGrad = ctx.createRadialGradient(bh.x, bh.y, 0, bh.x, bh.y, horizon * 1.3);
+        coreGrad.addColorStop(0, "#000000");
+        coreGrad.addColorStop(0.6, "#050008");
+        coreGrad.addColorStop(0.85, "rgba(120, 40, 200, 0.25)");
+        coreGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(bh.x, bh.y, horizon * 1.3, 0, Math.PI * 2);
+        ctx.fillStyle = coreGrad;
+        ctx.fill();
+
+        // mass indicator (small bright dot that pulses bigger with more mass)
+        if (bh.absorbed > 0) {
+          const dotR = 3 + bh.absorbed * 1.5;
+          const dotAlpha = 0.4 + 0.3 * Math.sin(time * 6);
+          const dotGrad = ctx.createRadialGradient(bh.x, bh.y, 0, bh.x, bh.y, dotR);
+          dotGrad.addColorStop(0, `rgba(255, 255, 255, ${dotAlpha})`);
+          dotGrad.addColorStop(0.5, `rgba(200, 140, 255, ${dotAlpha * 0.5})`);
+          dotGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(bh.x, bh.y, dotR, 0, Math.PI * 2);
+          ctx.fillStyle = dotGrad;
+          ctx.fill();
+        }
+      }
+
       // draw portals
       for (let pi = 0; pi < portalsRef.current.length; pi++) {
         const portal = portalsRef.current[pi];
@@ -2741,6 +2958,7 @@ function App() {
     }
     orbsRef.current = [];
     trailsRef.current = [];
+    blackHoleRef.current = null;
     setOrbCount(0);
     shakeRef.current = 20;
   }, []);
@@ -3166,6 +3384,51 @@ function App() {
     playTsunamiSound();
   }, []);
 
+  const handleBlackHole = useCallback(() => {
+    // toggle: if one exists, remove it
+    if (blackHoleRef.current) {
+      const bh = blackHoleRef.current;
+      // dismiss with burst particles
+      const now = performance.now();
+      for (let i = 0; i < BURST_PARTICLE_COUNT; i++) {
+        const angle = (Math.PI * 2 * i) / BURST_PARTICLE_COUNT;
+        burstsRef.current.push({
+          x: bh.x, y: bh.y,
+          vx: Math.cos(angle) * 2, vy: Math.sin(angle) * 2,
+          color: "#a855f7", radius: 3, born: now,
+        });
+      }
+      blackHoleRef.current = null;
+      shakeRef.current = 8;
+      return;
+    }
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    const cx = (mx > 0 || my > 0) ? mx : window.innerWidth / 2;
+    const cy = (mx > 0 || my > 0) ? my : window.innerHeight / 2;
+    // seed with a few initial disk dots
+    const dots = [];
+    for (let i = 0; i < BLACK_HOLE_DISK_DOTS; i++) {
+      dots.push({
+        angle: (Math.PI * 2 * i) / BLACK_HOLE_DISK_DOTS,
+        dist: 18 + Math.random() * 30,
+        speed: 1.5 + Math.random() * 2.5,
+        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        radius: 1.5 + Math.random() * 1.5,
+      });
+    }
+    blackHoleRef.current = {
+      x: cx, y: cy,
+      born: performance.now(),
+      absorbed: 0,
+      mass: 0,
+      diskDots: dots,
+    };
+    ripplesRef.current.push({ x: cx, y: cy, color: "#a855f7", born: performance.now() });
+    shakeRef.current = 12;
+    playBlackHoleSound();
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -3253,6 +3516,9 @@ function App() {
         case "v":
           handleToggleAudio();
           break;
+        case "1":
+          handleBlackHole();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -3260,7 +3526,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -3386,6 +3652,14 @@ function App() {
               <circle cx="12" cy="12" r="3" />
               <circle cx="12" cy="12" r="7" strokeDasharray="3 3" />
               <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleBlackHole} title="Black hole" $active={!!blackHoleRef.current}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="4" fill="currentColor" />
+              <circle cx="12" cy="12" r="7" />
+              <circle cx="12" cy="12" r="10" opacity="0.4" />
+              <path d="M2 12c1.5-2 3-2 5 0s3.5 2 5 0 3.5-2 5 0 3.5 2 5 0" opacity="0.3" />
             </svg>
           </ActionButton>
         {orbCount > 0 && (
@@ -3590,6 +3864,7 @@ function App() {
               <Shortcut><Key>U</Key><span>Flock mode (boid swarm)</span></Shortcut>
               <Shortcut><Key>J</Key><span>Color cycle</span></Shortcut>
               <Shortcut><Key>N</Key><span>Place / remove gravity well</span></Shortcut>
+              <Shortcut><Key>1</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
