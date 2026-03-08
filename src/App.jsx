@@ -66,6 +66,10 @@ function hexToHsl(hex) {
   return [h * 360, s, l];
 }
 
+function hexAlpha(a) {
+  return Math.min(255, Math.max(0, Math.round(a))).toString(16).padStart(2, "0");
+}
+
 function hslToHex(h, s, l) {
   h = ((h % 360) + 360) % 360;
   const a = s * Math.min(l, 1 - l);
@@ -390,7 +394,7 @@ function App() {
         const flicker = 0.15 + 0.15 * Math.sin(time * mote.speed * 2 + mote.phase);
         ctx.beginPath();
         ctx.arc(mote.x, mote.y, mote.size, 0, Math.PI * 2);
-        ctx.fillStyle = mote.color + Math.round(flicker * 255).toString(16).padStart(2, "0");
+        ctx.fillStyle = mote.color + hexAlpha(flicker * 255);
         ctx.fill();
       }
 
@@ -613,9 +617,9 @@ function App() {
             wave.cx, wave.cy, wave.radius + WAVE_WIDTH
           );
           ringGrad.addColorStop(0, "transparent");
-          ringGrad.addColorStop(0.3, wave.color + Math.round(alpha * 0.5 * 255).toString(16).padStart(2, "0"));
-          ringGrad.addColorStop(0.5, wave.color + Math.round(alpha * 255).toString(16).padStart(2, "0"));
-          ringGrad.addColorStop(0.7, wave.color + Math.round(alpha * 0.5 * 255).toString(16).padStart(2, "0"));
+          ringGrad.addColorStop(0.3, wave.color + hexAlpha(alpha * 0.5 * 255));
+          ringGrad.addColorStop(0.5, wave.color + hexAlpha(alpha * 255));
+          ringGrad.addColorStop(0.7, wave.color + hexAlpha(alpha * 0.5 * 255));
           ringGrad.addColorStop(1, "transparent");
           ctx.strokeStyle = ringGrad;
           ctx.lineWidth = WAVE_WIDTH * 2;
@@ -645,8 +649,8 @@ function App() {
             const lineWidth = alpha * (2 + syncBoost * 4);
 
             const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
-            grad.addColorStop(0, a.color + Math.round(lineAlpha * 255).toString(16).padStart(2, "0"));
-            grad.addColorStop(1, b.color + Math.round(lineAlpha * 255).toString(16).padStart(2, "0"));
+            grad.addColorStop(0, a.color + hexAlpha(lineAlpha * 255));
+            grad.addColorStop(1, b.color + hexAlpha(lineAlpha * 255));
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.lineTo(b.x, b.y);
@@ -660,7 +664,7 @@ function App() {
               const midX = (a.x + b.x) / 2;
               const midY = (a.y + b.y) / 2;
               const glowGrad = ctx.createRadialGradient(midX, midY, 0, midX, midY, dist * 0.3);
-              glowGrad.addColorStop(0, a.color + Math.round(glowAlpha * 255).toString(16).padStart(2, "0"));
+              glowGrad.addColorStop(0, a.color + hexAlpha(glowAlpha * 255));
               glowGrad.addColorStop(1, "transparent");
               ctx.beginPath();
               ctx.arc(midX, midY, dist * 0.3, 0, Math.PI * 2);
@@ -680,8 +684,8 @@ function App() {
         t.y += t.vy;
         const r = t.size * (1 + age * 0.5); // gently expand as they age
         const grad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r * 2.5);
-        grad.addColorStop(0, t.color + Math.round(alpha * 255).toString(16).padStart(2, "0"));
-        grad.addColorStop(0.4, t.color + Math.round(alpha * 0.4 * 255).toString(16).padStart(2, "0"));
+        grad.addColorStop(0, t.color + hexAlpha(alpha * 255));
+        grad.addColorStop(0.4, t.color + hexAlpha(alpha * 0.4 * 255));
         grad.addColorStop(1, "transparent");
         ctx.beginPath();
         ctx.arc(t.x, t.y, r * 2.5, 0, Math.PI * 2);
@@ -700,7 +704,7 @@ function App() {
           const tailY = orb.y - ny * tailLen;
           const grad = ctx.createLinearGradient(orb.x, orb.y, tailX, tailY);
           const alpha = Math.min((speed - 0.8) / 3, 0.7);
-          grad.addColorStop(0, orb.color + Math.round(alpha * 255).toString(16).padStart(2, "0"));
+          grad.addColorStop(0, orb.color + hexAlpha(alpha * 255));
           grad.addColorStop(1, "transparent");
           ctx.beginPath();
           ctx.moveTo(orb.x, orb.y);
@@ -758,7 +762,7 @@ function App() {
         // outer gravitational field glow
         const fieldAlpha = 0.04 + 0.02 * Math.sin(time * 2);
         const fieldGrad = ctx.createRadialGradient(well.x, well.y, well.radius * 2, well.x, well.y, WELL_RANGE * 0.6);
-        fieldGrad.addColorStop(0, well.color + Math.round(fieldAlpha * 255).toString(16).padStart(2, "0"));
+        fieldGrad.addColorStop(0, well.color + hexAlpha(fieldAlpha * 255));
         fieldGrad.addColorStop(1, "transparent");
         ctx.beginPath();
         ctx.arc(well.x, well.y, WELL_RANGE * 0.6, 0, Math.PI * 2);
@@ -776,7 +780,7 @@ function App() {
           ctx.rotate(rotation);
           ctx.beginPath();
           ctx.ellipse(0, 0, ringRadius, ringRadius * 0.28, 0, 0, Math.PI * 2);
-          ctx.strokeStyle = well.color + Math.round(ringAlpha * 255).toString(16).padStart(2, "0");
+          ctx.strokeStyle = well.color + hexAlpha(ringAlpha * 255);
           ctx.lineWidth = 1.8 - ring * 0.4;
           ctx.stroke();
           ctx.restore();
@@ -786,7 +790,7 @@ function App() {
         const edgePulse = 0.45 + 0.15 * Math.sin(time * 3 + well.born);
         ctx.beginPath();
         ctx.arc(well.x, well.y, well.radius * 1.15, 0, Math.PI * 2);
-        ctx.strokeStyle = well.color + Math.round(edgePulse * 255).toString(16).padStart(2, "0");
+        ctx.strokeStyle = well.color + hexAlpha(edgePulse * 255);
         ctx.lineWidth = 2;
         ctx.stroke();
 
@@ -810,7 +814,7 @@ function App() {
         const alpha = 1 - progress;
         ctx.beginPath();
         ctx.arc(ripple.x, ripple.y, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = ripple.color + Math.round(alpha * 0.6 * 255).toString(16).padStart(2, "0");
+        ctx.strokeStyle = ripple.color + hexAlpha(alpha * 0.6 * 255);
         ctx.lineWidth = 2 * (1 - progress);
         ctx.stroke();
       }
@@ -827,7 +831,7 @@ function App() {
         p.vy *= 0.96;
 
         const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 2);
-        grad.addColorStop(0, p.color + Math.round(alpha * 255).toString(16).padStart(2, "0"));
+        grad.addColorStop(0, p.color + hexAlpha(alpha * 255));
         grad.addColorStop(1, "transparent");
         ctx.beginPath();
         ctx.arc(p.x, p.y, r * 2, 0, Math.PI * 2);
@@ -842,8 +846,8 @@ function App() {
         const alpha = (1 - progress) * 0.8;
         const r = f.radius * (1.5 + progress * 3);
         const grad = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
-        grad.addColorStop(0, "#ffffff" + Math.round(alpha * 255).toString(16).padStart(2, "0"));
-        grad.addColorStop(0.4, f.color + Math.round(alpha * 0.5 * 255).toString(16).padStart(2, "0"));
+        grad.addColorStop(0, "#ffffff" + hexAlpha(alpha * 255));
+        grad.addColorStop(0.4, f.color + hexAlpha(alpha * 0.5 * 255));
         grad.addColorStop(1, "transparent");
         ctx.beginPath();
         ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
@@ -882,8 +886,8 @@ function App() {
         const alpha = (1 - progress) * 0.5 * hit.intensity;
         const size = 15 + progress * 35;
         const grad = ctx.createRadialGradient(hit.x, hit.y, 0, hit.x, hit.y, size);
-        grad.addColorStop(0, hit.color + Math.round(alpha * 255).toString(16).padStart(2, "0"));
-        grad.addColorStop(0.4, hit.color + Math.round(alpha * 0.4 * 255).toString(16).padStart(2, "0"));
+        grad.addColorStop(0, hit.color + hexAlpha(alpha * 255));
+        grad.addColorStop(0.4, hit.color + hexAlpha(alpha * 0.4 * 255));
         grad.addColorStop(1, "transparent");
         ctx.beginPath();
         ctx.arc(hit.x, hit.y, size, 0, Math.PI * 2);
