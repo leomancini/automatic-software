@@ -81,6 +81,13 @@ const SUPERNOVA_PULL_STRENGTH = 12; // how hard orbs pull inward
 const STREAK_WINDOW = 600; // ms between taps to continue a streak
 const STREAK_DECAY_DELAY = 1200; // ms after last tap before streak counter fades
 
+// ── Orbital strike ─────────────────────────────────────────────────
+const STRIKE_BEAM_MS = 400; // beam descent duration
+const STRIKE_FADE_MS = 600; // post-impact fade
+const STRIKE_ORB_COUNT = 8; // orbs spawned in explosion ring
+const STRIKE_ORB_SPEED = 5; // outward velocity of ring orbs
+const STRIKE_BEAM_WIDTH = 6; // beam core width
+
 // ── Chain combustion ────────────────────────────────────────────────
 const IGNITE_SPREAD_DIST = 65; // fire spreads within this distance
 const IGNITE_BURN_MS = 1800; // ms before orb pops
@@ -388,6 +395,38 @@ function playIgniteSound() {
   playTone(800 + Math.random() * 400, 0.15, "square", 0.03);
 }
 
+function playStrikeSound() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  // Descending beam whistle (high → low)
+  const osc1 = audioCtx.createOscillator();
+  const g1 = audioCtx.createGain();
+  osc1.type = "sine";
+  osc1.frequency.setValueAtTime(2000, t);
+  osc1.frequency.exponentialRampToValueAtTime(150, t + 0.35);
+  g1.gain.setValueAtTime(0.1, t);
+  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+  osc1.connect(g1);
+  g1.connect(masterGain);
+  osc1.start(t);
+  osc1.stop(t + 0.45);
+  // Impact boom (delayed to match beam arrival)
+  const osc2 = audioCtx.createOscillator();
+  const g2 = audioCtx.createGain();
+  osc2.type = "sine";
+  osc2.frequency.setValueAtTime(100, t + 0.35);
+  osc2.frequency.exponentialRampToValueAtTime(25, t + 0.9);
+  g2.gain.setValueAtTime(0, t);
+  g2.gain.setValueAtTime(0.22, t + 0.35);
+  g2.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+  osc2.connect(g2);
+  g2.connect(masterGain);
+  osc2.start(t);
+  osc2.stop(t + 1.05);
+  // Shimmer overtone on impact
+  playTone(900 + Math.random() * 300, 0.3, "triangle", 0.04);
+}
+
 let lastPopTime = 0;
 function playFirePop() {
   if (!audioCtx || audioMuted) return;
@@ -491,6 +530,7 @@ function App() {
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
   const supernovaRef = useRef(null); // active supernova {cx, cy, born, phase}
   const embersRef = useRef([]); // fire ember particles
+  const strikesRef = useRef([]); // active orbital strikes
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -1672,6 +1712,138 @@ function App() {
         }
       }
 
+      // draw orbital strikes
+      const totalStrikeMs = STRIKE_BEAM_MS + STRIKE_FADE_MS;
+      strikesRef.current = strikesRef.current.filter((s) => now - s.born < totalStrikeMs);
+      for (const strike of strikesRef.current) {
+        const age = now - strike.born;
+        const beamProgress = Math.min(age / STRIKE_BEAM_MS, 1); // 0→1 as beam descends
+
+        // beam head Y position (descends from above screen to target)
+        const beamHeadY = -60 + (strike.ty + 60) * beamProgress;
+        const beamTopY = -60;
+
+        if (beamProgress < 1) {
+          // ── Descending beam ──
+          // Wide outer glow
+          const glowGrad = ctx.createLinearGradient(strike.tx, beamTopY, strike.tx, beamHeadY);
+          glowGrad.addColorStop(0, "transparent");
+          glowGrad.addColorStop(0.6, `rgba(120, 180, 255, ${0.08 * beamProgress})`);
+          glowGrad.addColorStop(1, `rgba(180, 220, 255, ${0.15 * beamProgress})`);
+          ctx.beginPath();
+          ctx.moveTo(strike.tx, beamTopY);
+          ctx.lineTo(strike.tx, beamHeadY);
+          ctx.strokeStyle = glowGrad;
+          ctx.lineWidth = 40 * beamProgress;
+          ctx.lineCap = "round";
+          ctx.stroke();
+
+          // Bright core beam
+          const coreGrad = ctx.createLinearGradient(strike.tx, beamTopY, strike.tx, beamHeadY);
+          coreGrad.addColorStop(0, "transparent");
+          coreGrad.addColorStop(0.5, `rgba(200, 230, 255, ${0.4 * beamProgress})`);
+          coreGrad.addColorStop(1, `rgba(255, 255, 255, ${0.9 * beamProgress})`);
+          ctx.beginPath();
+          ctx.moveTo(strike.tx, beamTopY);
+          ctx.lineTo(strike.tx, beamHeadY);
+          ctx.strokeStyle = coreGrad;
+          ctx.lineWidth = STRIKE_BEAM_WIDTH;
+          ctx.stroke();
+
+          // Beam head glow
+          const headGrad = ctx.createRadialGradient(strike.tx, beamHeadY, 0, strike.tx, beamHeadY, 25 * beamProgress);
+          headGrad.addColorStop(0, `rgba(255, 255, 255, ${0.8 * beamProgress})`);
+          headGrad.addColorStop(0.4, `rgba(150, 200, 255, ${0.3 * beamProgress})`);
+          headGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(strike.tx, beamHeadY, 25 * beamProgress, 0, Math.PI * 2);
+          ctx.fillStyle = headGrad;
+          ctx.fill();
+        }
+
+        // ── Impact phase ──
+        if (beamProgress >= 1) {
+          const fadeAge = age - STRIKE_BEAM_MS;
+          const fadeProgress = fadeAge / STRIKE_FADE_MS; // 0→1 as impact fades
+
+          // Spawn orbs + shockwave on first impact frame
+          if (!strike.spawned) {
+            strike.spawned = true;
+            for (let i = 0; i < STRIKE_ORB_COUNT; i++) {
+              const angle = (Math.PI * 2 * i) / STRIKE_ORB_COUNT;
+              const orb = createOrb(strike.tx, strike.ty);
+              orb.vx = Math.cos(angle) * STRIKE_ORB_SPEED;
+              orb.vy = Math.sin(angle) * STRIKE_ORB_SPEED;
+              orb.radius = 6 + Math.random() * 8;
+              orbsRef.current.push(orb);
+            }
+            // Push existing nearby orbs outward
+            for (const orb of orbs) {
+              const dx = orb.x - strike.tx;
+              const dy = orb.y - strike.ty;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+              if (dist < 200) {
+                const force = (1 - dist / 200) * 8;
+                orb.vx += (dx / dist) * force;
+                orb.vy += (dy / dist) * force;
+              }
+            }
+            // Shockwave from impact
+            wavesRef.current.push({
+              cx: strike.tx, cy: strike.ty,
+              radius: 0, color: "#78b4ff",
+              generation: 0, hitOrbs: new Set(), delay: 0,
+            });
+            shakeRef.current = Math.max(shakeRef.current, 22);
+            setOrbCount(orbsRef.current.length);
+          }
+
+          const alpha = 1 - fadeProgress;
+
+          // Impact flash
+          if (fadeProgress < 0.3) {
+            const flashAlpha = (1 - fadeProgress / 0.3) * 0.9;
+            const flashR = 60 + fadeProgress * 200;
+            const flashGrad = ctx.createRadialGradient(strike.tx, strike.ty, 0, strike.tx, strike.ty, flashR);
+            flashGrad.addColorStop(0, `rgba(255, 255, 255, ${flashAlpha})`);
+            flashGrad.addColorStop(0.3, `rgba(150, 200, 255, ${flashAlpha * 0.5})`);
+            flashGrad.addColorStop(1, "transparent");
+            ctx.beginPath();
+            ctx.arc(strike.tx, strike.ty, flashR, 0, Math.PI * 2);
+            ctx.fillStyle = flashGrad;
+            ctx.fill();
+          }
+
+          // Lingering beam column (fading out)
+          if (alpha > 0.1) {
+            ctx.beginPath();
+            ctx.moveTo(strike.tx, -60);
+            ctx.lineTo(strike.tx, strike.ty);
+            ctx.strokeStyle = `rgba(150, 200, 255, ${alpha * 0.15})`;
+            ctx.lineWidth = 20 * alpha;
+            ctx.lineCap = "round";
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(strike.tx, -60);
+            ctx.lineTo(strike.tx, strike.ty);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.4})`;
+            ctx.lineWidth = 3 * alpha;
+            ctx.stroke();
+          }
+
+          // Ground scorch glow
+          const scorchAlpha = alpha * 0.3;
+          const scorchGrad = ctx.createRadialGradient(strike.tx, strike.ty, 0, strike.tx, strike.ty, 80);
+          scorchGrad.addColorStop(0, `rgba(120, 180, 255, ${scorchAlpha})`);
+          scorchGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(strike.tx, strike.ty, 80, 0, Math.PI * 2);
+          ctx.fillStyle = scorchGrad;
+          ctx.fill();
+        }
+      }
+
       // draw gravity wells
       for (const well of wellsRef.current) {
         const wellAge = (now - well.born) / 1000;
@@ -2562,6 +2734,19 @@ function App() {
     playIgniteSound();
   }, []);
 
+  const handleStrike = useCallback(() => {
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    const tx = (mx > 0 || my > 0) ? mx : window.innerWidth / 2;
+    const ty = (mx > 0 || my > 0) ? my : window.innerHeight / 2;
+    strikesRef.current.push({
+      tx, ty,
+      born: performance.now(),
+      spawned: false,
+    });
+    playStrikeSound();
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -2634,6 +2819,9 @@ function App() {
         case "i":
           handleIgnite();
           break;
+        case "k":
+          handleStrike();
+          break;
         case "v":
           handleToggleAudio();
           break;
@@ -2644,7 +2832,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -2662,7 +2850,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to spray &middot; drag orb to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
-        <Hint>keys: space b q e i f t n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k f t n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -2734,6 +2922,17 @@ function App() {
               <path d="M12 22c-4-3-8-7.5-8-12a8 8 0 0 1 14-5.3" />
               <path d="M12 22c2-2 4-5 4-8a4 4 0 0 0-7-2.6" />
               <circle cx="12" cy="14" r="1.5" fill="currentColor" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleStrike} title="Orbital strike">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="1" x2="12" y2="11" />
+              <line x1="8" y1="5" x2="12" y2="11" />
+              <line x1="16" y1="5" x2="12" y2="11" />
+              <circle cx="12" cy="15" r="4" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="5" y1="15" x2="1" y2="15" />
+              <line x1="23" y1="15" x2="19" y2="15" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handlePlaceWell} title="Place gravity well">
@@ -2917,6 +3116,7 @@ function App() {
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
               <Shortcut><Key>I</Key><span>Ignite (chain combustion)</span></Shortcut>
+              <Shortcut><Key>K</Key><span>Orbital strike</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
