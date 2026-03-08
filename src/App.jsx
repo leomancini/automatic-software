@@ -1013,6 +1013,8 @@ function App() {
   const [showModes, setShowModes] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
+  const [longExposure, setLongExposure] = useState(false);
+  const longExposureRef = useRef(false);
   const [repelMode, setRepelMode] = useState(false);
   const repelModeRef = useRef(false);
   const [orbitMode, setOrbitMode] = useState(false);
@@ -1699,7 +1701,8 @@ function App() {
 
       // fade trail background (skip in paint mode for persistent trails)
       if (!paintModeRef.current) {
-        ctx.fillStyle = "rgba(15, 15, 26, 0.25)";
+        const fadeAlpha = longExposureRef.current ? 0.035 : 0.25;
+        ctx.fillStyle = `rgba(15, 15, 26, ${fadeAlpha})`;
         ctx.fillRect(0, 0, W, H);
       }
 
@@ -5284,6 +5287,13 @@ function App() {
     });
   }, []);
 
+  const handleLongExposure = useCallback(() => {
+    setLongExposure((prev) => {
+      longExposureRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handlePaintMode = useCallback(() => {
     setPaintMode((prev) => {
       paintModeRef.current = !prev;
@@ -5869,6 +5879,9 @@ function App() {
         case "k":
           handleSaveCanvas();
           break;
+        case "j":
+          handleLongExposure();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -5876,7 +5889,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -5939,6 +5952,7 @@ function App() {
           {attractMode && <ModePill $color="#f093fb">magnet</ModePill>}
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
+          {longExposure && <ModePill $color="#feb47b">long exposure</ModePill>}
           {autoPlay && <ModePill $color="#43e97b">autoplay</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -6061,6 +6075,13 @@ function App() {
           )}
         </ButtonRow>
         </ButtonGroup>
+      <ExposureButton onClick={handleLongExposure} title="Long exposure (J)" $active={longExposure}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 2a10 10 0 0 1 0 20" fill="currentColor" opacity="0.3" />
+          <circle cx="12" cy="12" r="4" />
+        </svg>
+      </ExposureButton>
       <SaveButton onClick={handleSaveCanvas} title="Save screenshot (K)">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -6127,6 +6148,7 @@ function App() {
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
+              <Shortcut><Key>J</Key><span>Long exposure (trail mode)</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Autoplay (ambient mode)</span></Shortcut>
               <Shortcut><Key>K</Key><span>Save screenshot</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
@@ -6378,6 +6400,38 @@ const MuteButton = styled.button`
   @media (max-width: 600px) {
     top: 16px;
     right: 56px;
+    width: 32px;
+    height: 32px;
+  }
+`;
+
+const ExposureButton = styled.button`
+  position: fixed;
+  top: 24px;
+  right: 156px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid ${(p) => p.$active ? "rgba(254, 180, 123, 0.6)" : "rgba(102, 126, 234, 0.3)"};
+  background: ${(p) => p.$active ? "rgba(254, 180, 123, 0.15)" : "rgba(15, 15, 26, 0.7)"};
+  color: ${(p) => p.$active ? "#feb47b" : "rgba(102, 126, 234, 0.7)"};
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(254, 180, 123, 0.15);
+    color: #feb47b;
+    border-color: rgba(254, 180, 123, 0.6);
+    transform: scale(1.1);
+  }
+
+  @media (max-width: 600px) {
+    top: 16px;
+    right: 136px;
     width: 32px;
     height: 32px;
   }
