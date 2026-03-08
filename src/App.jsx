@@ -1060,6 +1060,7 @@ function App() {
   const [slowMo, setSlowMo] = useState(false);
   const slowMoRef = useRef(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showModes, setShowModes] = useState(false);
   const [repelMode, setRepelMode] = useState(false);
   const repelModeRef = useRef(false);
   const [orbitMode, setOrbitMode] = useState(false);
@@ -6711,110 +6712,21 @@ function App() {
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
+        {showModes && orbCount > 0 && (
         <ButtonRow>
-          <ActionButton onClick={handleRandomEffect} title="Random effect" $highlight>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="4" y="4" width="16" height="16" rx="3" />
-              <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" />
-              <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" />
-              <circle cx="12" cy="12" r="1.2" fill="currentColor" />
-              <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor" />
-              <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleBurst} title="Burst spawn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" />
-              <line x1="12" y1="2" x2="12" y2="6" />
-              <line x1="12" y1="18" x2="12" y2="22" />
-              <line x1="2" y1="12" x2="6" y2="12" />
-              <line x1="18" y1="12" x2="22" y2="12" />
-              <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
-              <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
-              <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
-              <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleMeteorShower} title="Meteor shower">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="4" y1="2" x2="10" y2="14" />
-              <line x1="12" y1="1" x2="14" y2="11" />
-              <line x1="20" y1="3" x2="16" y2="13" />
-              <circle cx="10" cy="15" r="1.5" fill="currentColor" />
-              <circle cx="14" cy="12" r="1.5" fill="currentColor" />
-              <circle cx="16" cy="14" r="1.5" fill="currentColor" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleFirework} title="Firework">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="22" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12" y2="4" />
-              <line x1="12" y1="8" x2="8" y2="4" />
-              <line x1="12" y1="8" x2="16" y2="4" />
-              <line x1="12" y1="8" x2="6" y2="8" />
-              <line x1="12" y1="8" x2="18" y2="8" />
-              <line x1="12" y1="8" x2="8" y2="12" />
-              <line x1="12" y1="8" x2="16" y2="12" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handlePlaceWell} title="Place gravity well">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" />
-              <circle cx="12" cy="12" r="7" strokeDasharray="3 3" />
-              <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleSupernova} title="Supernova">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" fill="currentColor" />
-              <line x1="12" y1="1" x2="12" y2="4" />
-              <line x1="12" y1="20" x2="12" y2="23" />
-              <line x1="1" y1="12" x2="4" y2="12" />
-              <line x1="20" y1="12" x2="23" y2="12" />
-              <line x1="4.22" y1="4.22" x2="6.34" y2="6.34" />
-              <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
-              <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
-              <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handlePaintMode} title="Paint mode" $active={paintMode}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 19l7-7 3 3-7 7-3-3z" />
-              <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-              <path d="M2 2l7.586 7.586" />
-              <circle cx="11" cy="11" r="2" />
-            </svg>
-          </ActionButton>
-          {orbCount > 0 && (
-            <>
-            <ActionButton onClick={handleWave} title="Shockwave">
+            <ActionButton onClick={handlePaintMode} title="Paint mode" $active={paintMode}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 19l7-7 3 3-7 7-3-3z" />
+                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+                <path d="M2 2l7.586 7.586" />
+                <circle cx="11" cy="11" r="2" />
+              </svg>
+            </ActionButton>
+            <ActionButton onClick={handlePlaceWell} title="Place gravity well">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3" />
-                <circle cx="12" cy="12" r="7" opacity="0.6" />
-                <circle cx="12" cy="12" r="11" opacity="0.3" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleLightning} title="Chain lightning">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleScatter} title="Scatter orbs">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="12" x2="5" y2="5" />
-                <polyline points="5 11 5 5 11 5" />
-                <line x1="12" y1="12" x2="19" y2="5" />
-                <polyline points="13 5 19 5 19 11" />
-                <line x1="12" y1="12" x2="5" y2="19" />
-                <polyline points="11 19 5 19 5 13" />
-                <line x1="12" y1="12" x2="19" y2="19" />
-                <polyline points="19 13 19 19 13 19" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleSpin} title="Spin orbs">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 12a9 9 0 1 1-6.22-8.56" />
-                <polyline points="21 3 21 9 15 9" />
+                <circle cx="12" cy="12" r="7" strokeDasharray="3 3" />
+                <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleGather} title="Gather orbs">
@@ -6858,16 +6770,98 @@ function App() {
                 <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)" />
               </svg>
             </ActionButton>
-            <ActionButton onClick={handleRewind} title="Time rewind">
+        </ButtonRow>
+        )}
+        <ButtonRow>
+          <ActionButton onClick={handleBurst} title="Burst spawn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <line x1="12" y1="2" x2="12" y2="6" />
+              <line x1="12" y1="18" x2="12" y2="22" />
+              <line x1="2" y1="12" x2="6" y2="12" />
+              <line x1="18" y1="12" x2="22" y2="12" />
+              <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+              <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+              <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+              <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleMeteorShower} title="Meteor shower">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="2" x2="10" y2="14" />
+              <line x1="12" y1="1" x2="14" y2="11" />
+              <line x1="20" y1="3" x2="16" y2="13" />
+              <circle cx="10" cy="15" r="1.5" fill="currentColor" />
+              <circle cx="14" cy="12" r="1.5" fill="currentColor" />
+              <circle cx="16" cy="14" r="1.5" fill="currentColor" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleFirework} title="Firework">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="22" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12" y2="4" />
+              <line x1="12" y1="8" x2="8" y2="4" />
+              <line x1="12" y1="8" x2="16" y2="4" />
+              <line x1="12" y1="8" x2="6" y2="8" />
+              <line x1="12" y1="8" x2="18" y2="8" />
+              <line x1="12" y1="8" x2="8" y2="12" />
+              <line x1="12" y1="8" x2="16" y2="12" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleSupernova} title="Supernova">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" fill="currentColor" />
+              <line x1="12" y1="1" x2="12" y2="4" />
+              <line x1="12" y1="20" x2="12" y2="23" />
+              <line x1="1" y1="12" x2="4" y2="12" />
+              <line x1="20" y1="12" x2="23" y2="12" />
+              <line x1="4.22" y1="4.22" x2="6.34" y2="6.34" />
+              <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
+              <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
+              <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
+            </svg>
+          </ActionButton>
+          {orbCount > 0 && (
+            <>
+            <ActionButton onClick={handleWave} title="Shockwave">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="11 19 2 12 11 5 11 19" />
-                <polygon points="22 19 13 12 22 5 22 19" />
+                <circle cx="12" cy="12" r="3" />
+                <circle cx="12" cy="12" r="7" opacity="0.6" />
+                <circle cx="12" cy="12" r="11" opacity="0.3" />
+              </svg>
+            </ActionButton>
+            <ActionButton onClick={handleLightning} title="Chain lightning">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
+            </ActionButton>
+            <ActionButton onClick={handleScatter} title="Scatter orbs">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="12" x2="5" y2="5" />
+                <polyline points="5 11 5 5 11 5" />
+                <line x1="12" y1="12" x2="19" y2="5" />
+                <polyline points="13 5 19 5 19 11" />
+                <line x1="12" y1="12" x2="5" y2="19" />
+                <polyline points="11 19 5 19 5 13" />
+                <line x1="12" y1="12" x2="19" y2="19" />
+                <polyline points="19 13 19 19 13 19" />
+              </svg>
+            </ActionButton>
+            <ActionButton onClick={handleSpin} title="Spin orbs">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12a9 9 0 1 1-6.22-8.56" />
+                <polyline points="21 3 21 9 15 9" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </ActionButton>
+            <ActionButton onClick={() => setShowModes(m => !m)} title={showModes ? "Hide modes" : "More modes"} $active={showModes}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showModes ? "rotate(180deg)" : "none", transition: "transform 0.2s ease" }}>
+                <polyline points="6 15 12 9 18 15" />
               </svg>
             </ActionButton>
             </>
