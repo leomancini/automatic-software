@@ -120,6 +120,9 @@ const FLOCK_ALIGNMENT_FORCE = 0.05; // match neighbor velocity direction
 const FLOCK_COHESION_FORCE = 0.02; // steer toward neighbor center of mass
 const FLOCK_MAX_SPEED = 4; // speed cap to keep flock coherent
 
+// ── Kaleidoscope mode ───────────────────────────────────────────────
+const KALEIDOSCOPE_FOLDS = 4; // 4-fold symmetry (mirrors across X and Y axes)
+
 // ── Tsunami wave ────────────────────────────────────────────────────
 const TSUNAMI_SPEED = 10; // px per frame — fast sweep
 const TSUNAMI_WIDTH = 100; // wall thickness in px
@@ -695,6 +698,8 @@ function App() {
   const attractModeRef = useRef(false);
   const [flockMode, setFlockMode] = useState(false);
   const flockModeRef = useRef(false);
+  const [kaleidoscopeMode, setKaleidoscopeMode] = useState(false);
+  const kaleidoscopeModeRef = useRef(false);
   const blackHoleRef = useRef(null); // {x, y, born, absorbed, mass, diskDots[]}
   const longPressRef = useRef(null);
   const [audioEnabled, setAudioEnabled] = useState(true);
@@ -810,13 +815,32 @@ function App() {
           const interval = orbsRef.current.length > 200 ? 30 : 18;
           if (dist >= interval) {
             sprayActiveRef.current = true;
-            const orb = createOrb(pos.x, pos.y);
-            orb.radius = 4 + Math.random() * 3;
             const nx = dist > 0 ? -dy / dist : 0;
             const ny = dist > 0 ? dx / dist : 0;
-            orb.vx = nx * (Math.random() - 0.5) * 0.8;
-            orb.vy = ny * (Math.random() - 0.5) * 0.8;
-            orbsRef.current.push(orb);
+            const svx = nx * (Math.random() - 0.5) * 0.8;
+            const svy = ny * (Math.random() - 0.5) * 0.8;
+
+            // Collect spray points: original + kaleidoscope mirrors
+            const sprayPts = [{ x: pos.x, y: pos.y, vx: svx, vy: svy }];
+            if (kaleidoscopeModeRef.current) {
+              const W = window.innerWidth;
+              const H = window.innerHeight;
+              const scx = W / 2;
+              const scy = H / 2;
+              const sdx = pos.x - scx;
+              const sdy = pos.y - scy;
+              sprayPts.push({ x: scx - sdx, y: scy + sdy, vx: -svx, vy: svy });
+              sprayPts.push({ x: scx + sdx, y: scy - sdy, vx: svx, vy: -svy });
+              sprayPts.push({ x: scx - sdx, y: scy - sdy, vx: -svx, vy: -svy });
+            }
+
+            for (const sp of sprayPts) {
+              const orb = createOrb(sp.x, sp.y);
+              orb.radius = 4 + Math.random() * 3;
+              orb.vx = sp.vx;
+              orb.vy = sp.vy;
+              orbsRef.current.push(orb);
+            }
             lastSprayPosRef.current = { x: pos.x, y: pos.y };
             setOrbCount(orbsRef.current.length);
             playSpray(pos.y, window.innerHeight);
@@ -888,17 +912,36 @@ function App() {
       for (let i = 0; i < spawnCount; i++) {
         const angle = spawnCount > 1 ? (Math.PI * 2 * i) / spawnCount : 0;
         const spread = spawnCount > 1 ? 12 + streak : 0;
-        const orb = createOrb(
-          pos.x + Math.cos(angle) * spread,
-          pos.y + Math.sin(angle) * spread
-        );
-        orb.radius += radiusBonus;
-        if (spawnCount > 1) {
-          orb.vx += Math.cos(angle) * (1 + streak * 0.3);
-          orb.vy += Math.sin(angle) * (1 + streak * 0.3);
+        const ox = pos.x + Math.cos(angle) * spread;
+        const oy = pos.y + Math.sin(angle) * spread;
+        const ovx = spawnCount > 1 ? Math.cos(angle) * (1 + streak * 0.3) : 0;
+        const ovy = spawnCount > 1 ? Math.sin(angle) * (1 + streak * 0.3) : 0;
+
+        // Collect spawn points: original + kaleidoscope mirrors
+        const points = [{ x: ox, y: oy, vx: ovx, vy: ovy }];
+        if (kaleidoscopeModeRef.current) {
+          const W = window.innerWidth;
+          const H = window.innerHeight;
+          const cx = W / 2;
+          const cy = H / 2;
+          const dx = ox - cx;
+          const dy = oy - cy;
+          // Mirror across Y axis
+          points.push({ x: cx - dx, y: cy + dy, vx: -ovx, vy: ovy });
+          // Mirror across X axis
+          points.push({ x: cx + dx, y: cy - dy, vx: ovx, vy: -ovy });
+          // Mirror across both axes
+          points.push({ x: cx - dx, y: cy - dy, vx: -ovx, vy: -ovy });
         }
-        orbsRef.current.push(orb);
-        ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+
+        for (const pt of points) {
+          const orb = createOrb(pt.x, pt.y);
+          orb.radius += radiusBonus;
+          orb.vx += pt.vx;
+          orb.vy += pt.vy;
+          orbsRef.current.push(orb);
+          ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+        }
       }
 
       // Streak 5+: auto-shockwave from tap point
@@ -3061,6 +3104,13 @@ function App() {
     });
   }, []);
 
+  const handleKaleidoscopeMode = useCallback(() => {
+    setKaleidoscopeMode((prev) => {
+      kaleidoscopeModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleShuffle = useCallback(() => {
     const now = performance.now();
     for (const orb of orbsRef.current) {
@@ -3519,6 +3569,9 @@ function App() {
         case "1":
           handleBlackHole();
           break;
+        case "2":
+          handleKaleidoscopeMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -3526,7 +3579,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -3544,7 +3597,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to spray &middot; drag orb to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
-        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j s p m v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j 2 s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -3561,6 +3614,7 @@ function App() {
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {colorCycle && <ModePill $color="#667eea">rainbow</ModePill>}
           {flockMode && <ModePill $color="#43e97b">flock</ModePill>}
+          {kaleidoscopeMode && <ModePill $color="#f093fb">kaleidoscope</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -3757,6 +3811,16 @@ function App() {
               <circle cx="15" cy="13" r="1.5" fill="currentColor" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleKaleidoscopeMode} title="Kaleidoscope mode" $active={kaleidoscopeMode}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="2" x2="12" y2="22" />
+              <line x1="2" y1="12" x2="22" y2="12" />
+              <circle cx="7" cy="7" r="2" />
+              <circle cx="17" cy="7" r="2" />
+              <circle cx="7" cy="17" r="2" />
+              <circle cx="17" cy="17" r="2" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleColorCycle} title="Color cycle" $active={colorCycle}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="5" />
@@ -3865,6 +3929,7 @@ function App() {
               <Shortcut><Key>J</Key><span>Color cycle</span></Shortcut>
               <Shortcut><Key>N</Key><span>Place / remove gravity well</span></Shortcut>
               <Shortcut><Key>1</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
+              <Shortcut><Key>2</Key><span>Kaleidoscope mode (4-fold symmetry)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
