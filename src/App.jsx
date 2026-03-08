@@ -71,6 +71,12 @@ const PORTAL_RADIUS = 22;
 const PORTAL_TELEPORT_DIST = 28; // orb enters portal at this distance
 const PORTAL_COOLDOWN = 500; // ms before orb can re-enter a portal
 
+// ── Supernova ──────────────────────────────────────────────────────
+const SUPERNOVA_IMPLODE_MS = 600; // ms for implosion phase
+const SUPERNOVA_RING_COUNT = 16; // orbs spawned in explosion ring
+const SUPERNOVA_RING_SPEED = 8; // outward velocity of ring orbs
+const SUPERNOVA_PULL_STRENGTH = 12; // how hard orbs pull inward
+
 // ── Tap streak / combo system ───────────────────────────────────────
 const STREAK_WINDOW = 600; // ms between taps to continue a streak
 const STREAK_DECAY_DELAY = 1200; // ms after last tap before streak counter fades
@@ -303,6 +309,50 @@ function playMeteorSound() {
   playTone(60, 0.6, "sine", 0.08);
 }
 
+function playSupernovaSound() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  // Phase 1: deep implosion rumble (rising pitch)
+  const osc1 = audioCtx.createOscillator();
+  const g1 = audioCtx.createGain();
+  osc1.type = "sine";
+  osc1.frequency.setValueAtTime(30, t);
+  osc1.frequency.exponentialRampToValueAtTime(200, t + 0.5);
+  g1.gain.setValueAtTime(0.2, t);
+  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+  osc1.connect(g1);
+  g1.connect(masterGain);
+  osc1.start(t);
+  osc1.stop(t + 0.65);
+  // Phase 2: massive detonation boom (delayed)
+  const osc2 = audioCtx.createOscillator();
+  const g2 = audioCtx.createGain();
+  osc2.type = "sine";
+  osc2.frequency.setValueAtTime(120, t + 0.5);
+  osc2.frequency.exponentialRampToValueAtTime(20, t + 1.3);
+  g2.gain.setValueAtTime(0, t);
+  g2.gain.setValueAtTime(0.25, t + 0.5);
+  g2.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
+  osc2.connect(g2);
+  g2.connect(masterGain);
+  osc2.start(t);
+  osc2.stop(t + 1.55);
+  // High shimmer overtones
+  const osc3 = audioCtx.createOscillator();
+  const g3 = audioCtx.createGain();
+  osc3.type = "triangle";
+  osc3.frequency.setValueAtTime(600, t + 0.5);
+  osc3.frequency.exponentialRampToValueAtTime(1800, t + 0.8);
+  osc3.frequency.exponentialRampToValueAtTime(400, t + 1.2);
+  g3.gain.setValueAtTime(0, t);
+  g3.gain.setValueAtTime(0.08, t + 0.5);
+  g3.gain.exponentialRampToValueAtTime(0.001, t + 1.3);
+  osc3.connect(g3);
+  g3.connect(masterGain);
+  osc3.start(t);
+  osc3.stop(t + 1.35);
+}
+
 function generateBolt(x1, y1, x2, y2, segments = LIGHTNING_SEGMENTS) {
   const points = [{ x: x1, y: y1 }];
   const dx = x2 - x1;
@@ -395,6 +445,7 @@ function App() {
   const portalsRef = useRef([]);
   const meteorTrailsRef = useRef([]);
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
+  const supernovaRef = useRef(null); // active supernova {cx, cy, born, phase}
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -1652,6 +1703,144 @@ function App() {
         }
       }
 
+      // supernova effect (two-phase: implode then explode)
+      if (supernovaRef.current) {
+        const sn = supernovaRef.current;
+        const age = now - sn.born;
+
+        if (sn.phase === "implode" && age < SUPERNOVA_IMPLODE_MS) {
+          // Phase 1: pull all orbs toward center with accelerating force
+          const progress = age / SUPERNOVA_IMPLODE_MS;
+          const force = SUPERNOVA_PULL_STRENGTH * (0.3 + progress * 2);
+          for (const orb of orbs) {
+            if (orb === dragRef.current) continue;
+            const dx = sn.cx - orb.x;
+            const dy = sn.cy - orb.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            orb.vx += (dx / dist) * force * 0.15;
+            orb.vy += (dy / dist) * force * 0.15;
+            orb.vx *= 0.92;
+            orb.vy *= 0.92;
+          }
+
+          // Imploding visual: concentric rings closing in
+          const ringCount = 3;
+          for (let ri = 0; ri < ringCount; ri++) {
+            const phase = (ri / ringCount + progress) % 1;
+            const maxR = Math.min(W, H) * 0.5;
+            const ringR = maxR * (1 - phase);
+            const ringAlpha = (1 - progress) * 0.3 * (1 - phase);
+            if (ringAlpha > 0.01 && ringR > 5) {
+              ctx.beginPath();
+              ctx.arc(sn.cx, sn.cy, ringR, 0, Math.PI * 2);
+              ctx.strokeStyle = `rgba(200, 180, 255, ${ringAlpha})`;
+              ctx.lineWidth = 2 + phase * 3;
+              ctx.stroke();
+            }
+          }
+
+          // Growing core glow
+          const coreR = 10 + progress * 50;
+          const coreAlpha = progress * 0.5;
+          const coreGrad = ctx.createRadialGradient(sn.cx, sn.cy, 0, sn.cx, sn.cy, coreR);
+          coreGrad.addColorStop(0, `rgba(255, 255, 255, ${coreAlpha})`);
+          coreGrad.addColorStop(0.3, `rgba(200, 160, 255, ${coreAlpha * 0.5})`);
+          coreGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(sn.cx, sn.cy, coreR, 0, Math.PI * 2);
+          ctx.fillStyle = coreGrad;
+          ctx.fill();
+
+          shakeRef.current = Math.max(shakeRef.current, 3 + progress * 12);
+        } else if (sn.phase === "implode" && age >= SUPERNOVA_IMPLODE_MS) {
+          // Transition to explosion phase
+          sn.phase = "explode";
+          sn.explodeBorn = now;
+
+          // Destroy all existing orbs with burst particles
+          for (const orb of orbsRef.current) {
+            for (let i = 0; i < 4; i++) {
+              const angle = (Math.PI * 2 * i) / 4;
+              burstsRef.current.push({
+                x: orb.x, y: orb.y,
+                vx: Math.cos(angle) * (2 + Math.random() * 2),
+                vy: Math.sin(angle) * (2 + Math.random() * 2),
+                color: orb.color, radius: orb.radius * 0.3, born: now,
+              });
+            }
+          }
+          orbsRef.current = [];
+
+          // Spawn explosion ring of new orbs
+          for (let i = 0; i < SUPERNOVA_RING_COUNT; i++) {
+            const angle = (Math.PI * 2 * i) / SUPERNOVA_RING_COUNT + (Math.random() - 0.5) * 0.2;
+            const orb = createOrb(sn.cx, sn.cy);
+            orb.radius = 8 + Math.random() * 10;
+            orb.vx = Math.cos(angle) * (SUPERNOVA_RING_SPEED + Math.random() * 3);
+            orb.vy = Math.sin(angle) * (SUPERNOVA_RING_SPEED + Math.random() * 3);
+            orbsRef.current.push(orb);
+            ripplesRef.current.push({ x: sn.cx, y: sn.cy, color: orb.color, born: now });
+          }
+
+          // Massive flash
+          flashesRef.current.push({
+            x: sn.cx, y: sn.cy, color: "#c8a0ff",
+            radius: 60, born: now,
+          });
+
+          // Massive shockwave
+          wavesRef.current.push({
+            cx: sn.cx, cy: sn.cy, radius: 0,
+            color: "#c8a0ff", generation: 0,
+            hitOrbs: new Set(), delay: 0,
+          });
+
+          shakeRef.current = 40;
+          setOrbCount(orbsRef.current.length);
+        }
+
+        if (sn.phase === "explode") {
+          const explodeAge = now - sn.explodeBorn;
+
+          // Expanding supernova glow (lasts 1.5 seconds)
+          if (explodeAge < 1500) {
+            const progress = explodeAge / 1500;
+            const glowR = 30 + progress * Math.min(W, H) * 0.6;
+            const glowAlpha = (1 - progress) * 0.3;
+            const glowGrad = ctx.createRadialGradient(sn.cx, sn.cy, 0, sn.cx, sn.cy, glowR);
+            glowGrad.addColorStop(0, `rgba(255, 255, 255, ${glowAlpha * 0.8})`);
+            glowGrad.addColorStop(0.15, `rgba(200, 160, 255, ${glowAlpha * 0.5})`);
+            glowGrad.addColorStop(0.4, `rgba(118, 75, 162, ${glowAlpha * 0.3})`);
+            glowGrad.addColorStop(1, "transparent");
+            ctx.beginPath();
+            ctx.arc(sn.cx, sn.cy, glowR, 0, Math.PI * 2);
+            ctx.fillStyle = glowGrad;
+            ctx.fill();
+
+            // Radial light rays
+            const rayCount = 12;
+            for (let r = 0; r < rayCount; r++) {
+              const rayAngle = (Math.PI * 2 * r) / rayCount + progress * 0.5;
+              const rayLen = glowR * (0.5 + 0.5 * Math.sin(progress * 10 + r));
+              const rayAlpha = (1 - progress) * 0.15;
+              ctx.beginPath();
+              ctx.moveTo(sn.cx, sn.cy);
+              ctx.lineTo(
+                sn.cx + Math.cos(rayAngle) * rayLen,
+                sn.cy + Math.sin(rayAngle) * rayLen
+              );
+              ctx.strokeStyle = `rgba(200, 180, 255, ${rayAlpha})`;
+              ctx.lineWidth = 2.5 * (1 - progress);
+              ctx.lineCap = "round";
+              ctx.stroke();
+            }
+          } else {
+            // Supernova complete
+            supernovaRef.current = null;
+          }
+        }
+      }
+
       // draw vignette overlay for cinematic depth
       const vignetteGrad = ctx.createRadialGradient(W / 2, H / 2, W * 0.25, W / 2, H / 2, W * 0.75);
       vignetteGrad.addColorStop(0, "transparent");
@@ -2127,6 +2316,20 @@ function App() {
     playMeteorSound();
   }, []);
 
+  const handleSupernova = useCallback(() => {
+    if (supernovaRef.current) return; // already in progress
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    const cx = (mx > 0 || my > 0) ? mx : window.innerWidth / 2;
+    const cy = (mx > 0 || my > 0) ? my : window.innerHeight / 2;
+    supernovaRef.current = {
+      cx, cy,
+      born: performance.now(),
+      phase: "implode",
+    };
+    playSupernovaSound();
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -2193,6 +2396,9 @@ function App() {
         case "q":
           handleMeteorShower();
           break;
+        case "e":
+          handleSupernova();
+          break;
         case "v":
           handleToggleAudio();
           break;
@@ -2203,7 +2409,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -2221,7 +2427,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big orbs collapse</Hint>
-        <Hint>keys: space b q f t n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e f t n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -2261,6 +2467,19 @@ function App() {
               <circle cx="10" cy="15" r="1.5" fill="currentColor" />
               <circle cx="14" cy="12" r="1.5" fill="currentColor" />
               <circle cx="16" cy="14" r="1.5" fill="currentColor" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleSupernova} title="Supernova">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" fill="currentColor" />
+              <line x1="12" y1="1" x2="12" y2="4" />
+              <line x1="12" y1="20" x2="12" y2="23" />
+              <line x1="1" y1="12" x2="4" y2="12" />
+              <line x1="20" y1="12" x2="23" y2="12" />
+              <line x1="4.22" y1="4.22" x2="6.34" y2="6.34" />
+              <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
+              <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
+              <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleFirework} title="Firework">
@@ -2453,6 +2672,7 @@ function App() {
               <hr />
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
+              <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
