@@ -115,6 +115,14 @@ const FORMATION_SPRING = 0.08;
 const FORMATION_DAMPING = 0.82;
 const FORMATION_HOLD_MS = 3000;
 
+// ── Tornado ─────────────────────────────────────────────────────────
+const TORNADO_DURATION = 4500; // ms to cross the screen
+const TORNADO_RADIUS = 120; // pull/capture radius
+const TORNADO_PULL = 0.3; // inward pull strength
+const TORNADO_SPIN_FORCE = 0.15; // tangential spin
+const TORNADO_FLING_SPEED = 10; // ejection speed when orbs reach center
+const TORNADO_DEBRIS_MAX = 80; // max visual debris particles
+
 function getFormationTargets(n, type, W, H) {
   const cx = W / 2, cy = H / 2;
   const targets = [];
@@ -999,6 +1007,7 @@ function App() {
   const tapSparklesRef = useRef([]); // tiny sparkle particles from taps
   const formationRef = useRef(null); // {targets, born, type}
   const formationIndexRef = useRef(0);
+  const tornadoRef = useRef(null); // {x, y, born, dir, debris[]}
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -4255,6 +4264,123 @@ function App() {
         }
       }
 
+      // ── Tornado ──────────────────────────────────────────────────
+      if (tornadoRef.current) {
+        const tor = tornadoRef.current;
+        const torAge = now - tor.born;
+        const torProgress = torAge / TORNADO_DURATION;
+
+        if (torProgress >= 1) {
+          tornadoRef.current = null;
+        } else {
+          // Move tornado across screen
+          const startX = tor.dir > 0 ? -60 : W + 60;
+          const endX = tor.dir > 0 ? W + 60 : -60;
+          tor.x = startX + (endX - startX) * torProgress;
+          // Slight vertical wobble
+          tor.y = H * 0.55 + Math.sin(torAge * 0.003) * 30;
+
+          // Apply forces to nearby orbs
+          for (const orb of orbs) {
+            if (orb === dragRef.current) continue;
+            const dx = tor.x - orb.x;
+            const dy = tor.y - orb.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < TORNADO_RADIUS && dist > 0) {
+              const strength = 1 - dist / TORNADO_RADIUS;
+              // Pull inward
+              orb.vx += (dx / dist) * TORNADO_PULL * strength;
+              orb.vy += (dy / dist) * TORNADO_PULL * strength;
+              // Spin tangentially
+              orb.vx += (-dy / dist) * TORNADO_SPIN_FORCE * strength;
+              orb.vy += (dx / dist) * TORNADO_SPIN_FORCE * strength;
+              // Lift upward
+              orb.vy -= 0.2 * strength;
+              // If very close to center, fling outward
+              if (dist < 25) {
+                const flingAngle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
+                orb.vx = Math.cos(flingAngle) * TORNADO_FLING_SPEED * (0.6 + Math.random() * 0.8);
+                orb.vy = Math.sin(flingAngle) * TORNADO_FLING_SPEED * (0.6 + Math.random() * 0.8);
+              }
+            }
+          }
+
+          // Generate debris particles
+          if (tor.debris.length < TORNADO_DEBRIS_MAX && Math.random() < 0.4) {
+            const angle = Math.random() * Math.PI * 2;
+            tor.debris.push({
+              angle,
+              dist: 20 + Math.random() * TORNADO_RADIUS * 0.8,
+              speed: 2 + Math.random() * 3,
+              size: 1 + Math.random() * 2,
+              alpha: 0.3 + Math.random() * 0.4,
+              born: now,
+              lifetime: 800 + Math.random() * 600,
+            });
+          }
+          // Cull old debris
+          tor.debris = tor.debris.filter(d => now - d.born < d.lifetime);
+          for (const d of tor.debris) {
+            d.angle += d.speed * 0.05;
+            d.dist *= 0.995;
+          }
+
+          shakeRef.current = Math.max(shakeRef.current, 2 + torProgress * 6);
+
+          // ── Tornado visual ──
+          const fadeIn = Math.min(torAge / 500, 1);
+          const fadeOut = torProgress > 0.85 ? (1 - torProgress) / 0.15 : 1;
+          const torAlpha = fadeIn * fadeOut;
+
+          // Funnel: swirling vertical lines, wider at top, narrow at bottom
+          const funnelH = 180;
+          const topW = 70;
+          const bottomW = 15;
+          const topY = tor.y - funnelH * 0.7;
+
+          ctx.save();
+          for (let fi = 0; fi < 8; fi++) {
+            const phase = torAge * 0.006 + (Math.PI * 2 * fi) / 8;
+            ctx.beginPath();
+            for (let ft = 0; ft <= 1; ft += 0.02) {
+              const fy = topY + ft * funnelH;
+              const fw = topW * (1 - ft) + bottomW * ft;
+              const fx = tor.x + Math.sin(phase + ft * 6) * fw;
+              if (ft === 0) ctx.moveTo(fx, fy);
+              else ctx.lineTo(fx, fy);
+            }
+            const lineAlpha = torAlpha * (0.1 + 0.15 * (fi / 8));
+            ctx.strokeStyle = `rgba(180, 200, 255, ${lineAlpha})`;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          }
+
+          // Debris particles
+          for (const d of tor.debris) {
+            const dAge = now - d.born;
+            const dAlpha = d.alpha * torAlpha * (1 - dAge / d.lifetime);
+            const px = tor.x + Math.cos(d.angle) * d.dist;
+            const py = tor.y + Math.sin(d.angle) * d.dist * 0.5;
+            ctx.beginPath();
+            ctx.arc(px, py, d.size, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(180, 200, 255, ${Math.max(0, dAlpha)})`;
+            ctx.fill();
+          }
+
+          // Core glow
+          const coreR = 30 + Math.sin(torAge * 0.01) * 5;
+          const torGrad = ctx.createRadialGradient(tor.x, tor.y, 0, tor.x, tor.y, coreR);
+          torGrad.addColorStop(0, `rgba(200, 220, 255, ${torAlpha * 0.3})`);
+          torGrad.addColorStop(0.5, `rgba(120, 160, 255, ${torAlpha * 0.15})`);
+          torGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(tor.x, tor.y, coreR, 0, Math.PI * 2);
+          ctx.fillStyle = torGrad;
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
       if (supernovaRef.current) {
         const sn = supernovaRef.current;
         const age = now - sn.born;
@@ -5535,6 +5661,21 @@ function App() {
     shakeRef.current = Math.max(shakeRef.current, 8);
   }, []);
 
+  const handleTornado = useCallback(() => {
+    if (tornadoRef.current) return; // only one at a time
+    const W = window.innerWidth;
+    const goRight = Math.random() > 0.5;
+    tornadoRef.current = {
+      x: goRight ? -60 : W + 60,
+      y: window.innerHeight * 0.55,
+      born: performance.now(),
+      dir: goRight ? 1 : -1,
+      debris: [],
+    };
+    playSwoosh();
+    shakeRef.current = Math.max(shakeRef.current, 6);
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -5670,11 +5811,14 @@ function App() {
         case "[":
           handleFormation();
           break;
+        case "]":
+          handleTornado();
+          break;
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, handleWarpDrive, handleMagnetMode, handleNbodyMode, handleFormation, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, handleWarpDrive, handleMagnetMode, handleNbodyMode, handleFormation, handleTornado, setShowHelp]);
 
   return (
     <Wrapper>
@@ -5765,6 +5909,15 @@ function App() {
               <path d="M7 13h10" />
               <path d="M9 17h6" />
               <path d="M11 21h2" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleTornado} title="Tornado" $active={!!tornadoRef.current}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 4h20" />
+              <path d="M4 8h16" />
+              <path d="M7 12h10" />
+              <path d="M9 16h6" />
+              <path d="M11 20h2" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleRewind} title="Time rewind" $active={!!rewindRef.current}>
