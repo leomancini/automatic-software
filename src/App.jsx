@@ -3424,9 +3424,28 @@ function App() {
             const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
             grad.addColorStop(0, a.color + hexAlpha(lineAlpha * 255));
             grad.addColorStop(1, b.color + hexAlpha(lineAlpha * 255));
+
+            // vibrating string: sine wave driven by orb speeds & phase sync
+            const speedA = Math.sqrt(a.vx * a.vx + a.vy * a.vy);
+            const speedB = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+            const avgSpeed = (speedA + speedB) / 2;
+            const waveAmp = Math.min(avgSpeed * 2.5, 14) * alpha * (0.2 + syncBoost * 0.8);
+            const waveFreq = 2 + sync * 4; // 2–6 half-waves
+            const nx = -(b.y - a.y) / dist; // perpendicular normal
+            const ny = (b.x - a.x) / dist;
             ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
+            const steps = 20;
+            for (let s = 0; s <= steps; s++) {
+              const t = s / steps;
+              const baseX = a.x + (b.x - a.x) * t;
+              const baseY = a.y + (b.y - a.y) * t;
+              const envelope = Math.sin(t * Math.PI); // zero at endpoints
+              const wave = Math.sin(t * Math.PI * waveFreq + now * 0.005) * waveAmp * envelope;
+              const px = baseX + nx * wave;
+              const py = baseY + ny * wave;
+              if (s === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
             ctx.strokeStyle = grad;
             ctx.lineWidth = lineWidth;
             ctx.stroke();
