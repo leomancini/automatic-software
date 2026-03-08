@@ -50,6 +50,10 @@ const CASCADE_FORCE_DECAY = 0.55; // each generation is 55% as strong
 const CASCADE_DELAY_FRAMES = 8; // frames to wait before cascade wave activates
 const COLLAPSE_RADIUS = 35; // orbs this big implode into gravity wells
 
+// ── Vortex visual effect ────────────────────────────────────────────
+const VORTEX_DURATION = 2000; // ms for spiral arms to fade
+const VORTEX_ARMS = 3; // number of spiral arms
+
 // ── Tap streak / combo system ───────────────────────────────────────
 const STREAK_WINDOW = 600; // ms between taps to continue a streak
 const STREAK_DECAY_DELAY = 1200; // ms after last tap before streak counter fades
@@ -278,6 +282,7 @@ function App() {
   const wallHitsRef = useRef([]);
   const wellsRef = useRef([]);
   const trailsRef = useRef([]);
+  const vortexesRef = useRef([]);
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
@@ -1026,6 +1031,70 @@ function App() {
         ctx.fill();
       }
 
+      // draw vortex spiral arms
+      vortexesRef.current = vortexesRef.current.filter((v) => now - v.born < VORTEX_DURATION);
+      for (const vortex of vortexesRef.current) {
+        const progress = (now - vortex.born) / VORTEX_DURATION;
+        const fadeAlpha = progress < 0.15
+          ? progress / 0.15 // fade in
+          : (1 - (progress - 0.15) / 0.85); // fade out
+        const rotation = time * 2 * vortex.direction + (now - vortex.born) * 0.002 * vortex.direction;
+        const maxR = Math.min(W, H) * 0.42 * (1 - progress * 0.2);
+
+        for (let arm = 0; arm < VORTEX_ARMS; arm++) {
+          const armOffset = (Math.PI * 2 * arm) / VORTEX_ARMS;
+          const steps = 90;
+
+          ctx.beginPath();
+          for (let s = 0; s <= steps; s++) {
+            const t = s / steps;
+            // logarithmic spiral: tighter at center, wider at edges
+            const theta = t * Math.PI * 3.5 + armOffset + rotation;
+            const r = t * t * maxR; // quadratic growth for a natural spiral
+            const x = vortex.cx + r * Math.cos(theta);
+            const y = vortex.cy + r * Math.sin(theta);
+            if (s === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+
+          // width tapers from thick at center to thin at edges
+          const lineAlpha = fadeAlpha * 0.45;
+          ctx.strokeStyle = vortex.color + hexAlpha(Math.max(0, lineAlpha) * 255);
+          ctx.lineWidth = 2.5 * (1 - progress * 0.6);
+          ctx.lineCap = "round";
+          ctx.stroke();
+
+          // glow layer for the spiral arm
+          if (fadeAlpha > 0.2) {
+            ctx.beginPath();
+            for (let s = 0; s <= steps; s++) {
+              const t = s / steps;
+              const theta = t * Math.PI * 3.5 + armOffset + rotation;
+              const r = t * t * maxR;
+              const x = vortex.cx + r * Math.cos(theta);
+              const y = vortex.cy + r * Math.sin(theta);
+              if (s === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = vortex.color + hexAlpha(Math.max(0, fadeAlpha * 0.12) * 255);
+            ctx.lineWidth = 10 * (1 - progress * 0.5);
+            ctx.stroke();
+          }
+        }
+
+        // central glow at vortex center
+        const coreAlpha = fadeAlpha * 0.2;
+        const coreR = 40 + 20 * Math.sin(time * 3);
+        const coreGrad = ctx.createRadialGradient(vortex.cx, vortex.cy, 0, vortex.cx, vortex.cy, coreR);
+        coreGrad.addColorStop(0, vortex.color + hexAlpha(coreAlpha * 255));
+        coreGrad.addColorStop(0.5, vortex.color + hexAlpha(coreAlpha * 0.3 * 255));
+        coreGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(vortex.cx, vortex.cy, coreR, 0, Math.PI * 2);
+        ctx.fillStyle = coreGrad;
+        ctx.fill();
+      }
+
       // draw comet trails
       for (const orb of orbs) {
         const speed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
@@ -1403,6 +1472,13 @@ function App() {
       orb.vx -= (dx / dist) * 0.5;
       orb.vy -= (dy / dist) * 0.5;
     }
+    // spawn visible vortex spiral
+    vortexesRef.current.push({
+      cx, cy,
+      born: performance.now(),
+      color: randomColor(),
+      direction: Math.random() > 0.5 ? 1 : -1,
+    });
     playSwoosh();
   }, []);
 
