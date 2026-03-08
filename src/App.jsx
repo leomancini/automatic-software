@@ -48,7 +48,8 @@ const CASCADE_MAX_GEN = 2; // max cascade depth for chain reaction shockwaves
 const CASCADE_SPEED_THRESHOLD = 3.5; // orb speed after hit to trigger cascade
 const CASCADE_FORCE_DECAY = 0.55; // each generation is 55% as strong
 const CASCADE_DELAY_FRAMES = 8; // frames to wait before cascade wave activates
-const COLLAPSE_RADIUS = 35; // orbs this big implode into gravity wells
+const COLLAPSE_RADIUS = 35; // orbs this big undergo mitosis (split into two)
+const MITOSIS_WOBBLE_START = COLLAPSE_RADIUS * 0.8; // visual wobble begins here
 
 // ── Sparkler mode ──────────────────────────────────────────────────
 const SPARK_LIFETIME = 2000; // ms before spark fades out
@@ -328,6 +329,26 @@ function playCollapse() {
   g2.connect(masterGain);
   osc2.start(t);
   osc2.stop(t + 0.55);
+}
+
+function playMitosis() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  // Bubbly ascending pop — two-tone split
+  playTone(500, 0.12, "sine", 0.09);
+  playTone(750, 0.1, "sine", 0.06);
+  // Soft bubble overtone
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(300, t);
+  osc.frequency.exponentialRampToValueAtTime(900, t + 0.15);
+  g.gain.setValueAtTime(0.07, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.25);
 }
 
 function playStreakTone(streak, x, screenW) {
@@ -2320,43 +2341,53 @@ function App() {
         }
       }
 
-      // Black hole collapse: massive orbs implode into gravity wells
+      // Mitosis: massive orbs split into two daughter orbs
       for (let i = orbsRef.current.length - 1; i >= 0; i--) {
         const orb = orbsRef.current[i];
         if (orb.radius > COLLAPSE_RADIUS && orb !== dragRef.current) {
           orbsRef.current.splice(i, 1);
-          // Create gravity well
-          wellsRef.current.push({
-            id: Date.now() + Math.random(),
-            x: orb.x, y: orb.y,
-            radius: 12,
-            color: orb.color,
-            born: now,
-          });
-          // Implosion particles: start far out, move inward
-          for (let j = 0; j < 12; j++) {
-            const angle = (Math.PI * 2 * j) / 12;
-            const dist = 60 + Math.random() * 40;
-            burstsRef.current.push({
-              x: orb.x + Math.cos(angle) * dist,
-              y: orb.y + Math.sin(angle) * dist,
-              vx: -Math.cos(angle) * (3 + Math.random() * 2),
-              vy: -Math.sin(angle) * (3 + Math.random() * 2),
+          // Split into two daughter orbs (conserve area: each gets r/√2)
+          const daughterRadius = orb.radius / Math.SQRT2;
+          const splitAngle = Math.random() * Math.PI * 2;
+          const splitSpeed = 3 + Math.random() * 2;
+          const offset = daughterRadius * 1.2;
+          for (let d = 0; d < 2; d++) {
+            const dir = d === 0 ? 1 : -1;
+            orbsRef.current.push({
+              id: Date.now() + Math.random() + d,
+              x: orb.x + Math.cos(splitAngle) * offset * dir,
+              y: orb.y + Math.sin(splitAngle) * offset * dir,
+              vx: orb.vx + Math.cos(splitAngle) * splitSpeed * dir,
+              vy: orb.vy + Math.sin(splitAngle) * splitSpeed * dir,
+              radius: daughterRadius,
               color: orb.color,
-              radius: 3,
-              born: now,
+              pulsePhase: Math.random() * Math.PI * 2,
+              polarity: d === 0 ? orb.polarity : -orb.polarity,
             });
           }
+          // Flash + sparks along split axis
           flashesRef.current.push({
             x: orb.x, y: orb.y,
             color: orb.color,
-            radius: orb.radius * 2,
+            radius: orb.radius * 1.5,
             born: now,
           });
+          for (let s = 0; s < 8; s++) {
+            const angle = splitAngle + (s < 4 ? 0 : Math.PI) + (Math.random() - 0.5) * 1.0;
+            const speed = MERGE_SPARK_SPEED * (0.6 + Math.random());
+            mergeSparksRef.current.push({
+              x: orb.x, y: orb.y,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              color: orb.color,
+              size: MERGE_SPARK_SIZE * (0.7 + Math.random() * 0.8),
+              born: now,
+            });
+          }
           ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
-          shakeRef.current = Math.max(shakeRef.current, 25);
+          shakeRef.current = Math.max(shakeRef.current, 10);
           setOrbCount(orbsRef.current.length);
-          playCollapse();
+          playMitosis();
         }
       }
 
@@ -2781,38 +2812,40 @@ function App() {
         const pulse = 1 + 0.12 * Math.sin(time * 1.5 + orb.pulsePhase);
         const r = orb.radius * pulse;
 
+        // Mitosis wobble: large orbs near split threshold elongate and pulse
+        const mitosisProgress = orb.radius > MITOSIS_WOBBLE_START
+          ? Math.min((orb.radius - MITOSIS_WOBBLE_START) / (COLLAPSE_RADIUS - MITOSIS_WOBBLE_START), 1)
+          : 0;
+
+        ctx.save();
+        ctx.translate(orb.x, orb.y);
+        if (mitosisProgress > 0) {
+          const wobbleAmt = mitosisProgress * 0.2 * Math.sin(time * 5 + orb.pulsePhase);
+          const wobbleAngle = time * 1.5 + orb.pulsePhase * 2;
+          ctx.rotate(wobbleAngle);
+          ctx.scale(1 + wobbleAmt, 1 - wobbleAmt);
+        }
+
         // outer glow
-        const grad = ctx.createRadialGradient(
-          orb.x,
-          orb.y,
-          0,
-          orb.x,
-          orb.y,
-          r * 3
-        );
+        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 3);
         grad.addColorStop(0, orb.color + "66");
         grad.addColorStop(1, "transparent");
         ctx.beginPath();
-        ctx.arc(orb.x, orb.y, r * 3, 0, Math.PI * 2);
+        ctx.arc(0, 0, r * 3, 0, Math.PI * 2);
         ctx.fillStyle = grad;
         ctx.fill();
 
         // core
-        const coreGrad = ctx.createRadialGradient(
-          orb.x - r * 0.3,
-          orb.y - r * 0.3,
-          0,
-          orb.x,
-          orb.y,
-          r
-        );
+        const coreGrad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 0, 0, 0, r);
         coreGrad.addColorStop(0, "#fff");
         coreGrad.addColorStop(0.3, orb.color);
         coreGrad.addColorStop(1, orb.color + "88");
         ctx.beginPath();
-        ctx.arc(orb.x, orb.y, r, 0, Math.PI * 2);
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
         ctx.fillStyle = coreGrad;
         ctx.fill();
+
+        ctx.restore();
       }
 
       // magnetic polarity rings
@@ -4937,7 +4970,7 @@ function App() {
       />
       <HUD>
         <Title>Automatic Software</Title>
-        <Hint>tap to create &middot; drag to launch &middot; drag orb to fling &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
+        <Hint>tap to create &middot; drag to launch &middot; drag orb to fling &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big ones divide</Hint>
         <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j ; 2 5 6 7 8 9 s p m - v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
@@ -5334,7 +5367,7 @@ function App() {
               <Shortcut><Key>dbl-click</Key><span>Remove orb</span></Shortcut>
               <Shortcut><Key>right-click</Key><span>Split orb</span></Shortcut>
               <Shortcut><Key>long-press</Key><span>Split orb (mobile)</span></Shortcut>
-              <Shortcut><Key>overlap</Key><span>Merge (big ones collapse!)</span></Shortcut>
+              <Shortcut><Key>overlap</Key><span>Merge (big ones split!)</span></Shortcut>
               <hr />
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
