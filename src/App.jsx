@@ -940,6 +940,14 @@ function App() {
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; overlap to merge</Hint>
         <Hint>keys: space b f c r w h g d o s p m x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
+        <ModeIndicators>
+          {frozen && <ModePill $color="#4facfe">frozen</ModePill>}
+          {gravityOn && <ModePill $color="#43e97b">gravity</ModePill>}
+          {orbitMode && <ModePill $color="#f093fb">orbit</ModePill>}
+          {repelMode && <ModePill $color="#fa709a">repel</ModePill>}
+          {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
+          {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
+        </ModeIndicators>
       </HUD>
       <ButtonGroup>
           <ActionButton onClick={handleBurst} title="Burst spawn">
@@ -1163,6 +1171,32 @@ const Count = styled.p`
   color: rgba(102, 126, 234, 0.5);
   margin: 0;
   font-variant-numeric: tabular-nums;
+`;
+
+const ModeIndicators = styled.div`
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+`;
+
+const ModePill = styled.span`
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: ${(p) => p.$color};
+  border: 1px solid ${(p) => p.$color}44;
+  background: ${(p) => p.$color}18;
+  animation: pillIn 0.2s ease;
+
+  @keyframes pillIn {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+  }
 `;
 
 const ButtonGroup = styled.div`
