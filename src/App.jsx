@@ -48,6 +48,7 @@ const CASCADE_MAX_GEN = 2; // max cascade depth for chain reaction shockwaves
 const CASCADE_SPEED_THRESHOLD = 3.5; // orb speed after hit to trigger cascade
 const CASCADE_FORCE_DECAY = 0.55; // each generation is 55% as strong
 const CASCADE_DELAY_FRAMES = 8; // frames to wait before cascade wave activates
+const COLLAPSE_RADIUS = 35; // orbs this big implode into gravity wells
 
 // ── Audio engine ──────────────────────────────────────────────────────
 let audioCtx = null;
@@ -157,6 +158,36 @@ function playBurstSound() {
   playTone(392, 0.35, "sine", 0.06);
   playTone(523.25, 0.3, "sine", 0.05);
   playTone(659.25, 0.25, "sine", 0.04);
+}
+
+function playCollapse() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  // Deep rising rumble (implosion)
+  const osc1 = audioCtx.createOscillator();
+  const g1 = audioCtx.createGain();
+  osc1.type = "sine";
+  osc1.frequency.setValueAtTime(40, t);
+  osc1.frequency.exponentialRampToValueAtTime(120, t + 0.6);
+  g1.gain.setValueAtTime(0.2, t);
+  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+  osc1.connect(g1);
+  g1.connect(masterGain);
+  osc1.start(t);
+  osc1.stop(t + 0.85);
+  // High harmonic shimmer
+  const osc2 = audioCtx.createOscillator();
+  const g2 = audioCtx.createGain();
+  osc2.type = "triangle";
+  osc2.frequency.setValueAtTime(200, t);
+  osc2.frequency.exponentialRampToValueAtTime(800, t + 0.4);
+  g2.gain.setValueAtTime(0, t);
+  g2.gain.linearRampToValueAtTime(0.06, t + 0.1);
+  g2.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+  osc2.connect(g2);
+  g2.connect(masterGain);
+  osc2.start(t);
+  osc2.stop(t + 0.55);
 }
 
 function randomColor() {
@@ -718,6 +749,46 @@ function App() {
         playMergeSound();
       }
 
+      // Black hole collapse: massive orbs implode into gravity wells
+      for (let i = orbsRef.current.length - 1; i >= 0; i--) {
+        const orb = orbsRef.current[i];
+        if (orb.radius > COLLAPSE_RADIUS && orb !== dragRef.current) {
+          orbsRef.current.splice(i, 1);
+          // Create gravity well
+          wellsRef.current.push({
+            id: Date.now() + Math.random(),
+            x: orb.x, y: orb.y,
+            radius: 12,
+            color: orb.color,
+            born: now,
+          });
+          // Implosion particles: start far out, move inward
+          for (let j = 0; j < 12; j++) {
+            const angle = (Math.PI * 2 * j) / 12;
+            const dist = 60 + Math.random() * 40;
+            burstsRef.current.push({
+              x: orb.x + Math.cos(angle) * dist,
+              y: orb.y + Math.sin(angle) * dist,
+              vx: -Math.cos(angle) * (3 + Math.random() * 2),
+              vy: -Math.sin(angle) * (3 + Math.random() * 2),
+              color: orb.color,
+              radius: 3,
+              born: now,
+            });
+          }
+          flashesRef.current.push({
+            x: orb.x, y: orb.y,
+            color: orb.color,
+            radius: orb.radius * 2,
+            born: now,
+          });
+          ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+          shakeRef.current = Math.max(shakeRef.current, 25);
+          setOrbCount(orbsRef.current.length);
+          playCollapse();
+        }
+      }
+
       // update and draw shockwaves (with cascade chain reactions)
       const maxWaveRadius = Math.sqrt(W * W + H * H) * WAVE_MAX_RADIUS_FACTOR;
       wavesRef.current = wavesRef.current.filter((w) => w.radius < maxWaveRadius);
@@ -1240,11 +1311,14 @@ function App() {
   }, []);
 
   const handleWave = useCallback(() => {
-    const W = window.innerWidth;
-    const H = window.innerHeight;
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    // Fire from cursor position, fall back to center if no interaction yet
+    const cx = (mx > 0 || my > 0) ? mx : window.innerWidth / 2;
+    const cy = (mx > 0 || my > 0) ? my : window.innerHeight / 2;
     wavesRef.current.push({
-      cx: W / 2,
-      cy: H / 2,
+      cx,
+      cy,
       radius: 0,
       color: randomColor(),
       generation: 0,
@@ -1487,7 +1561,7 @@ function App() {
       />
       <HUD>
         <Title>Automatic Software</Title>
-        <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; overlap to merge</Hint>
+        <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big orbs collapse</Hint>
         <Hint>keys: space b f n c r w h g d a o j s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         <ModeIndicators>
@@ -1689,6 +1763,7 @@ function App() {
               <Shortcut><Key>dbl-click</Key><span>Remove orb</span></Shortcut>
               <Shortcut><Key>right-click</Key><span>Split orb</span></Shortcut>
               <Shortcut><Key>long-press</Key><span>Split orb (mobile)</span></Shortcut>
+              <Shortcut><Key>overlap</Key><span>Merge (big ones collapse!)</span></Shortcut>
               <hr />
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
