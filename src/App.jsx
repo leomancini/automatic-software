@@ -81,6 +81,14 @@ const SUPERNOVA_PULL_STRENGTH = 12; // how hard orbs pull inward
 const STREAK_WINDOW = 600; // ms between taps to continue a streak
 const STREAK_DECAY_DELAY = 1200; // ms after last tap before streak counter fades
 
+// ── Chain combustion ────────────────────────────────────────────────
+const IGNITE_SPREAD_DIST = 65; // fire spreads within this distance
+const IGNITE_BURN_MS = 1800; // ms before orb pops
+const IGNITE_SPARK_COUNT = 5; // sparks per pop
+const IGNITE_SPARK_SPEED = 4; // initial spark velocity
+const IGNITE_SPREAD_CHANCE = 0.04; // per-frame probability of spreading
+const EMBER_LIFETIME = 700; // ms for ember particles
+
 // ── Audio engine ──────────────────────────────────────────────────────
 let audioCtx = null;
 let masterGain = null;
@@ -360,6 +368,35 @@ function playSupernovaSound() {
   osc3.stop(t + 1.35);
 }
 
+function playIgniteSound() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  // Whooshing flame ignition
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(150, t);
+  osc.frequency.exponentialRampToValueAtTime(400, t + 0.1);
+  osc.frequency.exponentialRampToValueAtTime(80, t + 0.4);
+  g.gain.setValueAtTime(0.08, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.55);
+  // Crackling overtone
+  playTone(800 + Math.random() * 400, 0.15, "square", 0.03);
+}
+
+let lastPopTime = 0;
+function playFirePop() {
+  if (!audioCtx || audioMuted) return;
+  const t = audioCtx.currentTime;
+  if (t - lastPopTime < 0.08) return;
+  lastPopTime = t;
+  playTone(400 + Math.random() * 300, 0.12, "sine", 0.06);
+}
+
 function generateBolt(x1, y1, x2, y2, segments = LIGHTNING_SEGMENTS) {
   const points = [{ x: x1, y: y1 }];
   const dx = x2 - x1;
@@ -453,6 +490,7 @@ function App() {
   const meteorTrailsRef = useRef([]);
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
   const supernovaRef = useRef(null); // active supernova {cx, cy, born, phase}
+  const embersRef = useRef([]); // fire ember particles
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -1075,6 +1113,85 @@ function App() {
         }
       }
 
+      // ── Chain combustion: fire spread + pop ──
+      {
+        const pendingIgnitions = [];
+        let orbsPopped = false;
+        for (let i = orbsRef.current.length - 1; i >= 0; i--) {
+          const orb = orbsRef.current[i];
+          if (!orb.igniteTime) continue;
+          const burnAge = now - orb.igniteTime;
+
+          // spread fire to nearby orbs
+          for (const other of orbsRef.current) {
+            if (other.igniteTime || other === orb) continue;
+            const dx = orb.x - other.x;
+            const dy = orb.y - other.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < IGNITE_SPREAD_DIST && Math.random() < IGNITE_SPREAD_CHANCE) {
+              pendingIgnitions.push(other);
+            }
+          }
+
+          // emit ember particles
+          if (embersRef.current.length < 400 && Math.random() < 0.35) {
+            embersRef.current.push({
+              x: orb.x + (Math.random() - 0.5) * orb.radius,
+              y: orb.y + (Math.random() - 0.5) * orb.radius,
+              vx: (Math.random() - 0.5) * 1.5,
+              vy: -1 - Math.random() * 2,
+              size: 1 + Math.random() * 2.5,
+              born: now,
+            });
+          }
+
+          // pop after burn time
+          if (burnAge > IGNITE_BURN_MS) {
+            for (let s = 0; s < IGNITE_SPARK_COUNT; s++) {
+              const angle = (Math.PI * 2 * s) / IGNITE_SPARK_COUNT + Math.random() * 0.3;
+              burstsRef.current.push({
+                x: orb.x,
+                y: orb.y,
+                vx: Math.cos(angle) * (IGNITE_SPARK_SPEED + Math.random() * 2),
+                vy: Math.sin(angle) * (IGNITE_SPARK_SPEED + Math.random() * 2),
+                color: "#feb47b",
+                radius: 2 + Math.random() * 2,
+                born: now,
+                isFireSpark: true,
+              });
+            }
+            flashesRef.current.push({
+              x: orb.x, y: orb.y,
+              color: "#feb47b",
+              radius: orb.radius * 1.5,
+              born: now,
+            });
+            orbsRef.current.splice(i, 1);
+            orbsPopped = true;
+            shakeRef.current = Math.max(shakeRef.current, 3);
+            playFirePop();
+          }
+        }
+        // apply pending ignitions
+        for (const orb of pendingIgnitions) {
+          if (!orb.igniteTime) orb.igniteTime = now;
+        }
+        // fire sparks can ignite orbs they fly near
+        for (const burst of burstsRef.current) {
+          if (!burst.isFireSpark) continue;
+          for (const orb of orbsRef.current) {
+            if (orb.igniteTime) continue;
+            const dx = burst.x - orb.x;
+            const dy = burst.y - orb.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < orb.radius + 15 && Math.random() < 0.08) {
+              orb.igniteTime = now;
+            }
+          }
+        }
+        if (orbsPopped) setOrbCount(orbsRef.current.length);
+      }
+
       // merge overlapping orbs
       const toRemove = new Set();
       for (let i = 0; i < orbs.length; i++) {
@@ -1498,6 +1615,61 @@ function App() {
         ctx.arc(orb.x, orb.y, r, 0, Math.PI * 2);
         ctx.fillStyle = coreGrad;
         ctx.fill();
+      }
+
+      // draw fire effects on ignited orbs
+      for (const orb of orbs) {
+        if (!orb.igniteTime) continue;
+        const burnAge = (now - orb.igniteTime) / IGNITE_BURN_MS;
+        const intensity = Math.min(burnAge * 3, 1);
+        const pulse = 1 + 0.12 * Math.sin(time * 1.5 + orb.pulsePhase);
+        const r = orb.radius * pulse;
+
+        // fire glow (orange to white)
+        const fireGrad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, r * 3.5);
+        const fa = 0.4 * intensity;
+        fireGrad.addColorStop(0, `rgba(255, 255, 200, ${fa})`);
+        fireGrad.addColorStop(0.3, `rgba(255, 180, 60, ${fa * 0.7})`);
+        fireGrad.addColorStop(0.6, `rgba(255, 100, 30, ${fa * 0.4})`);
+        fireGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(orb.x, orb.y, r * 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = fireGrad;
+        ctx.fill();
+
+        // white-hot core overlay
+        const coreAlpha = 0.3 * intensity + 0.1 * Math.sin(time * 8);
+        ctx.beginPath();
+        ctx.arc(orb.x, orb.y, r * 0.8, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 240, 200, ${Math.max(0, coreAlpha)})`;
+        ctx.fill();
+      }
+
+      // draw ember particles
+      embersRef.current = embersRef.current.filter((e) => now - e.born < EMBER_LIFETIME);
+      for (const ember of embersRef.current) {
+        const age = (now - ember.born) / EMBER_LIFETIME;
+        ember.x += ember.vx;
+        ember.y += ember.vy;
+        ember.vy -= 0.02;
+        ember.vx *= 0.98;
+        const alpha = (1 - age) * 0.9;
+        const r = ember.size * (1 - age * 0.5);
+        const gColor = Math.floor(200 * (1 - age * 0.7));
+        const bColor = Math.floor(50 * (1 - age));
+        ctx.beginPath();
+        ctx.arc(ember.x, ember.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, ${gColor}, ${bColor}, ${alpha})`;
+        ctx.fill();
+        if (age < 0.5) {
+          const glowGrad = ctx.createRadialGradient(ember.x, ember.y, 0, ember.x, ember.y, r * 3);
+          glowGrad.addColorStop(0, `rgba(255, ${gColor}, 0, ${alpha * 0.2})`);
+          glowGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(ember.x, ember.y, r * 3, 0, Math.PI * 2);
+          ctx.fillStyle = glowGrad;
+          ctx.fill();
+        }
       }
 
       // draw gravity wells
@@ -2375,6 +2547,21 @@ function App() {
     playSupernovaSound();
   }, []);
 
+  const handleIgnite = useCallback(() => {
+    const orbs = orbsRef.current;
+    if (orbs.length === 0) return;
+    const now = performance.now();
+    const available = orbs.filter((o) => !o.igniteTime);
+    if (available.length === 0) return;
+    const count = Math.min(available.length, 1 + Math.floor(Math.random() * 3));
+    for (let i = 0; i < count; i++) {
+      const idx = Math.floor(Math.random() * available.length);
+      available[idx].igniteTime = now;
+      available.splice(idx, 1);
+    }
+    playIgniteSound();
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -2444,6 +2631,9 @@ function App() {
         case "e":
           handleSupernova();
           break;
+        case "i":
+          handleIgnite();
+          break;
         case "v":
           handleToggleAudio();
           break;
@@ -2454,7 +2644,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -2472,7 +2662,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to spray &middot; drag orb to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
-        <Hint>keys: space b q e f t n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i f t n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -2537,6 +2727,13 @@ function App() {
               <line x1="12" y1="8" x2="18" y2="8" />
               <line x1="12" y1="8" x2="8" y2="12" />
               <line x1="12" y1="8" x2="16" y2="12" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleIgnite} title="Ignite">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22c-4-3-8-7.5-8-12a8 8 0 0 1 14-5.3" />
+              <path d="M12 22c2-2 4-5 4-8a4 4 0 0 0-7-2.6" />
+              <circle cx="12" cy="14" r="1.5" fill="currentColor" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handlePlaceWell} title="Place gravity well">
@@ -2719,6 +2916,7 @@ function App() {
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
+              <Shortcut><Key>I</Key><span>Ignite (chain combustion)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
