@@ -103,6 +103,14 @@ const STORM_SPIN_FORCE = 0.35; // tangential chaos force
 const STORM_RADIAL_FORCE = 0.2; // oscillating push/pull
 const STORM_ARC_COUNT = 6; // visual energy arcs from epicenter
 
+// ── Flock mode (boid swarm behavior) ──────────────────────────────────
+const FLOCK_NEIGHBOR_DIST = 120; // radius to consider neighbors
+const FLOCK_SEPARATION_DIST = 40; // minimum comfortable distance
+const FLOCK_SEPARATION_FORCE = 0.15; // push away from too-close neighbors
+const FLOCK_ALIGNMENT_FORCE = 0.05; // match neighbor velocity direction
+const FLOCK_COHESION_FORCE = 0.02; // steer toward neighbor center of mass
+const FLOCK_MAX_SPEED = 4; // speed cap to keep flock coherent
+
 // ── Tsunami wave ────────────────────────────────────────────────────
 const TSUNAMI_SPEED = 10; // px per frame — fast sweep
 const TSUNAMI_WIDTH = 100; // wall thickness in px
@@ -636,6 +644,8 @@ function App() {
   const colorCycleRef = useRef(false);
   const [attractMode, setAttractMode] = useState(false);
   const attractModeRef = useRef(false);
+  const [flockMode, setFlockMode] = useState(false);
+  const flockModeRef = useRef(false);
   const longPressRef = useRef(null);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const streakRef = useRef(0);
@@ -1105,6 +1115,52 @@ function App() {
           // gentle inward pull to prevent escape
           orb.vx -= (odx / oDist) * 0.05;
           orb.vy -= (ody / oDist) * 0.05;
+        }
+
+        // flock mode: boid-like swarm behavior
+        if (flockModeRef.current) {
+          let sepX = 0, sepY = 0;
+          let alignVx = 0, alignVy = 0, alignCount = 0;
+          let cohX = 0, cohY = 0, cohCount = 0;
+          for (const other of orbs) {
+            if (other === orb) continue;
+            const fdx = other.x - orb.x;
+            const fdy = other.y - orb.y;
+            const fDist = Math.sqrt(fdx * fdx + fdy * fdy);
+            if (fDist < FLOCK_SEPARATION_DIST && fDist > 0) {
+              sepX -= (fdx / fDist) * (1 - fDist / FLOCK_SEPARATION_DIST);
+              sepY -= (fdy / fDist) * (1 - fDist / FLOCK_SEPARATION_DIST);
+            }
+            if (fDist < FLOCK_NEIGHBOR_DIST && fDist > 0) {
+              alignVx += other.vx;
+              alignVy += other.vy;
+              alignCount++;
+              cohX += other.x;
+              cohY += other.y;
+              cohCount++;
+            }
+          }
+          orb.vx += sepX * FLOCK_SEPARATION_FORCE;
+          orb.vy += sepY * FLOCK_SEPARATION_FORCE;
+          if (alignCount > 0) {
+            orb.vx += (alignVx / alignCount - orb.vx) * FLOCK_ALIGNMENT_FORCE;
+            orb.vy += (alignVy / alignCount - orb.vy) * FLOCK_ALIGNMENT_FORCE;
+          }
+          if (cohCount > 0) {
+            orb.vx += (cohX / cohCount - orb.x) * FLOCK_COHESION_FORCE;
+            orb.vy += (cohY / cohCount - orb.y) * FLOCK_COHESION_FORCE;
+          }
+          // cap speed for coherent flocking
+          const fSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+          if (fSpeed > FLOCK_MAX_SPEED) {
+            orb.vx = (orb.vx / fSpeed) * FLOCK_MAX_SPEED;
+            orb.vy = (orb.vy / fSpeed) * FLOCK_MAX_SPEED;
+          }
+          // give stationary orbs a nudge so the flock moves
+          if (fSpeed < 0.5) {
+            orb.vx += (Math.random() - 0.5) * 0.8;
+            orb.vy += (Math.random() - 0.5) * 0.8;
+          }
         }
 
         // magnetic storm chaos forces
@@ -2780,6 +2836,13 @@ function App() {
     });
   }, []);
 
+  const handleFlockMode = useCallback(() => {
+    setFlockMode((prev) => {
+      flockModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleShuffle = useCallback(() => {
     const now = performance.now();
     for (const orb of orbsRef.current) {
@@ -3184,6 +3247,9 @@ function App() {
         case "y":
           handleTsunami();
           break;
+        case "u":
+          handleFlockMode();
+          break;
         case "v":
           handleToggleAudio();
           break;
@@ -3194,7 +3260,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -3212,7 +3278,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to spray &middot; drag orb to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
-        <Hint>keys: space b q e i k z y f t n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -3228,6 +3294,7 @@ function App() {
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {colorCycle && <ModePill $color="#667eea">rainbow</ModePill>}
+          {flockMode && <ModePill $color="#43e97b">flock</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -3406,6 +3473,16 @@ function App() {
               <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleFlockMode} title="Flock mode" $active={flockMode}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 17c1-2 3-3 5-2s3 3 5 2" />
+              <circle cx="6" cy="8" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="6" r="1.5" fill="currentColor" />
+              <circle cx="18" cy="9" r="1.5" fill="currentColor" />
+              <circle cx="9" cy="12" r="1.5" fill="currentColor" />
+              <circle cx="15" cy="13" r="1.5" fill="currentColor" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleColorCycle} title="Color cycle" $active={colorCycle}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="5" />
@@ -3510,6 +3587,7 @@ function App() {
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
               <Shortcut><Key>A</Key><span>Attract mode</span></Shortcut>
               <Shortcut><Key>O</Key><span>Orbit mode</span></Shortcut>
+              <Shortcut><Key>U</Key><span>Flock mode (boid swarm)</span></Shortcut>
               <Shortcut><Key>J</Key><span>Color cycle</span></Shortcut>
               <Shortcut><Key>N</Key><span>Place / remove gravity well</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
