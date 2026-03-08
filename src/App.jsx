@@ -82,6 +82,8 @@ function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [repelMode, setRepelMode] = useState(false);
   const repelModeRef = useRef(false);
+  const [orbitMode, setOrbitMode] = useState(false);
+  const orbitModeRef = useRef(false);
   const longPressRef = useRef(null);
 
   const resize = useCallback(() => {
@@ -372,6 +374,21 @@ function App() {
         // gravity
         if (gravityRef.current) {
           orb.vy += GRAVITY;
+        }
+
+        // orbit mode: continuous tangential force around screen center
+        if (orbitModeRef.current) {
+          const ocx = W / 2;
+          const ocy = H / 2;
+          const odx = orb.x - ocx;
+          const ody = orb.y - ocy;
+          const oDist = Math.sqrt(odx * odx + ody * ody) || 1;
+          // tangential push (perpendicular to radial)
+          orb.vx += (-ody / oDist) * 0.15;
+          orb.vy += (odx / oDist) * 0.15;
+          // gentle inward pull to prevent escape
+          orb.vx -= (odx / oDist) * 0.05;
+          orb.vy -= (ody / oDist) * 0.05;
         }
 
         orb.vx *= FRICTION;
@@ -786,6 +803,13 @@ function App() {
     });
   }, []);
 
+  const handleOrbitMode = useCallback(() => {
+    setOrbitMode((prev) => {
+      orbitModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleShuffle = useCallback(() => {
     const now = performance.now();
     for (const orb of orbsRef.current) {
@@ -886,6 +910,9 @@ function App() {
         case "d":
           handleRepelMode();
           break;
+        case "o":
+          handleOrbitMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -893,7 +920,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, setShowHelp]);
 
   return (
     <Wrapper>
@@ -911,7 +938,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; overlap to merge</Hint>
-        <Hint>keys: space b f c r w h g d s p m x &middot; press ? for help</Hint>
+        <Hint>keys: space b f c r w h g d o s p m x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
       </HUD>
       <ButtonGroup>
@@ -999,6 +1026,13 @@ function App() {
               <line x1="19" y1="12" x2="22" y2="12" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleOrbitMode} title="Orbit mode" $active={orbitMode}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="2" />
+              <ellipse cx="12" cy="12" rx="10" ry="4" />
+              <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleGravity} title="Toggle gravity" $active={gravityOn}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="2" x2="12" y2="18" />
@@ -1068,6 +1102,7 @@ function App() {
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>G</Key><span>Toggle gravity</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
+              <Shortcut><Key>O</Key><span>Orbit mode</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
