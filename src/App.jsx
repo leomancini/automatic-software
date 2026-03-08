@@ -85,6 +85,13 @@ const SUPERNOVA_PULL_STRENGTH = 12; // how hard orbs pull inward
 const REWIND_BUFFER_SIZE = 90; // frames of history (~1.5s at 60fps)
 const REWIND_PLAYBACK_SPEED = 3; // frames consumed per draw frame during rewind
 
+// ── Warp drive ────────────────────────────────────────────────────
+const WARP_CHARGE_MS = 800;   // pull-in phase
+const WARP_JUMP_MS = 400;     // flash + scatter phase
+const WARP_SETTLE_MS = 800;   // stars return to normal
+const WARP_PULL = 0.06;       // inward acceleration during charge
+const WARP_SCATTER_SPEED = 10; // outward velocity on jump
+
 // ── Tap streak / combo system ───────────────────────────────────────
 const STREAK_WINDOW = 600; // ms between taps to continue a streak
 const STREAK_DECAY_DELAY = 1200; // ms after last tap before streak counter fades
@@ -127,6 +134,10 @@ const FLOCK_SEPARATION_FORCE = 0.15; // push away from too-close neighbors
 const FLOCK_ALIGNMENT_FORCE = 0.05; // match neighbor velocity direction
 const FLOCK_COHESION_FORCE = 0.02; // steer toward neighbor center of mass
 const FLOCK_MAX_SPEED = 4; // speed cap to keep flock coherent
+
+// ── Magnetic polarity ────────────────────────────────────────────────
+const MAGNET_RANGE = 160;      // interaction range between orb pairs
+const MAGNET_FORCE = 0.045;    // base force strength (opposites attract, likes repel)
 
 // ── Kaleidoscope mode ───────────────────────────────────────────────
 const KALEIDOSCOPE_FOLDS = 4; // 4-fold symmetry (mirrors across X and Y axes)
@@ -329,6 +340,50 @@ function playStreakTone(streak, x, screenW) {
   }
 }
 
+function playWarpSound() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  // Rising whoosh
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(80, t);
+  osc.frequency.exponentialRampToValueAtTime(800, t + 0.7);
+  g.gain.setValueAtTime(0.08, t);
+  g.gain.linearRampToValueAtTime(0.15, t + 0.6);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 1.1);
+  // Deep boom at jump point
+  const bass = audioCtx.createOscillator();
+  const bg = audioCtx.createGain();
+  bass.type = "sine";
+  bass.frequency.setValueAtTime(60, t + 0.8);
+  bass.frequency.exponentialRampToValueAtTime(20, t + 1.6);
+  bg.gain.setValueAtTime(0, t);
+  bg.gain.setValueAtTime(0.2, t + 0.8);
+  bg.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
+  bass.connect(bg);
+  bg.connect(masterGain);
+  bass.start(t);
+  bass.stop(t + 2.0);
+  // High shimmer on jump
+  const shim = audioCtx.createOscillator();
+  const sg = audioCtx.createGain();
+  shim.type = "triangle";
+  shim.frequency.setValueAtTime(1200, t + 0.8);
+  shim.frequency.exponentialRampToValueAtTime(400, t + 1.4);
+  sg.gain.setValueAtTime(0, t);
+  sg.gain.setValueAtTime(0.06, t + 0.8);
+  sg.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
+  shim.connect(sg);
+  sg.connect(masterGain);
+  shim.start(t);
+  shim.stop(t + 1.6);
+}
+
 function playSpray(y, screenH) {
   if (!audioCtx || audioMuted) return;
   const idx = Math.floor((1 - y / screenH) * PENTATONIC.length);
@@ -370,23 +425,6 @@ function playPortalSound() {
   osc.start(t);
   osc.stop(t + 0.45);
   playTone(600, 0.25, "triangle", 0.04);
-}
-
-function playWarpSound() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  osc.type = "sine";
-  osc.frequency.setValueAtTime(800, t);
-  osc.frequency.exponentialRampToValueAtTime(200, t + 0.08);
-  osc.frequency.exponentialRampToValueAtTime(600, t + 0.2);
-  g.gain.setValueAtTime(0.1, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-  osc.connect(g);
-  g.connect(masterGain);
-  osc.start(t);
-  osc.stop(t + 0.3);
 }
 
 function playMeteorSound() {
@@ -739,6 +777,7 @@ function createOrb(x, y) {
     radius: 8 + Math.random() * 12,
     color: randomColor(),
     pulsePhase: Math.random() * Math.PI * 2,
+    polarity: Math.random() < 0.5 ? 1 : -1,
   };
 }
 
@@ -822,6 +861,9 @@ function App() {
   const [sparklerMode, setSparklerMode] = useState(false);
   const sparklerModeRef = useRef(false);
   const trailModeRef = useRef(false);
+  const warpRef = useRef(null); // {born} active warp drive
+  const [magnetMode, setMagnetMode] = useState(false);
+  const magnetModeRef = useRef(false);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1283,14 +1325,128 @@ function App() {
         ctx.fillRect(0, 0, W, H);
       }
 
-      // draw twinkling star field
+      // draw twinkling star field (with warp streaking)
+      const warpActive = warpRef.current;
+      const warpElapsed = warpActive ? now - warpActive.born : 0;
+      const warpTotal = WARP_CHARGE_MS + WARP_JUMP_MS + WARP_SETTLE_MS;
+      const warpCx = W / 2, warpCy = H / 2;
+
       for (const star of starsRef.current) {
+        const sx = star.x * W, sy = star.y * H;
         const twinkle = 0.25 + 0.75 * ((1 + Math.sin(time * star.speed + star.phase)) * 0.5);
-        const alpha = twinkle * 0.5;
-        ctx.beginPath();
-        ctx.arc(star.x * W, star.y * H, star.size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(200, 210, 255, ${alpha})`;
-        ctx.fill();
+
+        if (warpActive && warpElapsed < WARP_CHARGE_MS + WARP_JUMP_MS) {
+          // Stars streak outward from center during charge + jump
+          const chargeT = Math.min(warpElapsed / WARP_CHARGE_MS, 1);
+          const jumpT = warpElapsed > WARP_CHARGE_MS
+            ? (warpElapsed - WARP_CHARGE_MS) / WARP_JUMP_MS : 0;
+          const dx = sx - warpCx, dy = sy - warpCy;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 1) continue;
+          const nx = dx / dist, ny = dy / dist;
+          const streakLen = (chargeT * 25 + jumpT * 90) * (dist / (W * 0.4));
+          const alpha = (0.3 + chargeT * 0.5) * twinkle;
+          const grad = ctx.createLinearGradient(sx, sy, sx - nx * streakLen, sy - ny * streakLen);
+          grad.addColorStop(0, `rgba(200, 220, 255, ${alpha})`);
+          grad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(sx - nx * streakLen, sy - ny * streakLen);
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = star.size * (1 + jumpT);
+          ctx.lineCap = "round";
+          ctx.stroke();
+        } else if (warpActive && warpElapsed < warpTotal) {
+          // Settle phase: streaks shrink back to dots
+          const settleT = (warpElapsed - WARP_CHARGE_MS - WARP_JUMP_MS) / WARP_SETTLE_MS;
+          const dx = sx - warpCx, dy = sy - warpCy;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 1) continue;
+          const nx = dx / dist, ny = dy / dist;
+          const streakLen = (1 - settleT) * 40 * (dist / (W * 0.4));
+          const alpha = twinkle * 0.5;
+          if (streakLen > 2) {
+            const grad = ctx.createLinearGradient(sx, sy, sx - nx * streakLen, sy - ny * streakLen);
+            grad.addColorStop(0, `rgba(200, 220, 255, ${alpha})`);
+            grad.addColorStop(1, "transparent");
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(sx - nx * streakLen, sy - ny * streakLen);
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = star.size;
+            ctx.lineCap = "round";
+            ctx.stroke();
+          } else {
+            ctx.beginPath();
+            ctx.arc(sx, sy, star.size, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(200, 210, 255, ${alpha})`;
+            ctx.fill();
+          }
+        } else {
+          // Normal star rendering
+          const alpha = twinkle * 0.5;
+          ctx.beginPath();
+          ctx.arc(sx, sy, star.size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(200, 210, 255, ${alpha})`;
+          ctx.fill();
+        }
+      }
+
+      // ── Warp drive: clear when done ──
+      if (warpActive && warpElapsed >= warpTotal) {
+        warpRef.current = null;
+      }
+
+      // ── Warp drive physics: pull orbs during charge, scatter at jump ──
+      if (warpActive && warpElapsed < WARP_CHARGE_MS + WARP_JUMP_MS) {
+        const orbs = orbsRef.current;
+        if (warpElapsed < WARP_CHARGE_MS) {
+          // Charge: pull all orbs toward center
+          const t = warpElapsed / WARP_CHARGE_MS; // 0→1
+          const strength = WARP_PULL * (0.5 + t * 2);
+          for (const orb of orbs) {
+            const dx = warpCx - orb.x;
+            const dy = warpCy - orb.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 1) {
+              orb.vx += (dx / dist) * strength;
+              orb.vy += (dy / dist) * strength;
+            }
+          }
+          // Screen shake ramps up
+          shakeRef.current = Math.max(shakeRef.current, 3 + t * 10);
+        } else if (!warpActive.scattered) {
+          // Jump moment: scatter all orbs outward + bright flash
+          warpActive.scattered = true;
+          for (const orb of orbs) {
+            const dx = orb.x - warpCx;
+            const dy = orb.y - warpCy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const nx = dist > 1 ? dx / dist : (Math.random() - 0.5);
+            const ny = dist > 1 ? dy / dist : (Math.random() - 0.5);
+            orb.vx = nx * WARP_SCATTER_SPEED * (0.6 + Math.random() * 0.8);
+            orb.vy = ny * WARP_SCATTER_SPEED * (0.6 + Math.random() * 0.8);
+            // Randomize colors on exit
+            orb.color = randomColor();
+          }
+          shakeRef.current = Math.max(shakeRef.current, 18);
+          // Add burst effects at center
+          burstsRef.current.push({ x: warpCx, y: warpCy, born: now, color: "#fff" });
+          ripplesRef.current.push({ x: warpCx, y: warpCy, color: "#4facfe", born: now });
+          // Shockwave from center
+          wavesRef.current.push({
+            cx: warpCx, cy: warpCy, radius: 0, color: "#00f2fe",
+            generation: 0, hitOrbs: new Set(), delay: 0,
+          });
+        }
+      }
+
+      // Warp flash overlay during jump
+      if (warpActive && warpElapsed >= WARP_CHARGE_MS && warpElapsed < WARP_CHARGE_MS + WARP_JUMP_MS) {
+        const jumpT = (warpElapsed - WARP_CHARGE_MS) / WARP_JUMP_MS;
+        const flashAlpha = jumpT < 0.3 ? jumpT / 0.3 * 0.4 : 0.4 * (1 - (jumpT - 0.3) / 0.7);
+        ctx.fillStyle = `rgba(200, 220, 255, ${flashAlpha})`;
+        ctx.fillRect(0, 0, W, H);
       }
 
       // spawn shooting stars
@@ -1706,6 +1862,23 @@ function App() {
           if (fSpeed < 0.5) {
             orb.vx += (Math.random() - 0.5) * 0.8;
             orb.vy += (Math.random() - 0.5) * 0.8;
+          }
+        }
+
+        // magnetic polarity: opposite polarities attract, same repel
+        if (magnetModeRef.current) {
+          for (const other of orbs) {
+            if (other === orb) continue;
+            const mdx = other.x - orb.x;
+            const mdy = other.y - orb.y;
+            const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+            if (mDist < MAGNET_RANGE && mDist > 3) {
+              const polProduct = orb.polarity * other.polarity; // +1 same, -1 opposite
+              const proximity = 1 - mDist / MAGNET_RANGE;
+              const force = MAGNET_FORCE * proximity * (-polProduct); // attract opposite, repel same
+              orb.vx += (mdx / mDist) * force;
+              orb.vy += (mdy / mDist) * force;
+            }
           }
         }
 
@@ -2618,6 +2791,23 @@ function App() {
         ctx.arc(orb.x, orb.y, r, 0, Math.PI * 2);
         ctx.fillStyle = coreGrad;
         ctx.fill();
+      }
+
+      // magnetic polarity rings
+      if (magnetModeRef.current) {
+        for (const orb of orbs) {
+          const pulse = 1 + 0.12 * Math.sin(time * 1.5 + orb.pulsePhase);
+          const r = orb.radius * pulse;
+          const polAlpha = 0.45 + 0.15 * Math.sin(time * 3 + orb.pulsePhase);
+          const polColor = orb.polarity > 0
+            ? `rgba(255, 80, 80, ${polAlpha})`
+            : `rgba(80, 150, 255, ${polAlpha})`;
+          ctx.beginPath();
+          ctx.arc(orb.x, orb.y, r + 3, 0, Math.PI * 2);
+          ctx.strokeStyle = polColor;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
       }
 
       // draw fire effects on ignited orbs
@@ -3894,6 +4084,13 @@ function App() {
     });
   }, []);
 
+  const handleMagnetMode = useCallback(() => {
+    setMagnetMode((prev) => {
+      magnetModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleClearAll = useCallback(() => {
     const now = performance.now();
     for (const orb of orbsRef.current) {
@@ -4535,6 +4732,13 @@ function App() {
     playSupernovaSound();
   }, []);
 
+  const handleWarpDrive = useCallback(() => {
+    if (warpRef.current) return;
+    warpRef.current = { born: performance.now(), scattered: false };
+    playWarpSound();
+    shakeRef.current = Math.max(shakeRef.current, 8);
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -4655,14 +4859,20 @@ function App() {
         case "-":
           handleTrailMode();
           break;
+        case "=":
+          handleWarpDrive();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
+          break;
+        case ";":
+          handleMagnetMode();
           break;
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, handleWarpDrive, handleMagnetMode, setShowHelp]);
 
   return (
     <Wrapper>
@@ -4680,7 +4890,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to launch &middot; drag orb to fling &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
-        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j 2 5 6 7 8 9 s p m - v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j ; 2 5 6 7 8 9 s p m - v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -4702,6 +4912,7 @@ function App() {
           {constellationMode && <ModePill $color="#667eea">constellation</ModePill>}
           {trailMode && <ModePill $color="#fa709a">trails</ModePill>}
           {sparklerMode && <ModePill $color="#feb47b">sparkler</ModePill>}
+          {magnetMode && <ModePill $color="#c084fc">magnetic</ModePill>}
           {autoplayMode && <ModePill $color="#feb47b">autoplay</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -4728,6 +4939,20 @@ function App() {
               <line x1="4.22" y1="19.78" x2="7.76" y2="16.24" />
               <line x1="16.24" y1="7.76" x2="19.78" y2="4.22" />
               <circle cx="12" cy="12" r="9" opacity="0.3" strokeDasharray="3 3" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleWarpDrive} title="Warp drive" $active={!!warpRef.current}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
+              <line x1="12" y1="12" x2="3" y2="3" />
+              <line x1="12" y1="12" x2="21" y2="3" />
+              <line x1="12" y1="12" x2="3" y2="21" />
+              <line x1="12" y1="12" x2="21" y2="21" />
+              <line x1="12" y1="12" x2="12" y2="1" />
+              <line x1="12" y1="12" x2="12" y2="23" />
+              <line x1="12" y1="12" x2="1" y2="12" />
+              <line x1="12" y1="12" x2="23" y2="12" />
+              <circle cx="12" cy="12" r="8" opacity="0.2" strokeDasharray="2 3" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleRewind} title="Time rewind" $active={!!rewindRef.current}>
@@ -4861,16 +5086,6 @@ function App() {
               <circle cx="12" cy="12" r="11" opacity="0.3" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleColorWave} title="Color wave">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="2" fill="currentColor" />
-              <path d="M12 5a7 7 0 0 1 7 7" />
-              <path d="M19 12a7 7 0 0 1-7 7" />
-              <path d="M12 19a7 7 0 0 1-7-7" />
-              <path d="M5 12a7 7 0 0 1 7-7" />
-              <circle cx="12" cy="12" r="10" opacity="0.3" />
-            </svg>
-          </ActionButton>
           <ActionButton onClick={handleLightning} title="Chain lightning">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -4945,6 +5160,13 @@ function App() {
               <circle cx="12" cy="12" r="1" fill="currentColor" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleMagnetMode} title="Magnetic polarity" $active={magnetMode}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 4h4v6a4 4 0 0 0 8 0V4h4v6a8 8 0 0 1-16 0z" />
+              <line x1="2" y1="2" x2="6" y2="2" stroke="rgba(255,80,80,0.9)" strokeWidth="3" />
+              <line x1="18" y1="2" x2="22" y2="2" stroke="rgba(80,150,255,0.9)" strokeWidth="3" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleOrbitMode} title="Orbit mode" $active={orbitMode}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="2" />
@@ -4985,12 +5207,6 @@ function App() {
               <line x1="12" y1="12" x2="18" y2="17" opacity="0.6" />
               <line x1="5" y1="5" x2="19" y2="7" opacity="0.3" />
               <line x1="7" y1="18" x2="18" y2="17" opacity="0.3" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleColorCycle} title="Color cycle" $active={colorCycle}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="5" />
-              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleGravity} title="Toggle gravity" $active={gravityOn}>
@@ -5101,6 +5317,8 @@ function App() {
               <Shortcut><Key>9</Key><span>Big bang (implode + explode)</span></Shortcut>
               <Shortcut><Key>0</Key><span>Time rewind (VHS replay)</span></Shortcut>
               <Shortcut><Key>-</Key><span>Light trails (comet tails)</span></Shortcut>
+              <Shortcut><Key>=</Key><span>Warp drive (hyperspace jump)</span></Shortcut>
+              <Shortcut><Key>;</Key><span>Magnetic polarity (attract/repel by charge)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
