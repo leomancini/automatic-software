@@ -228,6 +228,25 @@ const VORTEX_STORM_ARM_COUNT = 5;       // visible spiral arms
 // ── Light trails (comet tails behind orbs) ──────────────────────────
 const LIGHT_TRAIL_LENGTH = 50; // positions stored per orb trail
 
+// ── Ambient nebula (responsive background glow) ─────────────────────
+const NEBULA_COUNT = 5;
+const NEBULA_BASE_RADIUS = 250;
+const NEBULA_DRIFT = 0.15;        // px per frame drift speed
+const NEBULA_ORB_PULL = 0.002;    // attraction toward orb clusters
+const NEBULA_ALPHA = 0.035;       // per-frame opacity (steady-state ~4x)
+const NEBULA_COLORS_RGB = [
+  [80, 100, 220],   // soft indigo
+  [110, 60, 160],   // deep purple
+  [200, 100, 220],  // orchid
+  [50, 180, 120],   // emerald
+  [60, 140, 230],   // cerulean
+];
+
+// ── Tap sparkle particles ───────────────────────────────────────────
+const TAP_SPARKLE_COUNT = 8;       // particles per tap
+const TAP_SPARKLE_SPEED = 2.5;     // outward velocity
+const TAP_SPARKLE_LIFETIME = 600;  // ms before fade
+
 // ── Audio engine ──────────────────────────────────────────────────────
 let audioCtx = null;
 let masterGain = null;
@@ -934,6 +953,8 @@ function App() {
   const [nbodyMode, setNbodyMode] = useState(false);
   const nbodyModeRef = useRef(false);
   const vortexStormRef = useRef(null); // {cx, cy, born, exploded}
+  const nebulaRef = useRef([]); // ambient nebula glow points
+  const tapSparklesRef = useRef([]); // tiny sparkle particles from taps
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1258,6 +1279,24 @@ function App() {
         }
       }
 
+      // ── Tap sparkle particles ──
+      const sparkleCount = TAP_SPARKLE_COUNT + Math.min(streak * 2, 12);
+      for (let si = 0; si < sparkleCount; si++) {
+        const angle = (Math.PI * 2 * si) / sparkleCount + Math.random() * 0.4;
+        const speed = TAP_SPARKLE_SPEED * (0.6 + Math.random() * 0.8);
+        tapSparklesRef.current.push({
+          x: pos.x, y: pos.y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          color: rippleColor,
+          born: now,
+        });
+      }
+      // cap sparkle count
+      if (tapSparklesRef.current.length > 200) {
+        tapSparklesRef.current = tapSparklesRef.current.slice(-150);
+      }
+
       // Streak 5+: auto-shockwave from tap point
       if (streak >= 5) {
         wavesRef.current.push({
@@ -1491,6 +1530,43 @@ function App() {
       if (!paintModeRef.current) {
         ctx.fillStyle = "rgba(15, 15, 26, 0.25)";
         ctx.fillRect(0, 0, W, H);
+      }
+
+      // ── Ambient nebula update + render ──
+      const nebulae = nebulaRef.current;
+      for (const neb of nebulae) {
+        neb.x += neb.vx;
+        neb.y += neb.vy;
+        const pad = neb.radius;
+        if (neb.x < -pad) neb.x = W + pad;
+        if (neb.x > W + pad) neb.x = -pad;
+        if (neb.y < -pad) neb.y = H + pad;
+        if (neb.y > H + pad) neb.y = -pad;
+        // attract toward nearby orb clusters
+        if (orbs.length > 0) {
+          let cx = 0, cy = 0, count = 0;
+          for (let oi = 0; oi < orbs.length; oi += 3) { // sample every 3rd for perf
+            const orb = orbs[oi];
+            const dx = orb.x - neb.x;
+            const dy = orb.y - neb.y;
+            if (dx * dx + dy * dy < 350 * 350) { cx += orb.x; cy += orb.y; count++; }
+          }
+          if (count > 0) {
+            neb.vx += (cx / count - neb.x) * NEBULA_ORB_PULL;
+            neb.vy += (cy / count - neb.y) * NEBULA_ORB_PULL;
+          }
+        }
+        neb.vx *= 0.99;
+        neb.vy *= 0.99;
+        neb.phase += 0.008;
+        const pulseR = neb.radius + Math.sin(neb.phase) * 40;
+        const [nr, ng, nb] = neb.rgb;
+        const grad = ctx.createRadialGradient(neb.x, neb.y, 0, neb.x, neb.y, pulseR);
+        grad.addColorStop(0, `rgba(${nr}, ${ng}, ${nb}, ${NEBULA_ALPHA})`);
+        grad.addColorStop(0.5, `rgba(${nr}, ${ng}, ${nb}, ${NEBULA_ALPHA * 0.35})`);
+        grad.addColorStop(1, `rgba(${nr}, ${ng}, ${nb}, 0)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(neb.x - pulseR, neb.y - pulseR, pulseR * 2, pulseR * 2);
       }
 
       // draw twinkling star field (with warp streaking)
@@ -3692,6 +3768,23 @@ function App() {
         ctx.stroke();
       }
 
+      // draw tap sparkle particles
+      tapSparklesRef.current = tapSparklesRef.current.filter((s) => now - s.born < TAP_SPARKLE_LIFETIME);
+      for (const sp of tapSparklesRef.current) {
+        const age = now - sp.born;
+        const t = age / TAP_SPARKLE_LIFETIME;
+        sp.x += sp.vx;
+        sp.y += sp.vy;
+        sp.vx *= 0.96;
+        sp.vy *= 0.96;
+        const alpha = (1 - t) * (1 - t); // quadratic fade
+        const sz = 2.5 * (1 - t * 0.6);
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, sz, 0, Math.PI * 2);
+        ctx.fillStyle = sp.color + hexAlpha(alpha * 0.9 * 255);
+        ctx.fill();
+      }
+
       // draw tap pulse waves — concentric expanding rings
       tapWavesRef.current = tapWavesRef.current.filter((tw) => now - tw.born < TAP_WAVE_DURATION);
       for (const tw of tapWavesRef.current) {
@@ -4592,6 +4685,16 @@ function App() {
       phase: Math.random() * Math.PI * 2,
       speed: 0.5 + Math.random() * 0.5,
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
+    }));
+    // generate ambient nebula points
+    nebulaRef.current = Array.from({ length: NEBULA_COUNT }, (_, i) => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * NEBULA_DRIFT,
+      vy: (Math.random() - 0.5) * NEBULA_DRIFT,
+      rgb: NEBULA_COLORS_RGB[i % NEBULA_COLORS_RGB.length],
+      radius: NEBULA_BASE_RADIUS + Math.random() * 150,
+      phase: Math.random() * Math.PI * 2,
     }));
   }, []);
 
