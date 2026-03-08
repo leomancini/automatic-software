@@ -50,6 +50,10 @@ const CASCADE_FORCE_DECAY = 0.55; // each generation is 55% as strong
 const CASCADE_DELAY_FRAMES = 8; // frames to wait before cascade wave activates
 const COLLAPSE_RADIUS = 35; // orbs this big implode into gravity wells
 
+// ── Sparkler mode ──────────────────────────────────────────────────
+const SPARK_LIFETIME = 2000; // ms before spark fades out
+const SPARK_SPAWN_DIST = 8; // min cursor movement to spawn sparks
+
 // ── Vortex visual effect ────────────────────────────────────────────
 const VORTEX_DURATION = 2000; // ms for spiral arms to fade
 const VORTEX_ARMS = 3; // number of spiral arms
@@ -815,6 +819,8 @@ function App() {
   const rewindRef = useRef(null); // {index} when rewinding, null otherwise
   const slingshotRef = useRef(null); // {startX, startY} when flick-aiming
   const [trailMode, setTrailMode] = useState(false);
+  const [sparklerMode, setSparklerMode] = useState(false);
+  const sparklerModeRef = useRef(false);
   const trailModeRef = useRef(false);
 
   const resize = useCallback(() => {
@@ -910,6 +916,33 @@ function App() {
         // keep only last 5 samples
         if (history.length > 5) history.shift();
       } else if (mouseDownRef.current) {
+        if (sparklerModeRef.current) {
+          // Sparkler mode: continuously spawn tiny sparks at cursor
+          const sdx = pos.x - lastSprayPosRef.current.x;
+          const sdy = pos.y - lastSprayPosRef.current.y;
+          const sDist = Math.sqrt(sdx * sdx + sdy * sdy);
+          if (sDist > SPARK_SPAWN_DIST && orbsRef.current.length < 500) {
+            const sparkCount = Math.min(Math.ceil(sDist / SPARK_SPAWN_DIST), 5);
+            const sNow = performance.now();
+            for (let si = 0; si < sparkCount; si++) {
+              const angle = Math.random() * Math.PI * 2;
+              const speed = 2 + Math.random() * 5;
+              const orb = createOrb(
+                pos.x + (Math.random() - 0.5) * 6,
+                pos.y + (Math.random() - 0.5) * 6
+              );
+              orb.radius = 2 + Math.random() * 2.5;
+              orb.sparkBaseRadius = orb.radius;
+              orb.vx = Math.cos(angle) * speed;
+              orb.vy = Math.sin(angle) * speed;
+              orb.spark = true;
+              orb.sparkBorn = sNow;
+              orbsRef.current.push(orb);
+            }
+            lastSprayPosRef.current = { x: pos.x, y: pos.y };
+            setOrbCount(orbsRef.current.length);
+          }
+        } else {
         const startDx = pos.x - sprayStartRef.current.x;
         const startDy = pos.y - sprayStartRef.current.y;
         const startDist = Math.sqrt(startDx * startDx + startDy * startDy);
@@ -968,6 +1001,7 @@ function App() {
             playSpray(pos.y, window.innerHeight);
           }
           }
+        }
         }
       }
       mouseRef.current = pos;
@@ -1220,9 +1254,18 @@ function App() {
         }
       }
 
-      const orbs = orbsRef.current;
-
       const now = performance.now();
+
+      // ── Age and expire sparks ──
+      orbsRef.current = orbsRef.current.filter(o => {
+        if (!o.spark) return true;
+        const age = now - o.sparkBorn;
+        if (age >= SPARK_LIFETIME) return false;
+        o.radius = o.sparkBaseRadius * (1 - age / SPARK_LIFETIME);
+        return o.radius > 0.3;
+      });
+
+      const orbs = orbsRef.current;
 
       // screen shake
       const shake = shakeRef.current;
@@ -3844,6 +3887,13 @@ function App() {
     });
   }, []);
 
+  const handleSparklerMode = useCallback(() => {
+    setSparklerMode((prev) => {
+      sparklerModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleClearAll = useCallback(() => {
     const now = performance.now();
     for (const orb of orbsRef.current) {
@@ -4651,6 +4701,7 @@ function App() {
           {gravityPaintMode && <ModePill $color="#43e97b">gravity paint</ModePill>}
           {constellationMode && <ModePill $color="#667eea">constellation</ModePill>}
           {trailMode && <ModePill $color="#fa709a">trails</ModePill>}
+          {sparklerMode && <ModePill $color="#feb47b">sparkler</ModePill>}
           {autoplayMode && <ModePill $color="#feb47b">autoplay</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -4864,6 +4915,18 @@ function App() {
               <path d="M15 8c-3 3-6 5-10 7" opacity="0.7" />
               <path d="M14 9c-2.5 3.5-5 6-9 8" opacity="0.4" />
               <path d="M13 10c-2 4-4 6.5-8 9" opacity="0.2" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleSparklerMode} title="Sparkler mode" $active={sparklerMode}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="2" fill="currentColor" />
+              <line x1="12" y1="10" x2="12" y2="22" />
+              <line x1="12" y1="8" x2="6" y2="2" />
+              <line x1="12" y1="8" x2="18" y2="2" />
+              <line x1="12" y1="8" x2="4" y2="8" />
+              <line x1="12" y1="8" x2="20" y2="8" />
+              <line x1="12" y1="8" x2="7" y2="13" />
+              <line x1="12" y1="8" x2="17" y2="13" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleRepelMode} title="Repel mode" $active={repelMode}>
