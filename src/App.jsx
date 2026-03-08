@@ -40,6 +40,10 @@ const WALL_HIT_DURATION = 350; // ms
 const WALL_HIT_SPEED_THRESHOLD = 1.5; // minimum pre-bounce speed to trigger
 const WELL_RANGE = 250; // gravity well attraction radius
 const WELL_GRAVITY = 0.08; // gravity well force
+const TRAIL_SPEED_THRESHOLD = 2.0; // min orb speed to shed trail particles
+const TRAIL_LIFETIME = 2500; // ms trail particles live
+const TRAIL_MAX = 600; // cap trail particle count for performance
+const TRAIL_SPAWN_RATE = 0.4; // probability per frame per orb (when fast enough)
 
 function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
@@ -104,6 +108,7 @@ function App() {
   const wavesRef = useRef([]);
   const wallHitsRef = useRef([]);
   const wellsRef = useRef([]);
+  const trailsRef = useRef([]);
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
@@ -486,6 +491,26 @@ function App() {
         }
       }
 
+      // spawn nebula trail particles behind fast-moving orbs
+      if (trailsRef.current.length < TRAIL_MAX) {
+        for (const orb of orbs) {
+          const speed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+          if (speed > TRAIL_SPEED_THRESHOLD && Math.random() < TRAIL_SPAWN_RATE) {
+            const drift_angle = Math.random() * Math.PI * 2;
+            const drift_speed = 0.1 + Math.random() * 0.15;
+            trailsRef.current.push({
+              x: orb.x + (Math.random() - 0.5) * orb.radius * 0.6,
+              y: orb.y + (Math.random() - 0.5) * orb.radius * 0.6,
+              vx: drift_speed * Math.cos(drift_angle),
+              vy: drift_speed * Math.sin(drift_angle),
+              color: orb.color,
+              size: 1.2 + Math.random() * 2.0,
+              born: now,
+            });
+          }
+        }
+      }
+
       // pulse synchronization – connected orbs gradually sync their phases
       if (!frozenRef.current) {
         for (let i = 0; i < orbs.length; i++) {
@@ -644,6 +669,24 @@ function App() {
             }
           }
         }
+      }
+
+      // update and draw nebula trail particles
+      trailsRef.current = trailsRef.current.filter((t) => now - t.born < TRAIL_LIFETIME);
+      for (const t of trailsRef.current) {
+        const age = (now - t.born) / TRAIL_LIFETIME;
+        const alpha = (1 - age) * (1 - age) * 0.6; // quadratic fade for soft falloff
+        t.x += t.vx;
+        t.y += t.vy;
+        const r = t.size * (1 + age * 0.5); // gently expand as they age
+        const grad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r * 2.5);
+        grad.addColorStop(0, t.color + Math.round(alpha * 255).toString(16).padStart(2, "0"));
+        grad.addColorStop(0.4, t.color + Math.round(alpha * 0.4 * 255).toString(16).padStart(2, "0"));
+        grad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, r * 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
       }
 
       // draw comet trails
@@ -1001,6 +1044,7 @@ function App() {
       }
     }
     orbsRef.current = [];
+    trailsRef.current = [];
     setOrbCount(0);
     shakeRef.current = 20;
   }, []);
