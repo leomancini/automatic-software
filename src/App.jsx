@@ -1721,6 +1721,19 @@ function App() {
     return () => window.removeEventListener("resize", resize);
   }, [resize]);
 
+  // ── Prevent default touch behavior (React 18 registers touch as passive) ──
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const prevent = (e) => e.preventDefault();
+    canvas.addEventListener("touchstart", prevent, { passive: false });
+    canvas.addEventListener("touchmove", prevent, { passive: false });
+    return () => {
+      canvas.removeEventListener("touchstart", prevent);
+      canvas.removeEventListener("touchmove", prevent);
+    };
+  }, []);
+
   // ── Tilt/gyroscope gravity ─────────────────────────────────────
   useEffect(() => {
     const handleOrientation = (e) => {
@@ -1743,6 +1756,8 @@ function App() {
 
     let time = 0;
     function draw() {
+      animRef.current = requestAnimationFrame(draw);
+      try {
       time += 0.02;
       const dpr = window.devicePixelRatio || 1;
       const W = canvas.width / dpr;
@@ -2322,8 +2337,8 @@ function App() {
             if (domino.index < domino.queue.length - 1) {
               const next = domino.queue[domino.index + 1];
               lightningRef.current.push({
-                points: [{ x: target.x, y: target.y }, { x: next.x, y: next.y }],
-                color: target.color,
+                bolts: [{ points: [{ x: target.x, y: target.y }, { x: next.x, y: next.y }], color: target.color }],
+                sparks: [],
                 born: now,
               });
             }
@@ -5644,7 +5659,9 @@ function App() {
         ctx.restore();
       }
 
-      animRef.current = requestAnimationFrame(draw);
+      } catch (err) {
+        console.error("draw error:", err);
+      }
     }
 
     animRef.current = requestAnimationFrame(draw);
@@ -6944,6 +6961,7 @@ const Canvas = styled.canvas`
   width: 100%;
   height: 100%;
   cursor: crosshair;
+  touch-action: none;
 `;
 
 const HUD = styled.div`
