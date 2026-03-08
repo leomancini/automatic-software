@@ -114,6 +114,8 @@ function App() {
   const orbitModeRef = useRef(false);
   const [colorCycle, setColorCycle] = useState(false);
   const colorCycleRef = useRef(false);
+  const [attractMode, setAttractMode] = useState(false);
+  const attractModeRef = useRef(false);
   const longPressRef = useRef(null);
 
   const resize = useCallback(() => {
@@ -394,9 +396,10 @@ function App() {
         const mdx = mx - orb.x;
         const mdy = my - orb.y;
         const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
-        if (mDist < ATTRACT_DIST && mDist > 0) {
-          const pull = ATTRACT_FORCE * (1 - mDist / ATTRACT_DIST);
-          const direction = repelModeRef.current ? -3 : 1;
+        const effectiveDist = attractModeRef.current ? ATTRACT_DIST * 2.5 : ATTRACT_DIST;
+        if (mDist < effectiveDist && mDist > 0) {
+          const pull = ATTRACT_FORCE * (1 - mDist / effectiveDist);
+          const direction = repelModeRef.current ? -3 : attractModeRef.current ? 8 : 1;
           orb.vx += (mdx / mDist) * pull * direction;
           orb.vy += (mdy / mDist) * pull * direction;
         }
@@ -837,6 +840,11 @@ function App() {
   const handleRepelMode = useCallback(() => {
     setRepelMode((prev) => {
       repelModeRef.current = !prev;
+      // disable attract if enabling repel
+      if (!prev && attractModeRef.current) {
+        attractModeRef.current = false;
+        setAttractMode(false);
+      }
       return !prev;
     });
   }, []);
@@ -851,6 +859,18 @@ function App() {
   const handleColorCycle = useCallback(() => {
     setColorCycle((prev) => {
       colorCycleRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
+  const handleAttractMode = useCallback(() => {
+    setAttractMode((prev) => {
+      attractModeRef.current = !prev;
+      // disable repel if enabling attract
+      if (!prev && repelModeRef.current) {
+        repelModeRef.current = false;
+        setRepelMode(false);
+      }
       return !prev;
     });
   }, []);
@@ -961,6 +981,9 @@ function App() {
         case "j":
           handleColorCycle();
           break;
+        case "a":
+          handleAttractMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -968,7 +991,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, setShowHelp]);
 
   return (
     <Wrapper>
@@ -986,13 +1009,14 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; overlap to merge</Hint>
-        <Hint>keys: space b f c r w h g d o j s p m x &middot; press ? for help</Hint>
+        <Hint>keys: space b f c r w h g d a o j s p m x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         <ModeIndicators>
           {frozen && <ModePill $color="#4facfe">frozen</ModePill>}
           {gravityOn && <ModePill $color="#43e97b">gravity</ModePill>}
           {orbitMode && <ModePill $color="#f093fb">orbit</ModePill>}
           {repelMode && <ModePill $color="#fa709a">repel</ModePill>}
+          {attractMode && <ModePill $color="#f093fb">magnet</ModePill>}
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {colorCycle && <ModePill $color="#667eea">rainbow</ModePill>}
@@ -1083,6 +1107,13 @@ function App() {
               <line x1="19" y1="12" x2="22" y2="12" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleAttractMode} title="Attract mode" $active={attractMode}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10" />
+              <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4" />
+              <circle cx="12" cy="12" r="1" fill="currentColor" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleOrbitMode} title="Orbit mode" $active={orbitMode}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="2" />
@@ -1165,6 +1196,7 @@ function App() {
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>G</Key><span>Toggle gravity</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
+              <Shortcut><Key>A</Key><span>Attract mode</span></Shortcut>
               <Shortcut><Key>O</Key><span>Orbit mode</span></Shortcut>
               <Shortcut><Key>J</Key><span>Color cycle</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
