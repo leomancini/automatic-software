@@ -41,6 +41,34 @@ function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
 }
 
+function hexToHsl(hex) {
+  let r = parseInt(hex.slice(1, 3), 16) / 255;
+  let g = parseInt(hex.slice(3, 5), 16) / 255;
+  let b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
+  if (max === min) { h = s = 0; }
+  else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+  return [h * 360, s, l];
+}
+
+function hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * Math.max(0, Math.min(1, color))).toString(16).padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
 function createOrb(x, y) {
   const angle = Math.random() * Math.PI * 2;
   const speed = 0.3 + Math.random() * 0.5;
@@ -84,6 +112,8 @@ function App() {
   const repelModeRef = useRef(false);
   const [orbitMode, setOrbitMode] = useState(false);
   const orbitModeRef = useRef(false);
+  const [colorCycle, setColorCycle] = useState(false);
+  const colorCycleRef = useRef(false);
   const longPressRef = useRef(null);
 
   const resize = useCallback(() => {
@@ -413,6 +443,14 @@ function App() {
         if (orb.y > H - orb.radius) {
           orb.y = H - orb.radius;
           orb.vy *= -0.6;
+        }
+      }
+
+      // color cycling – shift hue each frame
+      if (colorCycleRef.current) {
+        for (const orb of orbs) {
+          const [h, s, l] = hexToHsl(orb.color);
+          orb.color = hslToHex(h + 0.8, s, l);
         }
       }
 
@@ -810,6 +848,13 @@ function App() {
     });
   }, []);
 
+  const handleColorCycle = useCallback(() => {
+    setColorCycle((prev) => {
+      colorCycleRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleShuffle = useCallback(() => {
     const now = performance.now();
     for (const orb of orbsRef.current) {
@@ -913,6 +958,9 @@ function App() {
         case "o":
           handleOrbitMode();
           break;
+        case "j":
+          handleColorCycle();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -920,7 +968,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, setShowHelp]);
 
   return (
     <Wrapper>
@@ -938,7 +986,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; overlap to merge</Hint>
-        <Hint>keys: space b f c r w h g d o s p m x &middot; press ? for help</Hint>
+        <Hint>keys: space b f c r w h g d o j s p m x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         <ModeIndicators>
           {frozen && <ModePill $color="#4facfe">frozen</ModePill>}
@@ -947,6 +995,7 @@ function App() {
           {repelMode && <ModePill $color="#fa709a">repel</ModePill>}
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
+          {colorCycle && <ModePill $color="#667eea">rainbow</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -1041,6 +1090,12 @@ function App() {
               <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleColorCycle} title="Color cycle" $active={colorCycle}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="5" />
+              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleGravity} title="Toggle gravity" $active={gravityOn}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="2" x2="12" y2="18" />
@@ -1111,6 +1166,7 @@ function App() {
               <Shortcut><Key>G</Key><span>Toggle gravity</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
               <Shortcut><Key>O</Key><span>Orbit mode</span></Shortcut>
+              <Shortcut><Key>J</Key><span>Color cycle</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
