@@ -5909,45 +5909,59 @@ function App() {
 
   // Keyboard shortcuts
   useEffect(() => {
+    const flashLabel = (text, color) => {
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      comboFlashRef.current.push({ text, x: W / 2, y: H / 2, born: performance.now(), color });
+    };
     const handleKey = (e) => {
       if (e.repeat) return;
       switch (e.key.toLowerCase()) {
         case " ":
           e.preventDefault();
           handleFreeze();
+          flashLabel(frozenRef.current ? "UNFREEZE" : "FREEZE", "#4facfe");
           break;
         case "g":
           handleGravity();
           break;
         case "s":
           handleScatter();
+          flashLabel("SCATTER", "#fa709a");
           break;
         case "c":
           handleGather();
+          flashLabel("GATHER", "#43e97b");
           break;
         case "r":
           handleSpin();
+          flashLabel("SPIN", "#f093fb");
           break;
         case "b":
           handleBurst();
+          flashLabel("BURST", "#667eea");
           break;
         case "w":
           handleWave();
+          flashLabel("SHOCKWAVE", "#4facfe");
           break;
         case "x":
           handleClearAll();
+          flashLabel("CLEAR", "#fa709a");
           break;
         case "p":
           handlePaintMode();
           break;
         case "h":
           handleShuffle();
+          flashLabel("SHUFFLE", "#feb47b");
           break;
         case "m":
           handleSlowMo();
           break;
         case "f":
           handleFirework();
+          flashLabel("FIREWORK", "#fa709a");
           break;
         case "d":
           handleRepelMode();
@@ -5960,18 +5974,23 @@ function App() {
           break;
         case "n":
           handlePlaceWell();
+          flashLabel("GRAVITY WELL", "#43e97b");
           break;
         case "l":
           handleLightning();
+          flashLabel("LIGHTNING", "#4facfe");
           break;
         case "q":
           handleMeteorShower();
+          flashLabel("METEOR SHOWER", "#43e97b");
           break;
         case "e":
           handleSupernova();
+          flashLabel("SUPERNOVA", "#f093fb");
           break;
         case "t":
           handleRewind();
+          flashLabel("REWIND", "#00f2fe");
           break;
         case "v":
           handleToggleAudio();
@@ -6109,26 +6128,8 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleAutoPlay} title="Autoplay" $active={autoPlay}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              {autoPlay ? (
-                <>
-                  <rect x="6" y="4" width="4" height="16" />
-                  <rect x="14" y="4" width="4" height="16" />
-                </>
-              ) : (
-                <polygon points="5 3 19 12 5 21 5 3" />
-              )}
-            </svg>
-          </ActionButton>
           {orbCount > 0 && (
             <>
-            <ActionButton onClick={handleRewind} title="Time rewind">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="19 20 9 12 19 4 19 20" />
-                <line x1="5" y1="4" x2="5" y2="20" />
-              </svg>
-            </ActionButton>
             <ActionButton onClick={handleShuffle} title="Shuffle colors">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="16 3 21 3 21 8" />
