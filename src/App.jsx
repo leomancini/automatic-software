@@ -4740,20 +4740,51 @@ function App() {
         ctx.restore();
       }
 
-      // draw wall hit glow effects
+      // draw edge-reactive glow (neon edge lighting on wall bounce)
       wallHitsRef.current = wallHitsRef.current.filter((h) => now - h.born < WALL_HIT_DURATION);
-      for (const hit of wallHitsRef.current) {
-        const progress = (now - hit.born) / WALL_HIT_DURATION;
-        const alpha = (1 - progress) * 0.5 * hit.intensity;
-        const size = 15 + progress * 35;
-        const grad = ctx.createRadialGradient(hit.x, hit.y, 0, hit.x, hit.y, size);
-        grad.addColorStop(0, hit.color + hexAlpha(alpha * 255));
-        grad.addColorStop(0.4, hit.color + hexAlpha(alpha * 0.4 * 255));
-        grad.addColorStop(1, "transparent");
-        ctx.beginPath();
-        ctx.arc(hit.x, hit.y, size, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
-        ctx.fill();
+      if (wallHitsRef.current.length > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        for (const hit of wallHitsRef.current) {
+          const progress = (now - hit.born) / WALL_HIT_DURATION;
+          const fade = 1 - progress;
+          const alpha = fade * 0.45 * hit.intensity;
+          // bright point glow at impact
+          const pointSize = 25 + progress * 45;
+          const pg = ctx.createRadialGradient(hit.x, hit.y, 0, hit.x, hit.y, pointSize);
+          pg.addColorStop(0, hit.color + hexAlpha(alpha * 255));
+          pg.addColorStop(0.35, hit.color + hexAlpha(alpha * 0.35 * 255));
+          pg.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(hit.x, hit.y, pointSize, 0, Math.PI * 2);
+          ctx.fillStyle = pg;
+          ctx.fill();
+          // edge band — light spreads along the wall from impact point
+          const bandSpread = (60 + progress * 200) * hit.intensity;
+          const bandDepth = 18 + hit.intensity * 22;
+          const bandAlpha = fade * fade * 0.3 * hit.intensity;
+          const isLeft = hit.x <= 1;
+          const isRight = hit.x >= W - 1;
+          const isTop = hit.y <= 1;
+          const isBottom = hit.y >= H - 1;
+          if (isLeft || isRight) {
+            const ex = isLeft ? 0 : W;
+            const eg = ctx.createLinearGradient(ex, 0, ex + (isLeft ? bandDepth : -bandDepth), 0);
+            eg.addColorStop(0, hit.color + hexAlpha(bandAlpha * 255));
+            eg.addColorStop(1, "transparent");
+            ctx.fillStyle = eg;
+            ctx.fillRect(isLeft ? 0 : W - bandDepth, hit.y - bandSpread, bandDepth, bandSpread * 2);
+          }
+          if (isTop || isBottom) {
+            const ey = isTop ? 0 : H;
+            const eg = ctx.createLinearGradient(0, ey, 0, ey + (isTop ? bandDepth : -bandDepth));
+            eg.addColorStop(0, hit.color + hexAlpha(bandAlpha * 255));
+            eg.addColorStop(1, "transparent");
+            ctx.fillStyle = eg;
+            ctx.fillRect(hit.x - bandSpread, isTop ? 0 : H - bandDepth, bandSpread * 2, bandDepth);
+          }
+        }
+        ctx.restore();
       }
 
       // collective heartbeat – screen-wide pulse when orbs are synchronized
