@@ -307,6 +307,10 @@ const NEBULA_COLORS_RGB = [
   [60, 140, 230],   // cerulean
 ];
 
+// ── Tilt gravity ──────────────────────────────────────────────────
+const TILT_GRAVITY_FORCE = 0.18;  // directional gravity strength
+const TILT_SMOOTHING = 0.12;      // lerp factor for smooth transitions
+
 // ── Tap sparkle particles ───────────────────────────────────────────
 const TAP_SPARKLE_COUNT = 8;       // particles per tap
 const TAP_SPARKLE_SPEED = 2.5;     // outward velocity
@@ -1027,6 +1031,10 @@ function App() {
   const [pulseMode, setPulseMode] = useState(false);
   const pulseModeRef = useRef(false);
   const pulseTimerRef = useRef(0); // last pulse timestamp
+  const [tiltMode, setTiltMode] = useState(false);
+  const tiltModeRef = useRef(false);
+  const tiltVecRef = useRef({ x: 0, y: 1 }); // normalized gravity direction
+  const hasTiltSensorRef = useRef(false);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1561,6 +1569,22 @@ function App() {
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
   }, [resize]);
+
+  // ── Tilt/gyroscope gravity ─────────────────────────────────────
+  useEffect(() => {
+    const handleOrientation = (e) => {
+      if (!tiltModeRef.current) return;
+      const beta = e.beta || 0;
+      const gamma = e.gamma || 0;
+      const tx = Math.max(-1, Math.min(1, gamma / 45));
+      const ty = Math.max(-1, Math.min(1, beta / 45));
+      hasTiltSensorRef.current = true;
+      tiltVecRef.current.x += (tx - tiltVecRef.current.x) * TILT_SMOOTHING;
+      tiltVecRef.current.y += (ty - tiltVecRef.current.y) * TILT_SMOOTHING;
+    };
+    window.addEventListener("deviceorientation", handleOrientation);
+    return () => window.removeEventListener("deviceorientation", handleOrientation);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -2177,6 +2201,32 @@ function App() {
         // gravity
         if (gravityRef.current) {
           orb.vy += GRAVITY;
+        }
+
+        // tilt gravity: directional gravity from device tilt or mouse position
+        if (tiltModeRef.current) {
+          let gx, gy;
+          if (hasTiltSensorRef.current) {
+            gx = tiltVecRef.current.x;
+            gy = tiltVecRef.current.y;
+          } else {
+            // Desktop: gravity direction follows mouse relative to center
+            const tmx = mouseRef.current.x;
+            const tmy = mouseRef.current.y;
+            const cdx = tmx - W / 2;
+            const cdy = tmy - H / 2;
+            const cDist = Math.sqrt(cdx * cdx + cdy * cdy) || 1;
+            const maxDist = Math.sqrt(W * W + H * H) / 2;
+            const strength = Math.min(cDist / maxDist, 1);
+            const rawGx = (cdx / cDist) * strength;
+            const rawGy = (cdy / cDist) * strength;
+            tiltVecRef.current.x += (rawGx - tiltVecRef.current.x) * TILT_SMOOTHING;
+            tiltVecRef.current.y += (rawGy - tiltVecRef.current.y) * TILT_SMOOTHING;
+            gx = tiltVecRef.current.x;
+            gy = tiltVecRef.current.y;
+          }
+          orb.vx += gx * TILT_GRAVITY_FORCE;
+          orb.vy += gy * TILT_GRAVITY_FORCE;
         }
 
         // orbit mode: continuous tangential force around screen center
@@ -4087,6 +4137,67 @@ function App() {
         ctx.fill();
       }
 
+      // draw tilt gravity compass
+      if (tiltModeRef.current) {
+        const compassR = 22;
+        const compassX = W - 44;
+        const compassY = 44;
+        const gx = tiltVecRef.current.x;
+        const gy = tiltVecRef.current.y;
+        const gLen = Math.sqrt(gx * gx + gy * gy) || 0.001;
+
+        // Background circle
+        ctx.beginPath();
+        ctx.arc(compassX, compassY, compassR, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.2)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Cross-hairs
+        ctx.beginPath();
+        ctx.moveTo(compassX - compassR * 0.5, compassY);
+        ctx.lineTo(compassX + compassR * 0.5, compassY);
+        ctx.moveTo(compassX, compassY - compassR * 0.5);
+        ctx.lineTo(compassX, compassY + compassR * 0.5);
+        ctx.strokeStyle = "rgba(255,255,255,0.1)";
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+
+        // Arrow showing gravity direction
+        const arrowLen = compassR * 0.65 * Math.min(gLen * 1.5, 1);
+        const nx = gx / gLen;
+        const ny = gy / gLen;
+        const arrowTipX = compassX + nx * arrowLen;
+        const arrowTipY = compassY + ny * arrowLen;
+        ctx.beginPath();
+        ctx.moveTo(compassX, compassY);
+        ctx.lineTo(arrowTipX, arrowTipY);
+        ctx.strokeStyle = "rgba(67, 233, 123, 0.85)";
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = "round";
+        ctx.stroke();
+
+        // Arrowhead
+        const arrowAngle = Math.atan2(ny, nx);
+        ctx.beginPath();
+        ctx.moveTo(arrowTipX, arrowTipY);
+        ctx.lineTo(arrowTipX - 7 * Math.cos(arrowAngle - 0.5), arrowTipY - 7 * Math.sin(arrowAngle - 0.5));
+        ctx.lineTo(arrowTipX - 7 * Math.cos(arrowAngle + 0.5), arrowTipY - 7 * Math.sin(arrowAngle + 0.5));
+        ctx.closePath();
+        ctx.fillStyle = "rgba(67, 233, 123, 0.85)";
+        ctx.fill();
+
+        // Dot at center
+        ctx.beginPath();
+        ctx.arc(compassX, compassY, 2, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.fill();
+
+        ctx.lineCap = "butt";
+      }
+
       // draw cursor influence radius when attract or repel mode is active
       if (attractModeRef.current || repelModeRef.current) {
         const mx = mouseRef.current.x;
@@ -5243,6 +5354,19 @@ function App() {
     });
   }, []);
 
+  const handleTiltMode = useCallback(() => {
+    const next = !tiltModeRef.current;
+    tiltModeRef.current = next;
+    setTiltMode(next);
+    if (next) {
+      tiltVecRef.current = { x: 0, y: 1 };
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission().catch(() => {});
+      }
+    }
+  }, []);
+
   const handleColorCycle = useCallback(() => {
     setColorCycle((prev) => {
       colorCycleRef.current = !prev;
@@ -5979,11 +6103,14 @@ function App() {
         case "\\":
           handlePulseMode();
           break;
+        case ".":
+          handleTiltMode();
+          break;
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, handleWarpDrive, handleMagnetMode, handleNbodyMode, handleFormation, handleTornado, handlePulseMode, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, handleWarpDrive, handleMagnetMode, handleNbodyMode, handleFormation, handleTornado, handlePulseMode, handleTiltMode, setShowHelp]);
 
   return (
     <Wrapper>
@@ -6001,7 +6128,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to launch &middot; drag orb to fling &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big ones divide &middot; rapid taps unlock combos</Hint>
-        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j ; ' [ ] \ 2 5 6 7 8 9 s p m - v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j ; ' [ ] \ . 2 5 6 7 8 9 s p m - v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -6026,6 +6153,7 @@ function App() {
           {magnetMode && <ModePill $color="#c084fc">magnetic</ModePill>}
           {nbodyMode && <ModePill $color="#f59e0b">n-body</ModePill>}
           {pulseMode && <ModePill $color="#667eea">pulse</ModePill>}
+          {tiltMode && <ModePill $color="#43e97b">tilt gravity</ModePill>}
           {autoplayMode && <ModePill $color="#feb47b">autoplay</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -6327,6 +6455,17 @@ function App() {
               <path d="M12 2v4M12 18v4" opacity="0.5" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleTiltMode} title="Tilt gravity" $active={tiltMode}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="9" />
+              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              <line x1="12" y1="3" x2="12" y2="6" />
+              <line x1="12" y1="18" x2="12" y2="21" />
+              <line x1="3" y1="12" x2="6" y2="12" />
+              <line x1="18" y1="12" x2="21" y2="12" />
+              <line x1="12" y1="12" x2="16" y2="17" strokeWidth="2.5" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleNbodyMode} title="N-body gravity" $active={nbodyMode}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="10" r="4" fill="currentColor" opacity="0.7" />
@@ -6486,6 +6625,7 @@ function App() {
               <Shortcut><Key>;</Key><span>Magnetic polarity (attract/repel by charge)</span></Shortcut>
               <Shortcut><Key>'</Key><span>N-body gravity (mutual mass attraction)</span></Shortcut>
               <Shortcut><Key>[</Key><span>Formation snap (cycle: circle, spiral, grid, wave)</span></Shortcut>
+              <Shortcut><Key>.</Key><span>Tilt gravity (gyroscope / mouse direction)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
