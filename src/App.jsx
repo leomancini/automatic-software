@@ -48,6 +48,8 @@ const CASCADE_MAX_GEN = 2; // max cascade depth for chain reaction shockwaves
 const CASCADE_SPEED_THRESHOLD = 3.5; // orb speed after hit to trigger cascade
 const CASCADE_FORCE_DECAY = 0.55; // each generation is 55% as strong
 const CASCADE_DELAY_FRAMES = 8; // frames to wait before cascade wave activates
+const TAP_IMPULSE_RADIUS = 120; // px — push nearby orbs when tapping
+const TAP_IMPULSE_FORCE = 1.8; // strength of the tap push (quadratic falloff)
 const COLLAPSE_RADIUS = 35; // orbs this big undergo mitosis (split into two)
 const MITOSIS_WOBBLE_START = COLLAPSE_RADIUS * 0.8; // visual wobble begins here
 
@@ -1417,6 +1419,19 @@ function App() {
           }
           orbsRef.current.push(orb);
           ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+        }
+      }
+
+      // ── Tap impulse: gently push nearby orbs away from tap ──
+      for (const orb of orbsRef.current) {
+        const idx = orb.x - pos.x;
+        const idy = orb.y - pos.y;
+        const idist = Math.sqrt(idx * idx + idy * idy);
+        if (idist > 0 && idist < TAP_IMPULSE_RADIUS) {
+          const falloff = 1 - idist / TAP_IMPULSE_RADIUS;
+          const force = TAP_IMPULSE_FORCE * falloff * falloff;
+          orb.vx += (idx / idist) * force;
+          orb.vy += (idy / idist) * force;
         }
       }
 
@@ -6538,23 +6553,6 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleAutoplay} title="Light show" $active={autoplayMode}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="5 3 19 12 5 21 5 3" />
-              <line x1="19" y1="3" x2="19" y2="21" opacity="0.5" />
-              <circle cx="12" cy="4" r="1" fill="currentColor" opacity="0.6" />
-              <circle cx="16" cy="7" r="1" fill="currentColor" opacity="0.4" />
-              <circle cx="8" cy="6" r="1" fill="currentColor" opacity="0.5" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleBlackHole} title="Black hole" $active={!!blackHoleRef.current}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="4" fill="currentColor" />
-              <circle cx="12" cy="12" r="7" />
-              <circle cx="12" cy="12" r="10" opacity="0.4" />
-              <path d="M2 12c1.5-2 3-2 5 0s3.5 2 5 0 3.5-2 5 0 3.5 2 5 0" opacity="0.3" />
-            </svg>
-          </ActionButton>
           <ActionButton onClick={handlePaintMode} title="Paint mode" $active={paintMode}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 19l7-7 3 3-7 7-3-3z" />
@@ -6650,18 +6648,6 @@ function App() {
                 <circle cx="12" cy="12" r="2" />
                 <ellipse cx="12" cy="12" rx="10" ry="4" />
                 <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleFreeze} title="Freeze orbs" $active={frozen}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                {frozen ? (
-                  <polygon points="5 3 19 12 5 21 5 3" />
-                ) : (
-                  <>
-                    <rect x="6" y="4" width="4" height="16" />
-                    <rect x="14" y="4" width="4" height="16" />
-                  </>
-                )}
               </svg>
             </ActionButton>
             <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
