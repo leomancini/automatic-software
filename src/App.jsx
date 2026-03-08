@@ -5835,6 +5835,9 @@ function App() {
         case "e":
           handleSupernova();
           break;
+        case "t":
+          handleRewind();
+          break;
         case "v":
           handleToggleAudio();
           break;
@@ -5845,7 +5848,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleRewind, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -6002,6 +6005,12 @@ function App() {
           </ActionButton>
           {orbCount > 0 && (
             <>
+            <ActionButton onClick={handleRewind} title="Time rewind">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="19 20 9 12 19 4 19 20" />
+                <line x1="5" y1="4" x2="5" y2="20" />
+              </svg>
+            </ActionButton>
             <ActionButton onClick={handleShuffle} title="Shuffle colors">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="16 3 21 3 21 8" />
@@ -6104,6 +6113,7 @@ function App() {
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
+              <Shortcut><Key>T</Key><span>Time rewind (~3 sec)</span></Shortcut>
               <Shortcut><Key>G</Key><span>Cycle gravity (↓ → ↑ ← off)</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
               <Shortcut><Key>A</Key><span>Attract mode</span></Shortcut>
