@@ -1076,6 +1076,8 @@ function App() {
   const gravityPaintModeRef = useRef(false);
   const [constellationMode, setConstellationMode] = useState(false);
   const constellationModeRef = useRef(false);
+  const [wrapMode, setWrapMode] = useState(false);
+  const wrapModeRef = useRef(false);
   const gravityDotsRef = useRef([]);
   const blackHoleRef = useRef(null); // {x, y, born, absorbed, mass, diskDots[]}
   const dominoRef = useRef(null); // {queue, index, nextTime, respawnCount, phase}
@@ -2737,42 +2739,49 @@ function App() {
           if (orb.trail.length > LIGHT_TRAIL_LENGTH) orb.trail.shift();
         }
 
-        // bounce off walls
-        if (orb.x < orb.radius) {
-          if (Math.abs(orb.vx) > WALL_HIT_SPEED_THRESHOLD) {
-            const hi = Math.min(Math.abs(orb.vx) / 5, 1);
-            wallHitsRef.current.push({ x: 0, y: orb.y, color: orb.color, born: now, intensity: hi });
-            playBounce(hi);
+        // bounce off walls (or wrap around in wrap mode)
+        if (wrapModeRef.current) {
+          if (orb.x < -orb.radius) orb.x = W + orb.radius;
+          else if (orb.x > W + orb.radius) orb.x = -orb.radius;
+          if (orb.y < -orb.radius) orb.y = H + orb.radius;
+          else if (orb.y > H + orb.radius) orb.y = -orb.radius;
+        } else {
+          if (orb.x < orb.radius) {
+            if (Math.abs(orb.vx) > WALL_HIT_SPEED_THRESHOLD) {
+              const hi = Math.min(Math.abs(orb.vx) / 5, 1);
+              wallHitsRef.current.push({ x: 0, y: orb.y, color: orb.color, born: now, intensity: hi });
+              playBounce(hi);
+            }
+            orb.x = orb.radius;
+            orb.vx *= -0.6;
           }
-          orb.x = orb.radius;
-          orb.vx *= -0.6;
-        }
-        if (orb.x > W - orb.radius) {
-          if (Math.abs(orb.vx) > WALL_HIT_SPEED_THRESHOLD) {
-            const hi = Math.min(Math.abs(orb.vx) / 5, 1);
-            wallHitsRef.current.push({ x: W, y: orb.y, color: orb.color, born: now, intensity: hi });
-            playBounce(hi);
+          if (orb.x > W - orb.radius) {
+            if (Math.abs(orb.vx) > WALL_HIT_SPEED_THRESHOLD) {
+              const hi = Math.min(Math.abs(orb.vx) / 5, 1);
+              wallHitsRef.current.push({ x: W, y: orb.y, color: orb.color, born: now, intensity: hi });
+              playBounce(hi);
+            }
+            orb.x = W - orb.radius;
+            orb.vx *= -0.6;
           }
-          orb.x = W - orb.radius;
-          orb.vx *= -0.6;
-        }
-        if (orb.y < orb.radius) {
-          if (Math.abs(orb.vy) > WALL_HIT_SPEED_THRESHOLD) {
-            const hi = Math.min(Math.abs(orb.vy) / 5, 1);
-            wallHitsRef.current.push({ x: orb.x, y: 0, color: orb.color, born: now, intensity: hi });
-            playBounce(hi);
+          if (orb.y < orb.radius) {
+            if (Math.abs(orb.vy) > WALL_HIT_SPEED_THRESHOLD) {
+              const hi = Math.min(Math.abs(orb.vy) / 5, 1);
+              wallHitsRef.current.push({ x: orb.x, y: 0, color: orb.color, born: now, intensity: hi });
+              playBounce(hi);
+            }
+            orb.y = orb.radius;
+            orb.vy *= -0.6;
           }
-          orb.y = orb.radius;
-          orb.vy *= -0.6;
-        }
-        if (orb.y > H - orb.radius) {
-          if (Math.abs(orb.vy) > WALL_HIT_SPEED_THRESHOLD) {
-            const hi = Math.min(Math.abs(orb.vy) / 5, 1);
-            wallHitsRef.current.push({ x: orb.x, y: H, color: orb.color, born: now, intensity: hi });
-            playBounce(hi);
+          if (orb.y > H - orb.radius) {
+            if (Math.abs(orb.vy) > WALL_HIT_SPEED_THRESHOLD) {
+              const hi = Math.min(Math.abs(orb.vy) / 5, 1);
+              wallHitsRef.current.push({ x: orb.x, y: H, color: orb.color, born: now, intensity: hi });
+              playBounce(hi);
+            }
+            orb.y = H - orb.radius;
+            orb.vy *= -0.6;
           }
-          orb.y = H - orb.radius;
-          orb.vy *= -0.6;
         }
 
         // portal teleportation
@@ -5955,6 +5964,13 @@ function App() {
     });
   }, []);
 
+  const handleWrapMode = useCallback(() => {
+    setWrapMode((prev) => {
+      wrapModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleDomino = useCallback(() => {
     const orbs = orbsRef.current;
     if (orbs.length === 0) return;
@@ -6608,6 +6624,9 @@ function App() {
         case "u":
           handleFlockMode();
           break;
+        case "t":
+          handleWrapMode();
+          break;
         case "v":
           handleToggleAudio();
           break;
@@ -6631,7 +6650,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoplay, handleRandomEffect, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoplay, handleRandomEffect, handleWrapMode, setShowHelp]);
 
   return (
     <Wrapper>
@@ -6666,6 +6685,7 @@ function App() {
           {colorCycle && <ModePill $color="#667eea">rainbow</ModePill>}
           {flockMode && <ModePill $color="#43e97b">flock</ModePill>}
           {kaleidoscopeMode && <ModePill $color="#f093fb">kaleidoscope</ModePill>}
+          {wrapMode && <ModePill $color="#00f2fe">wrap</ModePill>}
           {sparklerMode && <ModePill $color="#feb47b">sparkler</ModePill>}
           {autoplayMode && <ModePill $color="#feb47b">autoplay</ModePill>}
         </ModeIndicators>
@@ -6886,6 +6906,7 @@ function App() {
               <Shortcut><Key>1</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
               <Shortcut><Key>2</Key><span>Kaleidoscope mode (4-fold symmetry)</span></Shortcut>
               <Shortcut><Key>7</Key><span>Light show (autoplay)</span></Shortcut>
+              <Shortcut><Key>T</Key><span>Wrap mode (no walls)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
