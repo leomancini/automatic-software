@@ -50,6 +50,10 @@ const CASCADE_FORCE_DECAY = 0.55; // each generation is 55% as strong
 const CASCADE_DELAY_FRAMES = 8; // frames to wait before cascade wave activates
 const COLLAPSE_RADIUS = 35; // orbs this big implode into gravity wells
 
+// ── Tap streak / combo system ───────────────────────────────────────
+const STREAK_WINDOW = 600; // ms between taps to continue a streak
+const STREAK_DECAY_DELAY = 1200; // ms after last tap before streak counter fades
+
 // ── Audio engine ──────────────────────────────────────────────────────
 let audioCtx = null;
 let masterGain = null;
@@ -190,6 +194,22 @@ function playCollapse() {
   osc2.stop(t + 0.55);
 }
 
+function playStreakTone(streak, x, screenW) {
+  if (!ensureAudio() || audioMuted) return;
+  // Rising pitch with streak count — climb the pentatonic scale
+  const idx = Math.min(streak - 1, PENTATONIC.length - 1);
+  const note = PENTATONIC[idx];
+  const gain = Math.min(0.06 + streak * 0.015, 0.2);
+  playTone(note, 0.3, "sine", gain);
+  // Add sparkly overtone at higher streaks
+  if (streak >= 4) {
+    playTone(note * 2, 0.2, "triangle", gain * 0.4);
+  }
+  if (streak >= 7) {
+    playTone(note * 3, 0.15, "sine", gain * 0.2);
+  }
+}
+
 function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
 }
@@ -279,6 +299,10 @@ function App() {
   const attractModeRef = useRef(false);
   const longPressRef = useRef(null);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const streakRef = useRef(0);
+  const lastTapTimeRef = useRef(0);
+  const [streakDisplay, setStreakDisplay] = useState(0);
+  const streakFadeRef = useRef(null);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -399,11 +423,83 @@ function App() {
       const pos = e.changedTouches
         ? { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
         : getPos(e);
-      const newOrb = createOrb(pos.x, pos.y);
-      orbsRef.current.push(newOrb);
-      ripplesRef.current.push({ x: pos.x, y: pos.y, color: newOrb.color, born: performance.now() });
+      const now = performance.now();
+
+      // ── Tap streak tracking ──
+      const timeSinceLast = now - lastTapTimeRef.current;
+      if (timeSinceLast < STREAK_WINDOW) {
+        streakRef.current++;
+      } else {
+        streakRef.current = 1;
+      }
+      lastTapTimeRef.current = now;
+      const streak = streakRef.current;
+
+      // Update visible streak counter
+      setStreakDisplay(streak);
+      if (streakFadeRef.current) clearTimeout(streakFadeRef.current);
+      streakFadeRef.current = setTimeout(() => {
+        setStreakDisplay(0);
+        streakRef.current = 0;
+      }, STREAK_DECAY_DELAY);
+
+      // ── Scale effects by streak ──
+      const spawnCount = streak >= 8 ? 4 : streak >= 5 ? 3 : streak >= 3 ? 2 : 1;
+      const radiusBonus = Math.min(streak * 0.8, 8); // orbs get slightly bigger
+      const rippleColor = randomColor();
+
+      for (let i = 0; i < spawnCount; i++) {
+        const angle = spawnCount > 1 ? (Math.PI * 2 * i) / spawnCount : 0;
+        const spread = spawnCount > 1 ? 12 + streak : 0;
+        const orb = createOrb(
+          pos.x + Math.cos(angle) * spread,
+          pos.y + Math.sin(angle) * spread
+        );
+        orb.radius += radiusBonus;
+        if (spawnCount > 1) {
+          orb.vx += Math.cos(angle) * (1 + streak * 0.3);
+          orb.vy += Math.sin(angle) * (1 + streak * 0.3);
+        }
+        orbsRef.current.push(orb);
+        ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+      }
+
+      // Streak 5+: auto-shockwave from tap point
+      if (streak >= 5) {
+        wavesRef.current.push({
+          cx: pos.x,
+          cy: pos.y,
+          radius: 0,
+          color: rippleColor,
+          generation: 1, // weaker than manual shockwave
+          hitOrbs: new Set(),
+          delay: 0,
+        });
+        shakeRef.current = Math.max(shakeRef.current, 4 + streak);
+      }
+
+      // Streak 8+: spin push on all nearby orbs
+      if (streak >= 8) {
+        const pushRadius = 200;
+        for (const orb of orbsRef.current) {
+          const dx = orb.x - pos.x;
+          const dy = orb.y - pos.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < pushRadius && dist > 0) {
+            const force = 2 * (1 - dist / pushRadius);
+            // tangential push (spin effect)
+            orb.vx += (-dy / dist) * force;
+            orb.vy += (dx / dist) * force;
+          }
+        }
+      }
+
       setOrbCount(orbsRef.current.length);
-      playSpawn(pos.x, window.innerWidth);
+      if (streak >= 2) {
+        playStreakTone(streak, pos.x, window.innerWidth);
+      } else {
+        playSpawn(pos.x, window.innerWidth);
+      }
     },
     [getPos]
   );
@@ -1564,6 +1660,11 @@ function App() {
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big orbs collapse</Hint>
         <Hint>keys: space b f n c r w h g d a o j s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
+        {streakDisplay >= 2 && (
+          <StreakCounter key={streakDisplay} $streak={streakDisplay}>
+            {streakDisplay}x
+          </StreakCounter>
+        )}
         <ModeIndicators>
           {frozen && <ModePill $color="#4facfe">frozen</ModePill>}
           {gravityOn && <ModePill $color="#43e97b">gravity</ModePill>}
@@ -1865,6 +1966,30 @@ const ModePill = styled.span`
     from { opacity: 0; transform: scale(0.8); }
     to { opacity: 1; transform: scale(1); }
   }
+`;
+
+const streakPop = keyframes`
+  0% { transform: scale(0.5); opacity: 0; }
+  30% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+`;
+
+const StreakCounter = styled.div`
+  font-size: ${(p) => Math.min(1.4 + p.$streak * 0.15, 3.2)}rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin-top: 8px;
+  background: linear-gradient(
+    135deg,
+    ${(p) => p.$streak >= 8 ? "#fa709a" : p.$streak >= 5 ? "#f093fb" : "#4facfe"},
+    ${(p) => p.$streak >= 8 ? "#feb47b" : p.$streak >= 5 ? "#667eea" : "#43e97b"}
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: ${streakPop} 0.25s ease-out;
+  text-shadow: none;
+  filter: drop-shadow(0 0 ${(p) => Math.min(4 + p.$streak * 2, 20)}px ${(p) => p.$streak >= 8 ? "rgba(250, 112, 154, 0.6)" : p.$streak >= 5 ? "rgba(240, 147, 251, 0.5)" : "rgba(79, 172, 254, 0.4)"});
 `;
 
 const ButtonGroup = styled.div`
