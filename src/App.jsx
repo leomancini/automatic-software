@@ -152,6 +152,11 @@ const FOUNTAIN_BASE_RADIUS = 10; // visual base size
 const DOMINO_DELAY = 70; // ms between each detonation in the chain
 const DOMINO_RESPAWN_DELAY = 350; // ms after last detonation before respawn burst
 
+// ── Autoplay (light show) ───────────────────────────────────────
+const AUTOPLAY_SPAWN_INTERVAL = 2000; // ms between auto-spawning orb clusters
+const AUTOPLAY_EFFECT_INTERVAL = 3500; // ms between auto-triggering effects
+const AUTOPLAY_SPAWN_COUNT = 4; // orbs per auto-spawn cluster
+
 // ── Audio engine ──────────────────────────────────────────────────────
 let audioCtx = null;
 let masterGain = null;
@@ -740,6 +745,9 @@ function App() {
   const sprayActiveRef = useRef(false);
   const sprayStartRef = useRef({ x: 0, y: 0 });
   const lastSprayPosRef = useRef({ x: 0, y: 0 });
+  const [autoplayMode, setAutoplayMode] = useState(false);
+  const autoplayModeRef = useRef(false);
+  const autoplayTimersRef = useRef({ lastSpawn: 0, lastEffect: 0 });
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1217,6 +1225,157 @@ function App() {
           }
         }
         if (fountainsRef.current.length > 0) setOrbCount(orbsRef.current.length);
+      }
+
+      // ── Autoplay light show ──
+      if (autoplayModeRef.current && !frozenRef.current) {
+        const ap = autoplayTimersRef.current;
+        // Auto-spawn orb clusters
+        if (now - ap.lastSpawn >= AUTOPLAY_SPAWN_INTERVAL && orbs.length < FOUNTAIN_ORB_CAP) {
+          const sx = W * 0.15 + Math.random() * W * 0.7;
+          const sy = H * 0.15 + Math.random() * H * 0.7;
+          for (let i = 0; i < AUTOPLAY_SPAWN_COUNT; i++) {
+            const orb = createOrb(
+              sx + (Math.random() - 0.5) * 40,
+              sy + (Math.random() - 0.5) * 40
+            );
+            const angle = (Math.PI * 2 * i) / AUTOPLAY_SPAWN_COUNT + Math.random() * 0.5;
+            orb.vx = Math.cos(angle) * (1.5 + Math.random() * 2);
+            orb.vy = Math.sin(angle) * (1.5 + Math.random() * 2);
+            orbsRef.current.push(orb);
+            ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+          }
+          setOrbCount(orbsRef.current.length);
+          ap.lastSpawn = now;
+        }
+        // Auto-trigger random popular effects
+        if (now - ap.lastEffect >= AUTOPLAY_EFFECT_INTERVAL && orbs.length > 0) {
+          const effects = [
+            // shockwave from random position
+            () => {
+              const rx = W * 0.2 + Math.random() * W * 0.6;
+              const ry = H * 0.2 + Math.random() * H * 0.6;
+              wavesRef.current.push({ cx: rx, cy: ry, radius: 0, color: randomColor(), generation: 0, hitOrbs: new Set(), delay: 0 });
+              shakeRef.current = Math.max(shakeRef.current, 12);
+              playBoom();
+            },
+            // burst spawn
+            () => {
+              const bx = W * 0.2 + Math.random() * W * 0.6;
+              const by = H * 0.2 + Math.random() * H * 0.6;
+              const count = 6;
+              for (let i = 0; i < count; i++) {
+                const angle = (Math.PI * 2 * i) / count;
+                const orb = createOrb(bx, by);
+                orb.vx = Math.cos(angle) * (3 + Math.random() * 2);
+                orb.vy = Math.sin(angle) * (3 + Math.random() * 2);
+                orbsRef.current.push(orb);
+                ripplesRef.current.push({ x: bx, y: by, color: orb.color, born: now });
+              }
+              setOrbCount(orbsRef.current.length);
+              shakeRef.current = Math.max(shakeRef.current, 10);
+              playBurstSound();
+            },
+            // spin
+            () => {
+              const cx2 = W / 2, cy2 = H / 2;
+              for (const o of orbs) {
+                const dx = o.x - cx2, dy = o.y - cy2;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                const str = 3 + Math.random() * 2;
+                o.vx += (-dy / dist) * str;
+                o.vy += (dx / dist) * str;
+                o.vx -= (dx / dist) * 0.5;
+                o.vy -= (dy / dist) * 0.5;
+              }
+              vortexesRef.current.push({ cx: cx2, cy: cy2, born: now, color: randomColor(), direction: Math.random() > 0.5 ? 1 : -1 });
+              playSwoosh();
+            },
+            // chain lightning
+            () => {
+              if (orbs.length < 2) return;
+              let startOrb = orbs[Math.floor(Math.random() * orbs.length)];
+              const visited = new Set([startOrb.id]);
+              const bolts = [];
+              let current = startOrb;
+              for (let step = 0; step < LIGHTNING_MAX_CHAIN; step++) {
+                let nearest = null, nearDist = LIGHTNING_CHAIN_DIST;
+                for (const o of orbs) {
+                  if (visited.has(o.id)) continue;
+                  const dx = o.x - current.x, dy = o.y - current.y;
+                  const d = Math.sqrt(dx * dx + dy * dy);
+                  if (d < nearDist) { nearDist = d; nearest = o; }
+                }
+                if (!nearest) break;
+                visited.add(nearest.id);
+                bolts.push({ points: generateBolt(current.x, current.y, nearest.x, nearest.y, LIGHTNING_SEGMENTS), color: current.color, branch: false });
+                const angle = Math.atan2(nearest.y - current.y, nearest.x - current.x);
+                nearest.vx += Math.cos(angle) * LIGHTNING_FORCE;
+                nearest.vy += Math.sin(angle) * LIGHTNING_FORCE;
+                current = nearest;
+              }
+              if (bolts.length > 0) {
+                const sparks = [];
+                for (const o of visited) {
+                  const orb = orbs.find((ob) => ob.id === o);
+                  if (orb) for (let s = 0; s < 3; s++) sparks.push({ x: orb.x, y: orb.y, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4, born: now });
+                }
+                lightningRef.current.push({ bolts, sparks, born: now });
+                shakeRef.current = Math.max(shakeRef.current, 8);
+                playLightning();
+              }
+            },
+            // scatter
+            () => {
+              const cx2 = W / 2, cy2 = H / 2;
+              for (const o of orbs) {
+                const dx = o.x - cx2, dy = o.y - cy2;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                const str = 4 + Math.random() * 4;
+                o.vx += (dx / dist) * str;
+                o.vy += (dy / dist) * str;
+              }
+              shakeRef.current = Math.max(shakeRef.current, 12);
+            },
+            // meteor shower
+            () => {
+              for (let i = 0; i < METEOR_COUNT; i++) {
+                const delay = i * METEOR_STAGGER;
+                setTimeout(() => {
+                  const mx2 = W * 0.1 + Math.random() * W * 0.8;
+                  const orb = createOrb(mx2, -20);
+                  orb.radius = 6 + Math.random() * 6;
+                  orb.vx = (Math.random() - 0.5) * 2;
+                  orb.vy = 4 + Math.random() * 4;
+                  orbsRef.current.push(orb);
+                  meteorTrailsRef.current.push({ x: mx2, y: -20, color: orb.color, born: performance.now() });
+                }, delay);
+              }
+              setOrbCount(orbsRef.current.length);
+              shakeRef.current = Math.max(shakeRef.current, 12);
+              playMeteorSound();
+            },
+            // firework
+            () => {
+              const lx = W * 0.2 + Math.random() * W * 0.6;
+              const py = H * 0.15 + Math.random() * H * 0.25;
+              const count = 8;
+              for (let i = 0; i < count; i++) {
+                const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+                const orb = createOrb(lx, H);
+                orb.radius = 5 + Math.random() * 4;
+                orb.vx = Math.cos(angle) * (2 + Math.random());
+                orb.vy = -(6 + Math.random() * 4);
+                orbsRef.current.push(orb);
+                ripplesRef.current.push({ x: lx, y: H, color: orb.color, born: now });
+              }
+              setOrbCount(orbsRef.current.length);
+              shakeRef.current = Math.max(shakeRef.current, 8);
+            },
+          ];
+          effects[Math.floor(Math.random() * effects.length)]();
+          ap.lastEffect = now + (Math.random() - 0.5) * 1000; // vary timing
+        }
       }
 
       // ── Domino cascade processing ──
@@ -3403,6 +3562,17 @@ function App() {
     playBoom();
   }, []);
 
+  const handleAutoplay = useCallback(() => {
+    setAutoplayMode((prev) => {
+      autoplayModeRef.current = !prev;
+      if (!prev) {
+        // reset timers when enabling
+        autoplayTimersRef.current = { lastSpawn: performance.now(), lastEffect: performance.now() + 1500 };
+      }
+      return !prev;
+    });
+  }, []);
+
   const handleGravityPaintMode = useCallback(() => {
     setGravityPaintMode((prev) => {
       gravityPaintModeRef.current = !prev;
@@ -3925,6 +4095,9 @@ function App() {
         case "6":
           handleDomino();
           break;
+        case "7":
+          handleAutoplay();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -3932,7 +4105,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, setShowHelp]);
 
   return (
     <Wrapper>
@@ -3950,7 +4123,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to spray &middot; drag orb to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
-        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j 2 5 6 s p m v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j 2 5 6 7 s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -3970,9 +4143,19 @@ function App() {
           {kaleidoscopeMode && <ModePill $color="#f093fb">kaleidoscope</ModePill>}
           {gravityPaintMode && <ModePill $color="#43e97b">gravity paint</ModePill>}
           {constellationMode && <ModePill $color="#667eea">constellation</ModePill>}
+          {autoplayMode && <ModePill $color="#feb47b">autoplay</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
+          <ActionButton onClick={handleAutoplay} title="Light show" $active={autoplayMode}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="5 3 19 12 5 21 5 3" />
+              <line x1="19" y1="3" x2="19" y2="21" opacity="0.5" />
+              <circle cx="12" cy="4" r="1" fill="currentColor" opacity="0.6" />
+              <circle cx="16" cy="7" r="1" fill="currentColor" opacity="0.4" />
+              <circle cx="8" cy="6" r="1" fill="currentColor" opacity="0.5" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleBurst} title="Burst spawn">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
@@ -4303,6 +4486,7 @@ function App() {
               <Shortcut><Key>4</Key><span>Gravity painter (draw gravity trails)</span></Shortcut>
               <Shortcut><Key>5</Key><span>Constellation mode (connect nearby orbs)</span></Shortcut>
               <Shortcut><Key>6</Key><span>Domino cascade (chain reaction)</span></Shortcut>
+              <Shortcut><Key>7</Key><span>Light show (autoplay)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
