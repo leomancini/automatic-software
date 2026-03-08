@@ -77,6 +77,10 @@ const SUPERNOVA_RING_COUNT = 16; // orbs spawned in explosion ring
 const SUPERNOVA_RING_SPEED = 8; // outward velocity of ring orbs
 const SUPERNOVA_PULL_STRENGTH = 12; // how hard orbs pull inward
 
+// ── Time rewind ────────────────────────────────────────────────────
+const REWIND_BUFFER_SIZE = 90; // frames of history (~1.5s at 60fps)
+const REWIND_PLAYBACK_SPEED = 3; // frames consumed per draw frame during rewind
+
 // ── Tap streak / combo system ───────────────────────────────────────
 const STREAK_WINDOW = 600; // ms between taps to continue a streak
 const STREAK_DECAY_DELAY = 1200; // ms after last tap before streak counter fades
@@ -632,6 +636,35 @@ function playColorWaveSound() {
   });
 }
 
+function playRewindSound() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  // Descending sweep — tape rewind
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(600, t);
+  osc.frequency.exponentialRampToValueAtTime(80, t + 0.5);
+  g.gain.setValueAtTime(0.05, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.65);
+  // Flutter overtone
+  const osc2 = audioCtx.createOscillator();
+  const g2 = audioCtx.createGain();
+  osc2.type = "sine";
+  osc2.frequency.setValueAtTime(300, t);
+  osc2.frequency.exponentialRampToValueAtTime(50, t + 0.4);
+  g2.gain.setValueAtTime(0.03, t);
+  g2.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+  osc2.connect(g2);
+  g2.connect(masterGain);
+  osc2.start(t);
+  osc2.stop(t + 0.5);
+}
+
 function generateBolt(x1, y1, x2, y2, segments = LIGHTNING_SEGMENTS) {
   const points = [{ x: x1, y: y1 }];
   const dx = x2 - x1;
@@ -775,6 +808,9 @@ function App() {
   const autoplayModeRef = useRef(false);
   const autoplayTimersRef = useRef({ lastSpawn: 0, lastEffect: 0 });
   const bigBangRef = useRef(null); // {born, detonated, detonateTime}
+  const rewindBufferRef = useRef([]); // circular buffer of orb snapshots for rewind
+  const rewindRef = useRef(null); // {index} when rewinding, null otherwise
+  const slingshotRef = useRef(null); // {startX, startY} when flick-aiming
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -828,6 +864,7 @@ function App() {
     (e) => {
       const pos = getPos(e);
       mouseDownRef.current = true;
+      slingshotRef.current = null;
       const hit = findOrb(pos.x, pos.y);
       if (hit) {
         dragRef.current = hit;
@@ -868,11 +905,15 @@ function App() {
         // keep only last 5 samples
         if (history.length > 5) history.shift();
       } else if (mouseDownRef.current) {
-        // spray mode: drag on empty space to paint orb trails
         const startDx = pos.x - sprayStartRef.current.x;
         const startDy = pos.y - sprayStartRef.current.y;
         const startDist = Math.sqrt(startDx * startDx + startDy * startDy);
         if (startDist > 20) {
+          if (!paintModeRef.current && !gravityPaintModeRef.current) {
+            // Flick aiming mode — show trajectory line, launch on release
+            slingshotRef.current = { startX: sprayStartRef.current.x, startY: sprayStartRef.current.y };
+          } else {
+          // spray mode: drag on empty space to paint orb trails
           const dx = pos.x - lastSprayPosRef.current.x;
           const dy = pos.y - lastSprayPosRef.current.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
@@ -921,6 +962,7 @@ function App() {
             setOrbCount(orbsRef.current.length);
             playSpray(pos.y, window.innerHeight);
           }
+          }
         }
       }
       mouseRef.current = pos;
@@ -956,6 +998,46 @@ function App() {
       if (sprayActiveRef.current) {
         sprayActiveRef.current = false;
         return;
+      }
+      // ── Flick launch ──
+      if (slingshotRef.current) {
+        const sling = slingshotRef.current;
+        slingshotRef.current = null;
+        const releasePos = e.changedTouches
+          ? { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
+          : getPos(e);
+        const fdx = releasePos.x - sling.startX;
+        const fdy = releasePos.y - sling.startY;
+        const fDist = Math.sqrt(fdx * fdx + fdy * fdy);
+        if (fDist > 30) {
+          const maxSpeed = 18;
+          const speed = Math.min(fDist * 0.12, maxSpeed);
+          const fAngle = Math.atan2(fdy, fdx);
+          const orb = createOrb(sling.startX, sling.startY);
+          orb.radius = 10 + Math.min(fDist * 0.03, 8);
+          orb.vx = Math.cos(fAngle) * speed;
+          orb.vy = Math.sin(fAngle) * speed;
+          orbsRef.current.push(orb);
+          const now = performance.now();
+          ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+          // Spawn burst particles in launch direction
+          for (let i = 0; i < 5; i++) {
+            const spread = fAngle + (Math.random() - 0.5) * 0.8;
+            burstsRef.current.push({
+              x: sling.startX,
+              y: sling.startY,
+              vx: Math.cos(spread) * (2 + Math.random() * 3),
+              vy: Math.sin(spread) * (2 + Math.random() * 3),
+              color: orb.color,
+              born: now,
+            });
+          }
+          setOrbCount(orbsRef.current.length);
+          playSwoosh();
+          shakeRef.current = Math.max(shakeRef.current, speed * 0.4);
+          return;
+        }
+        // Drag was too short — fall through to normal tap
       }
       const pos = e.changedTouches
         ? { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
@@ -1114,6 +1196,25 @@ function App() {
       const dpr = window.devicePixelRatio || 1;
       const W = canvas.width / dpr;
       const H = canvas.height / dpr;
+
+      // ── Time rewind playback ──
+      if (rewindRef.current) {
+        const rw = rewindRef.current;
+        for (let step = 0; step < REWIND_PLAYBACK_SPEED; step++) {
+          if (rw.index <= 0) {
+            rewindRef.current = null;
+            rewindBufferRef.current = [];
+            break;
+          }
+          rw.index--;
+        }
+        if (rewindRef.current) {
+          const snapshot = rewindBufferRef.current[rw.index];
+          orbsRef.current = snapshot.map(s => ({...s}));
+          setOrbCount(orbsRef.current.length);
+        }
+      }
+
       const orbs = orbsRef.current;
 
       const now = performance.now();
@@ -1465,7 +1566,7 @@ function App() {
       // update physics
       for (const orb of orbs) {
         if (orb === dragRef.current) continue;
-        if (frozenRef.current) continue;
+        if (frozenRef.current || rewindRef.current) continue;
 
         // soft repulsion between orbs
         for (const other of orbs) {
@@ -1955,6 +2056,18 @@ function App() {
         orbsRef.current = orbs.filter((_, idx) => !toRemove.has(idx));
         setOrbCount(orbsRef.current.length);
         playMergeSound();
+      }
+
+      // Record snapshot for time rewind (only during normal play)
+      if (!rewindRef.current && !frozenRef.current) {
+        const snap = orbsRef.current.map(o => ({
+          x: o.x, y: o.y, vx: o.vx, vy: o.vy,
+          radius: o.radius, color: o.color, id: o.id, pulsePhase: o.pulsePhase
+        }));
+        rewindBufferRef.current.push(snap);
+        if (rewindBufferRef.current.length > REWIND_BUFFER_SIZE) {
+          rewindBufferRef.current.shift();
+        }
       }
 
       // Black hole collapse: massive orbs implode into gravity wells
@@ -3471,12 +3584,102 @@ function App() {
         }
       }
 
+      // ── Flick aiming line ──
+      if (slingshotRef.current && mouseDownRef.current) {
+        const sling = slingshotRef.current;
+        const mx = mouseRef.current.x;
+        const my = mouseRef.current.y;
+        const sdx = mx - sling.startX;
+        const sdy = my - sling.startY;
+        const sDist = Math.sqrt(sdx * sdx + sdy * sdy);
+        const sAngle = Math.atan2(sdy, sdx);
+        const sSpeed = Math.min(sDist * 0.12, 18);
+        const powerPct = Math.min(sSpeed / 18, 1);
+
+        // Elastic band from start to cursor
+        const bandGrad = ctx.createLinearGradient(sling.startX, sling.startY, mx, my);
+        bandGrad.addColorStop(0, `rgba(255, 255, 255, 0.6)`);
+        bandGrad.addColorStop(1, `rgba(255, 255, 255, 0.2)`);
+        ctx.beginPath();
+        ctx.moveTo(sling.startX, sling.startY);
+        ctx.lineTo(mx, my);
+        ctx.strokeStyle = bandGrad;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Dotted trajectory extension
+        if (sDist > 30) {
+          const trajLen = sSpeed * 12;
+          const trajEndX = sling.startX + Math.cos(sAngle) * trajLen;
+          const trajEndY = sling.startY + Math.sin(sAngle) * trajLen;
+          ctx.beginPath();
+          ctx.setLineDash([5, 7]);
+          ctx.moveTo(mx, my);
+          ctx.lineTo(trajEndX, trajEndY);
+          ctx.strokeStyle = `rgba(255, 255, 255, 0.18)`;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // Orb preview glow at start position
+        const previewR = 10 + Math.min(sDist * 0.03, 8);
+        const glowGrad = ctx.createRadialGradient(sling.startX, sling.startY, 0, sling.startX, sling.startY, previewR * 2.5);
+        const powerHue = powerPct > 0.7 ? "250, 112, 154" : powerPct > 0.4 ? "254, 180, 123" : "67, 233, 123";
+        glowGrad.addColorStop(0, `rgba(${powerHue}, 0.3)`);
+        glowGrad.addColorStop(1, "transparent");
+        ctx.fillStyle = glowGrad;
+        ctx.beginPath();
+        ctx.arc(sling.startX, sling.startY, previewR * 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(sling.startX, sling.startY, previewR, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${powerHue}, 0.2)`;
+        ctx.fill();
+        ctx.strokeStyle = `rgba(255, 255, 255, 0.6)`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Power percentage label
+        if (sDist > 30) {
+          ctx.save();
+          ctx.font = "bold 13px monospace";
+          ctx.textAlign = "center";
+          ctx.fillStyle = `rgba(${powerHue}, 0.85)`;
+          ctx.fillText(Math.round(powerPct * 100) + "%", sling.startX, sling.startY - previewR - 10);
+          ctx.restore();
+        }
+      }
+
       // draw vignette overlay for cinematic depth
       const vignetteGrad = ctx.createRadialGradient(W / 2, H / 2, W * 0.25, W / 2, H / 2, W * 0.75);
       vignetteGrad.addColorStop(0, "transparent");
       vignetteGrad.addColorStop(1, "rgba(0, 0, 0, 0.4)");
       ctx.fillStyle = vignetteGrad;
       ctx.fillRect(0, 0, W, H);
+
+      // ── Rewind VHS overlay ──
+      if (rewindRef.current) {
+        ctx.fillStyle = "rgba(79, 172, 254, 0.06)";
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+        for (let sy = 0; sy < H; sy += 4) {
+          ctx.fillRect(0, sy, W, 1);
+        }
+        for (let gi = 0; gi < 3; gi++) {
+          const gy = Math.random() * H;
+          const gh = 1 + Math.random() * 3;
+          ctx.fillStyle = `rgba(255, 255, 255, ${0.03 + Math.random() * 0.06})`;
+          ctx.fillRect(0, gy, W, gh);
+        }
+        ctx.save();
+        ctx.font = "bold 20px monospace";
+        ctx.textAlign = "center";
+        ctx.fillStyle = `rgba(79, 172, 254, ${0.4 + Math.sin(time * 10) * 0.3})`;
+        ctx.fillText("\u25C0\u25C0 REWIND", W / 2, H - 50);
+        ctx.restore();
+      }
 
       // restore shake transform
       if (shake > 0.5) {
@@ -4206,6 +4409,15 @@ function App() {
     playBlackHoleSound();
   }, []);
 
+  const handleRewind = useCallback(() => {
+    if (rewindRef.current) return;
+    const buf = rewindBufferRef.current;
+    if (buf.length < 10) return;
+    rewindRef.current = { index: buf.length - 1 };
+    playRewindSound();
+    shakeRef.current = Math.max(shakeRef.current, 6);
+  }, []);
+
   const handleBigBang = useCallback(() => {
     if (bigBangRef.current) return; // already in progress
     bigBangRef.current = {
@@ -4330,6 +4542,9 @@ function App() {
         case "9":
           handleBigBang();
           break;
+        case "0":
+          handleRewind();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -4337,7 +4552,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, setShowHelp]);
 
   return (
     <Wrapper>
@@ -4354,7 +4569,7 @@ function App() {
       />
       <HUD>
         <Title>Automatic Software</Title>
-        <Hint>tap to create &middot; drag to spray &middot; drag orb to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
+        <Hint>tap to create &middot; drag to launch &middot; drag orb to fling &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
         <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j 2 5 6 7 8 9 s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
@@ -4401,6 +4616,12 @@ function App() {
               <line x1="4.22" y1="19.78" x2="7.76" y2="16.24" />
               <line x1="16.24" y1="7.76" x2="19.78" y2="4.22" />
               <circle cx="12" cy="12" r="9" opacity="0.3" strokeDasharray="3 3" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleRewind} title="Time rewind" $active={!!rewindRef.current}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="19 20 9 12 19 4 19 20" />
+              <line x1="5" y1="4" x2="5" y2="20" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleBurst} title="Burst spawn">
@@ -4746,6 +4967,7 @@ function App() {
               <Shortcut><Key>7</Key><span>Light show (autoplay)</span></Shortcut>
               <Shortcut><Key>8</Key><span>Color wave (rainbow recolor)</span></Shortcut>
               <Shortcut><Key>9</Key><span>Big bang (implode + explode)</span></Shortcut>
+              <Shortcut><Key>0</Key><span>Time rewind (VHS replay)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
