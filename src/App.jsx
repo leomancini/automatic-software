@@ -6528,10 +6528,10 @@ function App() {
   const handleRandomEffect = useCallback(() => {
     const orbs = orbsRef.current;
     const alwaysAvailable = [handleBurst, handleMeteorShower, handleFirework];
-    const needsOrbs = [handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleDomino];
+    const needsOrbs = [handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova];
     const pool = orbs.length > 0 ? [...alwaysAvailable, ...needsOrbs] : alwaysAvailable;
     pool[Math.floor(Math.random() * pool.length)]();
-  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleDomino]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -6593,26 +6593,11 @@ function App() {
         case "l":
           handleLightning();
           break;
-        case "t":
-          handleVortexStorm();
-          break;
         case "q":
           handleMeteorShower();
           break;
         case "e":
           handleSupernova();
-          break;
-        case "i":
-          handleIgnite();
-          break;
-        case "k":
-          handleStrike();
-          break;
-        case "z":
-          handleStorm();
-          break;
-        case "y":
-          handleTsunami();
           break;
         case "u":
           handleFlockMode();
@@ -6626,59 +6611,11 @@ function App() {
         case "2":
           handleKaleidoscopeMode();
           break;
-        case "3":
-          handlePlaceFountain();
-          break;
-        case "4":
-          handleGravityPaintMode();
-          break;
-        case "5":
-          handleConstellationMode();
-          break;
-        case "6":
-          handleDomino();
-          break;
         case "7":
           handleAutoplay();
           break;
-        case "8":
-          handleColorWave();
-          break;
-        case "9":
-          handleBigBang();
-          break;
-        case "0":
-          handleRewind();
-          break;
-        case "-":
-          handleTrailMode();
-          break;
-        case "=":
-          handleWarpDrive();
-          break;
         case "?":
           setShowHelp((prev) => !prev);
-          break;
-        case ";":
-          handleMagnetMode();
-          break;
-        case "'":
-          handleNbodyMode();
-          break;
-        case "[":
-          handleFormation();
-          break;
-        case "]":
-          handleTornado();
-          break;
-        case "\\":
-          handlePulseMode();
-          break;
-        case ".":
-          handleTiltMode();
-          break;
-        case ",":
-          handleShatterAll();
           break;
         case "/":
           e.preventDefault();
@@ -6688,7 +6625,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, handleWarpDrive, handleMagnetMode, handleNbodyMode, handleFormation, handleTornado, handlePulseMode, handleTiltMode, handleShatterAll, handleRandomEffect, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoplay, handleRandomEffect, setShowHelp]);
 
   return (
     <Wrapper>
@@ -6723,14 +6660,7 @@ function App() {
           {colorCycle && <ModePill $color="#667eea">rainbow</ModePill>}
           {flockMode && <ModePill $color="#43e97b">flock</ModePill>}
           {kaleidoscopeMode && <ModePill $color="#f093fb">kaleidoscope</ModePill>}
-          {gravityPaintMode && <ModePill $color="#43e97b">gravity paint</ModePill>}
-          {constellationMode && <ModePill $color="#667eea">constellation</ModePill>}
-          {trailMode && <ModePill $color="#fa709a">trails</ModePill>}
           {sparklerMode && <ModePill $color="#feb47b">sparkler</ModePill>}
-          {magnetMode && <ModePill $color="#c084fc">magnetic</ModePill>}
-          {nbodyMode && <ModePill $color="#f59e0b">n-body</ModePill>}
-          {pulseMode && <ModePill $color="#667eea">pulse</ModePill>}
-          {tiltMode && <ModePill $color="#43e97b">tilt gravity</ModePill>}
           {autoplayMode && <ModePill $color="#feb47b">autoplay</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -6933,9 +6863,7 @@ function App() {
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
-              <Shortcut><Key>K</Key><span>Orbital strike</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
-              <Shortcut><Key>T</Key><span>Vortex storm (spiral + explode)</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
@@ -6951,21 +6879,7 @@ function App() {
               <Shortcut><Key>N</Key><span>Place / remove gravity well</span></Shortcut>
               <Shortcut><Key>1</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
               <Shortcut><Key>2</Key><span>Kaleidoscope mode (4-fold symmetry)</span></Shortcut>
-              <Shortcut><Key>3</Key><span>Place / remove particle fountain</span></Shortcut>
-              <Shortcut><Key>4</Key><span>Gravity painter (draw gravity trails)</span></Shortcut>
-              <Shortcut><Key>5</Key><span>Constellation mode (connect nearby orbs)</span></Shortcut>
-              <Shortcut><Key>6</Key><span>Eruption (blast orbs upward)</span></Shortcut>
               <Shortcut><Key>7</Key><span>Light show (autoplay)</span></Shortcut>
-              <Shortcut><Key>8</Key><span>Color wave (rainbow recolor)</span></Shortcut>
-              <Shortcut><Key>9</Key><span>Big bang (implode + explode)</span></Shortcut>
-              <Shortcut><Key>0</Key><span>Time rewind (VHS replay)</span></Shortcut>
-              <Shortcut><Key>-</Key><span>Light trails (comet tails)</span></Shortcut>
-              <Shortcut><Key>=</Key><span>Warp drive (hyperspace jump)</span></Shortcut>
-              <Shortcut><Key>;</Key><span>Magnetic polarity (attract/repel by charge)</span></Shortcut>
-              <Shortcut><Key>'</Key><span>N-body gravity (mutual mass attraction)</span></Shortcut>
-              <Shortcut><Key>[</Key><span>Formation snap (cycle: circle, spiral, grid, wave)</span></Shortcut>
-              <Shortcut><Key>.</Key><span>Tilt gravity (gyroscope / mouse direction)</span></Shortcut>
-              <Shortcut><Key>,</Key><span>Shatter all (crystallize + explode)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
