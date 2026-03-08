@@ -3600,6 +3600,34 @@ function App() {
         }
       }
 
+      // ── Speed streaks for fast-moving orbs ──
+      for (const orb of orbs) {
+        const speed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+        if (speed < 3.0) continue;
+        const pulse = 1 + 0.12 * Math.sin(time * 1.5 + orb.pulsePhase);
+        const r = orb.radius * pulse;
+        const intensity = Math.min((speed - 3.0) / 12, 1);
+        const tailLen = r + speed * 2.5;
+        const angle = Math.atan2(orb.vy, orb.vx);
+        const tx = orb.x - Math.cos(angle) * tailLen;
+        const ty = orb.y - Math.sin(angle) * tailLen;
+        const perpX = -Math.sin(angle);
+        const perpY = Math.cos(angle);
+        const halfW = r * 0.6;
+
+        ctx.beginPath();
+        ctx.moveTo(orb.x + perpX * halfW, orb.y + perpY * halfW);
+        ctx.lineTo(orb.x - perpX * halfW, orb.y - perpY * halfW);
+        ctx.lineTo(tx, ty);
+        ctx.closePath();
+
+        const streakGrad = ctx.createLinearGradient(orb.x, orb.y, tx, ty);
+        streakGrad.addColorStop(0, orb.color + hexAlpha(intensity * 120));
+        streakGrad.addColorStop(1, "transparent");
+        ctx.fillStyle = streakGrad;
+        ctx.fill();
+      }
+
       // draw orbs
       for (const orb of orbs) {
         const pulse = 1 + 0.12 * Math.sin(time * 1.5 + orb.pulsePhase);
@@ -6561,13 +6589,6 @@ function App() {
               <circle cx="11" cy="11" r="2" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleAttractMode} title="Attract mode" $active={attractMode}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10" />
-              <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4" />
-              <circle cx="12" cy="12" r="1" fill="currentColor" />
-            </svg>
-          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handleWave} title="Shockwave">
@@ -6610,15 +6631,6 @@ function App() {
                 <polyline points="8 12 12 12 12 16" />
                 <line x1="19" y1="19" x2="12" y2="12" />
                 <polyline points="16 12 12 12 12 16" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleShuffle} title="Shuffle colors">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="16 3 21 3 21 8" />
-                <line x1="4" y1="20" x2="21" y2="3" />
-                <polyline points="21 16 21 21 16 21" />
-                <line x1="15" y1="15" x2="21" y2="21" />
-                <line x1="4" y1="4" x2="9" y2="9" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleGravity} title="Toggle gravity" $active={gravityOn}>
