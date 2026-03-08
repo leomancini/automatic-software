@@ -49,6 +49,116 @@ const CASCADE_SPEED_THRESHOLD = 3.5; // orb speed after hit to trigger cascade
 const CASCADE_FORCE_DECAY = 0.55; // each generation is 55% as strong
 const CASCADE_DELAY_FRAMES = 8; // frames to wait before cascade wave activates
 
+// ── Audio engine ──────────────────────────────────────────────────────
+let audioCtx = null;
+let masterGain = null;
+let audioMuted = false;
+let lastBounceTime = 0;
+let lastMergeTime = 0;
+
+// C major pentatonic across 2 octaves — always sounds musical
+const PENTATONIC = [
+  261.63, 293.66, 329.63, 392.00, 440.00,
+  523.25, 587.33, 659.25, 783.99, 880.00,
+];
+
+function ensureAudio() {
+  if (audioCtx) return true;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.25;
+    masterGain.connect(audioCtx.destination);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function playTone(freq, duration = 0.3, type = "sine", gainVal = 0.15) {
+  if (!audioCtx || !masterGain || audioMuted) return;
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(gainVal, t + 0.015);
+  g.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + duration + 0.01);
+}
+
+function playSpawn(x, screenW) {
+  if (!ensureAudio() || audioMuted) return;
+  const idx = Math.floor((x / screenW) * PENTATONIC.length);
+  const note = PENTATONIC[Math.max(0, Math.min(PENTATONIC.length - 1, idx))];
+  playTone(note, 0.4, "sine", 0.1);
+  playTone(note * 2, 0.25, "sine", 0.03);
+}
+
+function playMergeSound() {
+  if (!audioCtx || audioMuted) return;
+  const t = audioCtx.currentTime;
+  if (t - lastMergeTime < 0.1) return;
+  lastMergeTime = t;
+  const base = 180 + Math.random() * 80;
+  playTone(base, 0.5, "sine", 0.08);
+  playTone(base * 1.5, 0.35, "triangle", 0.04);
+}
+
+function playBoom() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(80, t);
+  osc.frequency.exponentialRampToValueAtTime(25, t + 0.5);
+  g.gain.setValueAtTime(0.18, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.55);
+}
+
+function playBounce(intensity) {
+  if (!audioCtx || audioMuted) return;
+  const t = audioCtx.currentTime;
+  if (t - lastBounceTime < 0.06) return;
+  lastBounceTime = t;
+  const freq = 600 + Math.random() * 500;
+  playTone(freq, 0.06, "sine", 0.03 * Math.min(intensity, 1));
+}
+
+function playSwoosh() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(200, t);
+  osc.frequency.exponentialRampToValueAtTime(500, t + 0.12);
+  osc.frequency.exponentialRampToValueAtTime(120, t + 0.35);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.06, t + 0.03);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.4);
+}
+
+function playBurstSound() {
+  if (!ensureAudio() || audioMuted) return;
+  playTone(392, 0.35, "sine", 0.06);
+  playTone(523.25, 0.3, "sine", 0.05);
+  playTone(659.25, 0.25, "sine", 0.04);
+}
+
 function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
 }
@@ -137,6 +247,7 @@ function App() {
   const [attractMode, setAttractMode] = useState(false);
   const attractModeRef = useRef(false);
   const longPressRef = useRef(null);
+  const [audioEnabled, setAudioEnabled] = useState(true);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -261,6 +372,7 @@ function App() {
       orbsRef.current.push(newOrb);
       ripplesRef.current.push({ x: pos.x, y: pos.y, color: newOrb.color, born: performance.now() });
       setOrbCount(orbsRef.current.length);
+      playSpawn(pos.x, window.innerWidth);
     },
     [getPos]
   );
@@ -474,26 +586,38 @@ function App() {
 
         // bounce off walls
         if (orb.x < orb.radius) {
-          if (Math.abs(orb.vx) > WALL_HIT_SPEED_THRESHOLD)
-            wallHitsRef.current.push({ x: 0, y: orb.y, color: orb.color, born: now, intensity: Math.min(Math.abs(orb.vx) / 5, 1) });
+          if (Math.abs(orb.vx) > WALL_HIT_SPEED_THRESHOLD) {
+            const hi = Math.min(Math.abs(orb.vx) / 5, 1);
+            wallHitsRef.current.push({ x: 0, y: orb.y, color: orb.color, born: now, intensity: hi });
+            playBounce(hi);
+          }
           orb.x = orb.radius;
           orb.vx *= -0.6;
         }
         if (orb.x > W - orb.radius) {
-          if (Math.abs(orb.vx) > WALL_HIT_SPEED_THRESHOLD)
-            wallHitsRef.current.push({ x: W, y: orb.y, color: orb.color, born: now, intensity: Math.min(Math.abs(orb.vx) / 5, 1) });
+          if (Math.abs(orb.vx) > WALL_HIT_SPEED_THRESHOLD) {
+            const hi = Math.min(Math.abs(orb.vx) / 5, 1);
+            wallHitsRef.current.push({ x: W, y: orb.y, color: orb.color, born: now, intensity: hi });
+            playBounce(hi);
+          }
           orb.x = W - orb.radius;
           orb.vx *= -0.6;
         }
         if (orb.y < orb.radius) {
-          if (Math.abs(orb.vy) > WALL_HIT_SPEED_THRESHOLD)
-            wallHitsRef.current.push({ x: orb.x, y: 0, color: orb.color, born: now, intensity: Math.min(Math.abs(orb.vy) / 5, 1) });
+          if (Math.abs(orb.vy) > WALL_HIT_SPEED_THRESHOLD) {
+            const hi = Math.min(Math.abs(orb.vy) / 5, 1);
+            wallHitsRef.current.push({ x: orb.x, y: 0, color: orb.color, born: now, intensity: hi });
+            playBounce(hi);
+          }
           orb.y = orb.radius;
           orb.vy *= -0.6;
         }
         if (orb.y > H - orb.radius) {
-          if (Math.abs(orb.vy) > WALL_HIT_SPEED_THRESHOLD)
-            wallHitsRef.current.push({ x: orb.x, y: H, color: orb.color, born: now, intensity: Math.min(Math.abs(orb.vy) / 5, 1) });
+          if (Math.abs(orb.vy) > WALL_HIT_SPEED_THRESHOLD) {
+            const hi = Math.min(Math.abs(orb.vy) / 5, 1);
+            wallHitsRef.current.push({ x: orb.x, y: H, color: orb.color, born: now, intensity: hi });
+            playBounce(hi);
+          }
           orb.y = H - orb.radius;
           orb.vy *= -0.6;
         }
@@ -591,6 +715,7 @@ function App() {
       if (toRemove.size > 0) {
         orbsRef.current = orbs.filter((_, idx) => !toRemove.has(idx));
         setOrbCount(orbsRef.current.length);
+        playMergeSound();
       }
 
       // update and draw shockwaves (with cascade chain reactions)
@@ -1111,6 +1236,7 @@ function App() {
       orb.vx -= (dx / dist) * 0.5;
       orb.vy -= (dy / dist) * 0.5;
     }
+    playSwoosh();
   }, []);
 
   const handleWave = useCallback(() => {
@@ -1126,6 +1252,7 @@ function App() {
       delay: 0,
     });
     shakeRef.current = 16;
+    playBoom();
   }, []);
 
   const handleSlowMo = useCallback(() => {
@@ -1207,6 +1334,7 @@ function App() {
     }
     setOrbCount(orbsRef.current.length);
     shakeRef.current = 10;
+    playBurstSound();
   }, []);
 
   const handleFirework = useCallback(() => {
@@ -1228,6 +1356,13 @@ function App() {
     }
     setOrbCount(orbsRef.current.length);
     shakeRef.current = 8;
+  }, []);
+
+  const handleToggleAudio = useCallback(() => {
+    setAudioEnabled((prev) => {
+      audioMuted = prev;
+      return !prev;
+    });
   }, []);
 
   const handlePlaceWell = useCallback(() => {
@@ -1325,6 +1460,9 @@ function App() {
         case "n":
           handlePlaceWell();
           break;
+        case "v":
+          handleToggleAudio();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -1332,7 +1470,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -1350,7 +1488,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; overlap to merge</Hint>
-        <Hint>keys: space b f n c r w h g d a o j s p m x &middot; press ? for help</Hint>
+        <Hint>keys: space b f n c r w h g d a o j s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         <ModeIndicators>
           {frozen && <ModePill $color="#4facfe">frozen</ModePill>}
@@ -1517,6 +1655,23 @@ function App() {
           </>
         )}
         </ButtonGroup>
+      <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {audioEnabled ? (
+            <>
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+            </>
+          ) : (
+            <>
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <line x1="23" y1="9" x2="17" y2="15" />
+              <line x1="17" y1="9" x2="23" y2="15" />
+            </>
+          )}
+        </svg>
+      </MuteButton>
       <HelpButton onClick={() => setShowHelp((prev) => !prev)} title="Keyboard shortcuts">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10" />
@@ -1551,6 +1706,7 @@ function App() {
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
+              <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all orbs</span></Shortcut>
               <Shortcut><Key>?</Key><span>Toggle this help</span></Shortcut>
             </ShortcutList>
@@ -1712,6 +1868,37 @@ const HelpButton = styled.button`
   @media (max-width: 600px) {
     top: 16px;
     right: 16px;
+    width: 32px;
+    height: 32px;
+  }
+`;
+
+const MuteButton = styled.button`
+  position: fixed;
+  top: 24px;
+  right: 68px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid ${(p) => p.$muted ? "rgba(250, 112, 154, 0.4)" : "rgba(102, 126, 234, 0.3)"};
+  background: ${(p) => p.$muted ? "rgba(250, 112, 154, 0.1)" : "rgba(15, 15, 26, 0.7)"};
+  color: ${(p) => p.$muted ? "rgba(250, 112, 154, 0.8)" : "rgba(102, 126, 234, 0.7)"};
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: ${(p) => p.$muted ? "rgba(250, 112, 154, 0.2)" : "rgba(102, 126, 234, 0.15)"};
+    color: ${(p) => p.$muted ? "#fa709a" : "#667eea"};
+    transform: scale(1.1);
+  }
+
+  @media (max-width: 600px) {
+    top: 16px;
+    right: 56px;
     width: 32px;
     height: 32px;
   }
