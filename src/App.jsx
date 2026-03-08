@@ -114,6 +114,16 @@ const NOVA_BLAST_SPEED = 5; // outward velocity of fragments
 const NOVA_PUSH_RADIUS = 160; // force push radius on detonation
 const NOVA_PUSH_FORCE = 4; // force push strength
 
+// ── Shatter chain (double-click cascade) ─────────────────────────
+const SHATTER_WAVE_SPEED = 5;        // px per frame
+const SHATTER_WAVE_MAX_RADIUS = 180; // how far the shatter ring expands
+const SHATTER_WAVE_WIDTH = 25;       // ring thickness for hit detection
+const SHATTER_CHAIN_CHANCE = 0.65;   // base probability of chain per hit
+const SHATTER_CHAIN_DECAY = 0.55;    // chance multiplier per generation
+const SHATTER_MAX_GEN = 5;           // max cascade depth
+const SHATTER_PARTICLE_COUNT = 14;   // fragments per shatter
+const SHATTER_DELAY_FRAMES = 6;      // frames before chain-shatter detonates
+
 // ── Formation snap ────────────────────────────────────────────────
 const FORMATION_TYPES = ['circle', 'spiral', 'grid', 'wave'];
 const FORMATION_SPRING = 0.08;
@@ -950,6 +960,7 @@ function App() {
   const colorWavesRef = useRef([]); // active color waves [{cx, cy, radius, born, hitOrbs}]
   const tsunamiDirRef = useRef(1); // alternates direction each trigger
   const tapWavesRef = useRef([]); // concentric pulse waves from taps [{x, y, born, color, streak}]
+  const shatterRef = useRef([]); // chain-shatter waves [{x, y, radius, generation, hitOrbs, color, delay}]
   const fountainsRef = useRef([]); // persistent orb spawners [{x, y, color, born, lastSpawn}]
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
@@ -1508,22 +1519,38 @@ function App() {
       const pos = getPos(e);
       const hit = findOrb(pos.x, pos.y);
       if (hit) {
-        // spawn burst particles
         const born = performance.now();
-        for (let i = 0; i < BURST_PARTICLE_COUNT; i++) {
-          const angle = (Math.PI * 2 * i) / BURST_PARTICLE_COUNT;
+        // Dramatic shatter: more particles, scaled to orb size
+        const particleCount = Math.max(SHATTER_PARTICLE_COUNT, Math.round(hit.radius * 1.2));
+        for (let i = 0; i < particleCount; i++) {
+          const angle = (Math.PI * 2 * i) / particleCount + (Math.random() - 0.5) * 0.4;
+          const speed = 2.5 + Math.random() * 3.5;
           burstsRef.current.push({
             x: hit.x,
             y: hit.y,
-            vx: Math.cos(angle) * (2 + Math.random() * 2),
-            vy: Math.sin(angle) * (2 + Math.random() * 2),
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
             color: hit.color,
-            radius: hit.radius * 0.4,
+            radius: 1.5 + Math.random() * (hit.radius * 0.3),
             born,
           });
         }
+        // Bright flash
+        flashesRef.current.push({
+          x: hit.x, y: hit.y, color: hit.color,
+          radius: hit.radius * 1.8, born,
+        });
+        // Screen shake proportional to orb size
+        shakeRef.current = Math.max(shakeRef.current, 6 + hit.radius * 0.5);
+        // Shatter chain wave
+        shatterRef.current.push({
+          x: hit.x, y: hit.y, radius: 0,
+          generation: 0, hitOrbs: new Set(),
+          color: hit.color, delay: 0,
+        });
         orbsRef.current = orbsRef.current.filter((o) => o.id !== hit.id);
         setOrbCount(orbsRef.current.length);
+        playBoom();
       }
     },
     [getPos, findOrb]
@@ -2928,6 +2955,86 @@ function App() {
         if (pendingCascades.length > 0) {
           shakeRef.current = Math.max(shakeRef.current, 6 * pendingCascades.length);
         }
+      }
+
+      // ── Shatter chain reaction ──────────────────────────────────────
+      shatterRef.current = shatterRef.current.filter((s) => s.radius < SHATTER_WAVE_MAX_RADIUS);
+      const pendingShatters = [];
+      for (const s of shatterRef.current) {
+        if (s.delay > 0) { s.delay--; continue; }
+        s.radius += SHATTER_WAVE_SPEED;
+        const halfW = SHATTER_WAVE_WIDTH / 2;
+        for (let i = orbs.length - 1; i >= 0; i--) {
+          const orb = orbs[i];
+          if (orb === dragRef.current) continue;
+          if (s.hitOrbs.has(orb.id)) continue;
+          const dx = orb.x - s.x;
+          const dy = orb.y - s.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > s.radius - halfW && dist < s.radius + halfW && dist > 0) {
+            s.hitOrbs.add(orb.id);
+            const chainChance = SHATTER_CHAIN_CHANCE * Math.pow(SHATTER_CHAIN_DECAY, s.generation);
+            if (s.generation < SHATTER_MAX_GEN && Math.random() < chainChance) {
+              // Chain shatter: destroy this orb too
+              const pCount = Math.max(10, Math.round(orb.radius * 0.9));
+              for (let p = 0; p < pCount; p++) {
+                const a = (Math.PI * 2 * p) / pCount + (Math.random() - 0.5) * 0.4;
+                const spd = 2 + Math.random() * 3;
+                burstsRef.current.push({
+                  x: orb.x, y: orb.y,
+                  vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+                  color: orb.color,
+                  radius: 1.5 + Math.random() * (orb.radius * 0.25),
+                  born: now,
+                });
+              }
+              flashesRef.current.push({
+                x: orb.x, y: orb.y, color: orb.color,
+                radius: orb.radius * 1.4, born: now,
+              });
+              pendingShatters.push({
+                x: orb.x, y: orb.y, radius: 0,
+                generation: s.generation + 1,
+                hitOrbs: new Set([orb.id]),
+                color: orb.color,
+                delay: SHATTER_DELAY_FRAMES,
+              });
+              orbs.splice(i, 1);
+              shakeRef.current = Math.max(shakeRef.current, 4 + (SHATTER_MAX_GEN - s.generation) * 2);
+            } else {
+              // Just push the orb away
+              const force = 3 * (1 - s.radius / SHATTER_WAVE_MAX_RADIUS);
+              orb.vx += (dx / dist) * force;
+              orb.vy += (dy / dist) * force;
+            }
+          }
+        }
+        // Render shatter wave ring
+        const progress = s.radius / SHATTER_WAVE_MAX_RADIUS;
+        const alpha = 0.7 * (1 - progress) * Math.pow(0.7, s.generation);
+        if (alpha > 0.01) {
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+          const rg = ctx.createRadialGradient(
+            s.x, s.y, Math.max(0, s.radius - halfW),
+            s.x, s.y, s.radius + halfW
+          );
+          rg.addColorStop(0, "transparent");
+          rg.addColorStop(0.3, s.color + hexAlpha(alpha * 0.4 * 255));
+          rg.addColorStop(0.5, "#ffffff" + hexAlpha(alpha * 0.9 * 255));
+          rg.addColorStop(0.7, s.color + hexAlpha(alpha * 0.4 * 255));
+          rg.addColorStop(1, "transparent");
+          ctx.strokeStyle = rg;
+          ctx.lineWidth = halfW * 2;
+          ctx.stroke();
+        }
+      }
+      // add pending chain-shatters (cap per frame for performance)
+      for (let i = 0; i < Math.min(pendingShatters.length, 8); i++) {
+        shatterRef.current.push(pendingShatters[i]);
+      }
+      if (pendingShatters.length > 0) {
+        setOrbCount(orbs.length);
       }
 
       // update and draw color waves
