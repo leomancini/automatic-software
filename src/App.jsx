@@ -99,6 +99,11 @@ const TAP_WAVE_MAX_RADIUS = 140; // max ring expansion in px
 const TAP_WAVE_PUSH = 0.6; // gentle outward push on orbs
 const TAP_WAVE_RINGS = 3; // concentric rings per tap
 
+// ── Pulse mode (rhythmic heartbeat) ──────────────────────────────────
+const PULSE_INTERVAL = 1800; // ms between heartbeat pulses
+const PULSE_PULL = 0.03; // gentle center-pull between pulses (inhale)
+const PULSE_PULL_RAMP = 600; // ms after pulse before pull begins (exhale grace period)
+
 // ── Nova orbs (time-bomb orbs that detonate) ────────────────────────
 const NOVA_CHANCE = 0.12; // probability per tap-spawn
 const NOVA_FUSE_MIN = 5000; // minimum ms before detonation
@@ -1008,6 +1013,9 @@ function App() {
   const formationRef = useRef(null); // {targets, born, type}
   const formationIndexRef = useRef(0);
   const tornadoRef = useRef(null); // {x, y, born, dir, debris[]}
+  const [pulseMode, setPulseMode] = useState(false);
+  const pulseModeRef = useRef(false);
+  const pulseTimerRef = useRef(0); // last pulse timestamp
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -2064,6 +2072,28 @@ function App() {
         }
       }
 
+      // ── Pulse mode heartbeat ──
+      if (pulseModeRef.current && !frozenRef.current && now - pulseTimerRef.current >= PULSE_INTERVAL) {
+        pulseTimerRef.current = now;
+        const pcx = W / 2;
+        const pcy = H / 2;
+        // emit a shockwave from center
+        wavesRef.current.push({
+          cx: pcx,
+          cy: pcy,
+          radius: 0,
+          color: COLORS[Math.floor((now / 300) % COLORS.length)],
+          generation: 0,
+          hitOrbs: new Set(),
+          delay: 0,
+        });
+        shakeRef.current = Math.max(shakeRef.current, 8);
+        // subtle center glow flash
+        flashesRef.current.push({
+          x: pcx, y: pcy, color: '#667eea', radius: 40, born: now,
+        });
+      }
+
       // formation snap — spring force toward targets
       if (formationRef.current) {
         const fm = formationRef.current;
@@ -2135,6 +2165,23 @@ function App() {
           // gentle inward pull to prevent escape
           orb.vx -= (odx / oDist) * 0.05;
           orb.vy -= (ody / oDist) * 0.05;
+        }
+
+        // pulse mode: gentle center-pull between heartbeat pulses (inhale phase)
+        if (pulseModeRef.current) {
+          const timeSincePulse = now - pulseTimerRef.current;
+          if (timeSincePulse > PULSE_PULL_RAMP) {
+            const pcx = W / 2;
+            const pcy = H / 2;
+            const pdx = orb.x - pcx;
+            const pdy = orb.y - pcy;
+            const pDist = Math.sqrt(pdx * pdx + pdy * pdy) || 1;
+            // pull strengthens as we approach next pulse
+            const pullProgress = Math.min((timeSincePulse - PULSE_PULL_RAMP) / (PULSE_INTERVAL - PULSE_PULL_RAMP), 1);
+            const pullStr = PULSE_PULL * pullProgress;
+            orb.vx -= (pdx / pDist) * pullStr * Math.min(pDist / 100, 1);
+            orb.vy -= (pdy / pDist) * pullStr * Math.min(pDist / 100, 1);
+          }
         }
 
         // flock mode: boid-like swarm behavior
@@ -5081,6 +5128,14 @@ function App() {
     });
   }, []);
 
+  const handlePulseMode = useCallback(() => {
+    setPulseMode((prev) => {
+      pulseModeRef.current = !prev;
+      if (!prev) pulseTimerRef.current = performance.now();
+      return !prev;
+    });
+  }, []);
+
   const handleColorCycle = useCallback(() => {
     setColorCycle((prev) => {
       colorCycleRef.current = !prev;
@@ -5814,11 +5869,14 @@ function App() {
         case "]":
           handleTornado();
           break;
+        case "\\":
+          handlePulseMode();
+          break;
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, handleWarpDrive, handleMagnetMode, handleNbodyMode, handleFormation, handleTornado, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, handleWarpDrive, handleMagnetMode, handleNbodyMode, handleFormation, handleTornado, handlePulseMode, setShowHelp]);
 
   return (
     <Wrapper>
@@ -5836,7 +5894,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to launch &middot; drag orb to fling &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big ones divide &middot; rapid taps unlock combos</Hint>
-        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j ; ' [ 2 5 6 7 8 9 s p m - v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j ; ' [ ] \ 2 5 6 7 8 9 s p m - v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -5860,6 +5918,7 @@ function App() {
           {sparklerMode && <ModePill $color="#feb47b">sparkler</ModePill>}
           {magnetMode && <ModePill $color="#c084fc">magnetic</ModePill>}
           {nbodyMode && <ModePill $color="#f59e0b">n-body</ModePill>}
+          {pulseMode && <ModePill $color="#667eea">pulse</ModePill>}
           {autoplayMode && <ModePill $color="#feb47b">autoplay</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -6150,6 +6209,15 @@ function App() {
               <circle cx="12" cy="12" r="2" />
               <ellipse cx="12" cy="12" rx="10" ry="4" />
               <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handlePulseMode} title="Pulse mode" $active={pulseMode}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <circle cx="12" cy="12" r="6" opacity="0.6" />
+              <circle cx="12" cy="12" r="9" opacity="0.3" />
+              <path d="M2 12h4M18 12h4" opacity="0.5" />
+              <path d="M12 2v4M12 18v4" opacity="0.5" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleNbodyMode} title="N-body gravity" $active={nbodyMode}>
