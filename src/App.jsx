@@ -38,6 +38,8 @@ const WAVE_WIDTH = 40; // thickness of the ring
 const WAVE_MAX_RADIUS_FACTOR = 1.2; // expand to 120% of screen diagonal
 const WALL_HIT_DURATION = 350; // ms
 const WALL_HIT_SPEED_THRESHOLD = 1.5; // minimum pre-bounce speed to trigger
+const WELL_RANGE = 250; // gravity well attraction radius
+const WELL_GRAVITY = 0.08; // gravity well force
 
 function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
@@ -101,6 +103,7 @@ function App() {
   const motesRef = useRef([]);
   const wavesRef = useRef([]);
   const wallHitsRef = useRef([]);
+  const wellsRef = useRef([]);
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
@@ -438,6 +441,18 @@ function App() {
           orb.vy -= (ody / oDist) * 0.05;
         }
 
+        // gravity well attraction
+        for (const well of wellsRef.current) {
+          const wdx = well.x - orb.x;
+          const wdy = well.y - orb.y;
+          const wDist = Math.sqrt(wdx * wdx + wdy * wdy);
+          if (wDist < WELL_RANGE && wDist > 3) {
+            const force = WELL_GRAVITY / (1 + wDist * 0.01);
+            orb.vx += (wdx / wDist) * force;
+            orb.vy += (wdy / wDist) * force;
+          }
+        }
+
         orb.vx *= FRICTION;
         orb.vy *= FRICTION;
         const speed_factor = slowMoRef.current ? 0.3 : 1;
@@ -642,6 +657,57 @@ function App() {
         coreGrad.addColorStop(1, orb.color + "88");
         ctx.beginPath();
         ctx.arc(orb.x, orb.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = coreGrad;
+        ctx.fill();
+      }
+
+      // draw gravity wells
+      for (const well of wellsRef.current) {
+        const wellAge = (now - well.born) / 1000;
+
+        // outer gravitational field glow
+        const fieldAlpha = 0.04 + 0.02 * Math.sin(time * 2);
+        const fieldGrad = ctx.createRadialGradient(well.x, well.y, well.radius * 2, well.x, well.y, WELL_RANGE * 0.6);
+        fieldGrad.addColorStop(0, well.color + Math.round(fieldAlpha * 255).toString(16).padStart(2, "0"));
+        fieldGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(well.x, well.y, WELL_RANGE * 0.6, 0, Math.PI * 2);
+        ctx.fillStyle = fieldGrad;
+        ctx.fill();
+
+        // rotating accretion rings
+        for (let ring = 0; ring < 3; ring++) {
+          const ringRadius = well.radius * (2.2 + ring * 1.4);
+          const rotSpeed = (ring % 2 === 0 ? 1 : -1) * (2.0 - ring * 0.4);
+          const rotation = wellAge * rotSpeed;
+          const ringAlpha = 0.35 - ring * 0.08;
+          ctx.save();
+          ctx.translate(well.x, well.y);
+          ctx.rotate(rotation);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, ringRadius, ringRadius * 0.28, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = well.color + Math.round(ringAlpha * 255).toString(16).padStart(2, "0");
+          ctx.lineWidth = 1.8 - ring * 0.4;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // photon sphere edge ring
+        const edgePulse = 0.45 + 0.15 * Math.sin(time * 3 + well.born);
+        ctx.beginPath();
+        ctx.arc(well.x, well.y, well.radius * 1.15, 0, Math.PI * 2);
+        ctx.strokeStyle = well.color + Math.round(edgePulse * 255).toString(16).padStart(2, "0");
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // dark core (event horizon)
+        const coreGrad = ctx.createRadialGradient(well.x, well.y, 0, well.x, well.y, well.radius * 1.3);
+        coreGrad.addColorStop(0, "#000000");
+        coreGrad.addColorStop(0.5, "#050510");
+        coreGrad.addColorStop(0.8, well.color + "33");
+        coreGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(well.x, well.y, well.radius * 1.3, 0, Math.PI * 2);
         ctx.fillStyle = coreGrad;
         ctx.fill();
       }
@@ -1002,6 +1068,44 @@ function App() {
     shakeRef.current = 8;
   }, []);
 
+  const handlePlaceWell = useCallback(() => {
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    // check if near existing well – remove it
+    const nearIdx = wellsRef.current.findIndex((w) => {
+      const dx = w.x - mx;
+      const dy = w.y - my;
+      return Math.sqrt(dx * dx + dy * dy) < w.radius + 25;
+    });
+    if (nearIdx >= 0) {
+      const well = wellsRef.current[nearIdx];
+      const now = performance.now();
+      for (let i = 0; i < BURST_PARTICLE_COUNT; i++) {
+        const angle = (Math.PI * 2 * i) / BURST_PARTICLE_COUNT;
+        burstsRef.current.push({
+          x: well.x, y: well.y,
+          vx: Math.cos(angle) * (1.5 + Math.random() * 1.5),
+          vy: Math.sin(angle) * (1.5 + Math.random() * 1.5),
+          color: well.color, radius: 3, born: now,
+        });
+      }
+      wellsRef.current.splice(nearIdx, 1);
+      shakeRef.current = 5;
+      return;
+    }
+    // place new well
+    const color = randomColor();
+    wellsRef.current.push({
+      id: Date.now() + Math.random(),
+      x: mx, y: my,
+      radius: 12,
+      color,
+      born: performance.now(),
+    });
+    ripplesRef.current.push({ x: mx, y: my, color, born: performance.now() });
+    shakeRef.current = 6;
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -1056,6 +1160,9 @@ function App() {
         case "a":
           handleAttractMode();
           break;
+        case "n":
+          handlePlaceWell();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -1063,7 +1170,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, setShowHelp]);
 
   return (
     <Wrapper>
@@ -1081,7 +1188,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; overlap to merge</Hint>
-        <Hint>keys: space b f c r w h g d a o j s p m x &middot; press ? for help</Hint>
+        <Hint>keys: space b f n c r w h g d a o j s p m x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         <ModeIndicators>
           {frozen && <ModePill $color="#4facfe">frozen</ModePill>}
@@ -1118,6 +1225,13 @@ function App() {
               <line x1="12" y1="8" x2="18" y2="8" />
               <line x1="12" y1="8" x2="8" y2="12" />
               <line x1="12" y1="8" x2="16" y2="12" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handlePlaceWell} title="Place gravity well">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <circle cx="12" cy="12" r="7" strokeDasharray="3 3" />
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
             </svg>
           </ActionButton>
         {orbCount > 0 && (
@@ -1271,6 +1385,7 @@ function App() {
               <Shortcut><Key>A</Key><span>Attract mode</span></Shortcut>
               <Shortcut><Key>O</Key><span>Orbit mode</span></Shortcut>
               <Shortcut><Key>J</Key><span>Color cycle</span></Shortcut>
+              <Shortcut><Key>N</Key><span>Place / remove gravity well</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
