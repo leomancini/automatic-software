@@ -1019,6 +1019,7 @@ function App() {
   const [showModes, setShowModes] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
+  const autoplayModeRef = useRef(false);
   const [longExposure, setLongExposure] = useState(false);
   const longExposureRef = useRef(false);
   const [repelMode, setRepelMode] = useState(false);
@@ -1073,6 +1074,15 @@ function App() {
   const rewindRef = useRef(null); // {index} when rewinding
   const rewindBufferRef = useRef([]); // circular buffer of orb snapshots
   const blackHoleRef = useRef(null); // {x, y, born, absorbed, mass, diskDots}
+  const autoplayTimersRef = useRef({ lastSpawn: 0, lastEffect: 0 });
+  const [colorCycle, setColorCycle] = useState(false);
+  const colorCycleRef = useRef(false);
+  const [flockMode, setFlockMode] = useState(false);
+  const flockModeRef = useRef(false);
+  const [kaleidoscopeMode, setKaleidoscopeMode] = useState(false);
+  const kaleidoscopeModeRef = useRef(false);
+  const [wrapMode, setWrapMode] = useState(false);
+  const wrapModeRef = useRef(false);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
