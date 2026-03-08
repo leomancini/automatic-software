@@ -130,6 +130,13 @@ const TSUNAMI_FORCE = 7; // horizontal push on orbs
 const TSUNAMI_TUMBLE = 2.5; // random vertical scatter
 const TSUNAMI_FOAM_COUNT = 18; // foam particles at leading edge
 
+// ── Particle fountain ──────────────────────────────────────────────
+const FOUNTAIN_SPAWN_INTERVAL = 180; // ms between spawns
+const FOUNTAIN_SPAWN_SPEED = 4.5; // initial upward velocity
+const FOUNTAIN_SPRAY_ANGLE = 0.5; // radians of spray spread
+const FOUNTAIN_ORB_CAP = 200; // won't spawn if total orbs exceed this
+const FOUNTAIN_BASE_RADIUS = 10; // visual base size
+
 // ── Audio engine ──────────────────────────────────────────────────────
 let audioCtx = null;
 let masterGain = null;
@@ -678,6 +685,7 @@ function App() {
   const stormRef = useRef(null); // active magnetic storm {born, cx, cy, lastZap}
   const tsunamisRef = useRef([]); // active tsunami waves [{x, dir, born, color, foam}]
   const tsunamiDirRef = useRef(1); // alternates direction each trigger
+  const fountainsRef = useRef([]); // persistent orb spawners [{x, y, color, born, lastSpawn}]
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -1156,6 +1164,23 @@ function App() {
         ctx.arc(mote.x, mote.y, mote.size, 0, Math.PI * 2);
         ctx.fillStyle = mote.color + hexAlpha(flicker * 255);
         ctx.fill();
+      }
+
+      // fountain spawning
+      if (!frozenRef.current) {
+        for (const fountain of fountainsRef.current) {
+          if (now - fountain.lastSpawn >= FOUNTAIN_SPAWN_INTERVAL && orbs.length < FOUNTAIN_ORB_CAP) {
+            const angle = -Math.PI / 2 + (Math.random() - 0.5) * FOUNTAIN_SPRAY_ANGLE;
+            const spd = FOUNTAIN_SPAWN_SPEED * (0.8 + Math.random() * 0.4);
+            const orb = createOrb(fountain.x, fountain.y - FOUNTAIN_BASE_RADIUS);
+            orb.radius = 5 + Math.random() * 5;
+            orb.vx = Math.cos(angle) * spd;
+            orb.vy = Math.sin(angle) * spd;
+            orbsRef.current.push(orb);
+            fountain.lastSpawn = now;
+          }
+        }
+        if (fountainsRef.current.length > 0) setOrbCount(orbsRef.current.length);
       }
 
       // update physics
@@ -2258,6 +2283,49 @@ function App() {
         ctx.fill();
       }
 
+      // draw fountains
+      for (const fountain of fountainsRef.current) {
+        const fAge = (now - fountain.born) / 1000;
+        const pulse = 0.6 + 0.3 * Math.sin(time * 3 + fountain.born);
+
+        // glow aura
+        const auraGrad = ctx.createRadialGradient(fountain.x, fountain.y, 0, fountain.x, fountain.y, FOUNTAIN_BASE_RADIUS * 3);
+        auraGrad.addColorStop(0, fountain.color + hexAlpha(pulse * 100));
+        auraGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(fountain.x, fountain.y, FOUNTAIN_BASE_RADIUS * 3, 0, Math.PI * 2);
+        ctx.fillStyle = auraGrad;
+        ctx.fill();
+
+        // upward stream particles (visual only)
+        for (let p = 0; p < 5; p++) {
+          const t = ((fAge * 2 + p * 0.2) % 1);
+          const py = fountain.y - t * 40;
+          const px = fountain.x + Math.sin(t * 8 + p) * 4;
+          const pAlpha = (1 - t) * 0.6;
+          ctx.beginPath();
+          ctx.arc(px, py, 2 - t, 0, Math.PI * 2);
+          ctx.fillStyle = fountain.color + hexAlpha(pAlpha * 255);
+          ctx.fill();
+        }
+
+        // base ring
+        ctx.beginPath();
+        ctx.arc(fountain.x, fountain.y, FOUNTAIN_BASE_RADIUS, 0, Math.PI * 2);
+        ctx.strokeStyle = fountain.color + hexAlpha(pulse * 200);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // inner bright core
+        const coreGrad = ctx.createRadialGradient(fountain.x, fountain.y, 0, fountain.x, fountain.y, FOUNTAIN_BASE_RADIUS * 0.7);
+        coreGrad.addColorStop(0, fountain.color + hexAlpha(pulse * 180));
+        coreGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(fountain.x, fountain.y, FOUNTAIN_BASE_RADIUS * 0.7, 0, Math.PI * 2);
+        ctx.fillStyle = coreGrad;
+        ctx.fill();
+      }
+
       // draw black hole
       if (blackHoleRef.current) {
         const bh = blackHoleRef.current;
@@ -3002,6 +3070,7 @@ function App() {
     orbsRef.current = [];
     trailsRef.current = [];
     blackHoleRef.current = null;
+    fountainsRef.current = [];
     setOrbCount(0);
     shakeRef.current = 20;
   }, []);
@@ -3212,6 +3281,46 @@ function App() {
     });
     ripplesRef.current.push({ x: mx, y: my, color, born: performance.now() });
     shakeRef.current = 6;
+  }, []);
+
+  const handlePlaceFountain = useCallback(() => {
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    // check if near existing fountain – remove it
+    const nearIdx = fountainsRef.current.findIndex((f) => {
+      const dx = f.x - mx;
+      const dy = f.y - my;
+      return Math.sqrt(dx * dx + dy * dy) < FOUNTAIN_BASE_RADIUS + 25;
+    });
+    if (nearIdx >= 0) {
+      const fountain = fountainsRef.current[nearIdx];
+      const now = performance.now();
+      for (let i = 0; i < BURST_PARTICLE_COUNT; i++) {
+        const angle = (Math.PI * 2 * i) / BURST_PARTICLE_COUNT;
+        burstsRef.current.push({
+          x: fountain.x, y: fountain.y,
+          vx: Math.cos(angle) * (1.5 + Math.random() * 1.5),
+          vy: Math.sin(angle) * (1.5 + Math.random() * 1.5),
+          color: fountain.color, radius: 3, born: now,
+        });
+      }
+      fountainsRef.current.splice(nearIdx, 1);
+      shakeRef.current = 5;
+      return;
+    }
+    // place new fountain
+    const color = randomColor();
+    const now = performance.now();
+    fountainsRef.current.push({
+      id: Date.now() + Math.random(),
+      x: mx, y: my,
+      color,
+      born: now,
+      lastSpawn: now,
+    });
+    ripplesRef.current.push({ x: mx, y: my, color, born: now });
+    shakeRef.current = 4;
+    playSpawn(mx, window.innerWidth);
   }, []);
 
   const handleLightning = useCallback(() => {
@@ -3572,6 +3681,9 @@ function App() {
         case "2":
           handleKaleidoscopeMode();
           break;
+        case "3":
+          handlePlaceFountain();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -3579,7 +3691,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -3706,6 +3818,17 @@ function App() {
               <circle cx="12" cy="12" r="3" />
               <circle cx="12" cy="12" r="7" strokeDasharray="3 3" />
               <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handlePlaceFountain} title="Particle fountain" $active={fountainsRef.current.length > 0}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22v-8" />
+              <path d="M12 10c-1-4-3-6-5-8" />
+              <path d="M12 10c1-4 3-6 5-8" />
+              <path d="M12 10c0-4-1-6-2-8" />
+              <path d="M12 10c0-4 1-6 2-8" />
+              <circle cx="12" cy="14" r="2" fill="currentColor" />
+              <path d="M8 22h8" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleBlackHole} title="Black hole" $active={!!blackHoleRef.current}>
@@ -3930,6 +4053,7 @@ function App() {
               <Shortcut><Key>N</Key><span>Place / remove gravity well</span></Shortcut>
               <Shortcut><Key>1</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
               <Shortcut><Key>2</Key><span>Kaleidoscope mode (4-fold symmetry)</span></Shortcut>
+              <Shortcut><Key>3</Key><span>Place / remove particle fountain</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
