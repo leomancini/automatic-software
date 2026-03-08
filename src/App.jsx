@@ -486,6 +486,28 @@ function App() {
         }
       }
 
+      // pulse synchronization – connected orbs gradually sync their phases
+      if (!frozenRef.current) {
+        for (let i = 0; i < orbs.length; i++) {
+          for (let j = i + 1; j < orbs.length; j++) {
+            const a = orbs[i];
+            const b = orbs[j];
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < CONNECTION_DIST) {
+              const proximity = 1 - dist / CONNECTION_DIST;
+              const syncRate = 0.008 * proximity;
+              let diff = b.pulsePhase - a.pulsePhase;
+              while (diff > Math.PI) diff -= Math.PI * 2;
+              while (diff < -Math.PI) diff += Math.PI * 2;
+              a.pulsePhase += diff * syncRate;
+              b.pulsePhase -= diff * syncRate;
+            }
+          }
+        }
+      }
+
       // color cycling – shift hue each frame
       if (colorCycleRef.current) {
         for (const orb of orbs) {
@@ -576,7 +598,7 @@ function App() {
         }
       }
 
-      // draw connections
+      // draw connections (enhanced with harmonic resonance)
       for (let i = 0; i < orbs.length; i++) {
         for (let j = i + 1; j < orbs.length; j++) {
           const a = orbs[i];
@@ -586,15 +608,40 @@ function App() {
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < CONNECTION_DIST) {
             const alpha = 1 - dist / CONNECTION_DIST;
+
+            // calculate phase sync (0 = out of sync, 1 = perfectly synced)
+            let phaseDiff = Math.abs(a.pulsePhase - b.pulsePhase) % (Math.PI * 2);
+            if (phaseDiff > Math.PI) phaseDiff = Math.PI * 2 - phaseDiff;
+            const sync = 1 - phaseDiff / Math.PI;
+            const syncBoost = sync * sync;
+
+            // synced connections are brighter and thicker
+            const lineAlpha = alpha * (0.5 + syncBoost * 0.8);
+            const lineWidth = alpha * (2 + syncBoost * 4);
+
             const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
-            grad.addColorStop(0, a.color + Math.round(alpha * 0.5 * 255).toString(16).padStart(2, "0"));
-            grad.addColorStop(1, b.color + Math.round(alpha * 0.5 * 255).toString(16).padStart(2, "0"));
+            grad.addColorStop(0, a.color + Math.round(lineAlpha * 255).toString(16).padStart(2, "0"));
+            grad.addColorStop(1, b.color + Math.round(lineAlpha * 255).toString(16).padStart(2, "0"));
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.lineTo(b.x, b.y);
             ctx.strokeStyle = grad;
-            ctx.lineWidth = alpha * 2;
+            ctx.lineWidth = lineWidth;
             ctx.stroke();
+
+            // glow effect for highly synced connections
+            if (syncBoost > 0.5) {
+              const glowAlpha = (syncBoost - 0.5) * alpha * 0.3;
+              const midX = (a.x + b.x) / 2;
+              const midY = (a.y + b.y) / 2;
+              const glowGrad = ctx.createRadialGradient(midX, midY, 0, midX, midY, dist * 0.3);
+              glowGrad.addColorStop(0, a.color + Math.round(glowAlpha * 255).toString(16).padStart(2, "0"));
+              glowGrad.addColorStop(1, "transparent");
+              ctx.beginPath();
+              ctx.arc(midX, midY, dist * 0.3, 0, Math.PI * 2);
+              ctx.fillStyle = glowGrad;
+              ctx.fill();
+            }
           }
         }
       }
@@ -799,6 +846,29 @@ function App() {
         ctx.arc(hit.x, hit.y, size, 0, Math.PI * 2);
         ctx.fillStyle = grad;
         ctx.fill();
+      }
+
+      // collective heartbeat – screen-wide pulse when orbs are synchronized
+      if (orbs.length > 2) {
+        let sumSin = 0, sumCos = 0;
+        const pulseFreq = 1.5;
+        for (const orb of orbs) {
+          const phase = time * pulseFreq + orb.pulsePhase;
+          sumCos += Math.cos(phase);
+          sumSin += Math.sin(phase);
+        }
+        const coherence = Math.sqrt(sumCos * sumCos + sumSin * sumSin) / orbs.length;
+        if (coherence > 0.5) {
+          const intensity = (coherence - 0.5) * 2;
+          const avgPhase = Math.atan2(sumSin, sumCos);
+          const pulseBright = (1 + Math.sin(avgPhase)) * 0.5;
+          const alpha = intensity * pulseBright * 0.08;
+          const heartGrad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.6);
+          heartGrad.addColorStop(0, `rgba(102, 126, 234, ${alpha})`);
+          heartGrad.addColorStop(1, "transparent");
+          ctx.fillStyle = heartGrad;
+          ctx.fillRect(0, 0, W, H);
+        }
       }
 
       // draw vignette overlay for cinematic depth
