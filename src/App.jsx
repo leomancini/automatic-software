@@ -237,6 +237,13 @@ function playStreakTone(streak, x, screenW) {
   }
 }
 
+function playSpray(y, screenH) {
+  if (!audioCtx || audioMuted) return;
+  const idx = Math.floor((1 - y / screenH) * PENTATONIC.length);
+  const note = PENTATONIC[Math.max(0, Math.min(PENTATONIC.length - 1, idx))];
+  playTone(note * 2, 0.1, "sine", 0.015);
+}
+
 function playLightning() {
   if (!ensureAudio() || audioMuted) return;
   const t = audioCtx.currentTime;
@@ -470,6 +477,10 @@ function App() {
   const lastTapTimeRef = useRef(0);
   const [streakDisplay, setStreakDisplay] = useState(0);
   const streakFadeRef = useRef(null);
+  const mouseDownRef = useRef(false);
+  const sprayActiveRef = useRef(false);
+  const sprayStartRef = useRef({ x: 0, y: 0 });
+  const lastSprayPosRef = useRef({ x: 0, y: 0 });
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -522,6 +533,7 @@ function App() {
   const handleDown = useCallback(
     (e) => {
       const pos = getPos(e);
+      mouseDownRef.current = true;
       const hit = findOrb(pos.x, pos.y);
       if (hit) {
         dragRef.current = hit;
@@ -534,6 +546,10 @@ function App() {
             longPressRef.current = null;
           }, LONG_PRESS_MS);
         }
+      } else {
+        sprayActiveRef.current = false;
+        sprayStartRef.current = { x: pos.x, y: pos.y };
+        lastSprayPosRef.current = { x: pos.x, y: pos.y };
       }
       mouseRef.current = pos;
     },
@@ -557,6 +573,30 @@ function App() {
         history.push({ x: pos.x, y: pos.y, t: performance.now() });
         // keep only last 5 samples
         if (history.length > 5) history.shift();
+      } else if (mouseDownRef.current) {
+        // spray mode: drag on empty space to paint orb trails
+        const startDx = pos.x - sprayStartRef.current.x;
+        const startDy = pos.y - sprayStartRef.current.y;
+        const startDist = Math.sqrt(startDx * startDx + startDy * startDy);
+        if (startDist > 20) {
+          const dx = pos.x - lastSprayPosRef.current.x;
+          const dy = pos.y - lastSprayPosRef.current.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const interval = orbsRef.current.length > 200 ? 30 : 18;
+          if (dist >= interval) {
+            sprayActiveRef.current = true;
+            const orb = createOrb(pos.x, pos.y);
+            orb.radius = 4 + Math.random() * 3;
+            const nx = dist > 0 ? -dy / dist : 0;
+            const ny = dist > 0 ? dx / dist : 0;
+            orb.vx = nx * (Math.random() - 0.5) * 0.8;
+            orb.vy = ny * (Math.random() - 0.5) * 0.8;
+            orbsRef.current.push(orb);
+            lastSprayPosRef.current = { x: pos.x, y: pos.y };
+            setOrbCount(orbsRef.current.length);
+            playSpray(pos.y, window.innerHeight);
+          }
+        }
       }
       mouseRef.current = pos;
     },
@@ -565,6 +605,7 @@ function App() {
 
   const handleUp = useCallback(
     (e) => {
+      mouseDownRef.current = false;
       if (longPressRef.current) {
         clearTimeout(longPressRef.current);
         longPressRef.current = null;
@@ -585,6 +626,10 @@ function App() {
         }
         dragHistoryRef.current = [];
         dragRef.current = null;
+        return;
+      }
+      if (sprayActiveRef.current) {
+        sprayActiveRef.current = false;
         return;
       }
       const pos = e.changedTouches
@@ -2426,7 +2471,7 @@ function App() {
       />
       <HUD>
         <Title>Automatic Software</Title>
-        <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big orbs collapse</Hint>
+        <Hint>tap to create &middot; drag to spray &middot; drag orb to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
         <Hint>keys: space b q e f t n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
@@ -2664,7 +2709,8 @@ function App() {
             <HelpTitle>Keyboard Shortcuts</HelpTitle>
             <ShortcutList>
               <Shortcut><Key>click</Key><span>Create orb</span></Shortcut>
-              <Shortcut><Key>drag</Key><span>Move orb</span></Shortcut>
+              <Shortcut><Key>drag</Key><span>Spray orbs (empty space)</span></Shortcut>
+              <Shortcut><Key>drag orb</Key><span>Move orb</span></Shortcut>
               <Shortcut><Key>dbl-click</Key><span>Remove orb</span></Shortcut>
               <Shortcut><Key>right-click</Key><span>Split orb</span></Shortcut>
               <Shortcut><Key>long-press</Key><span>Split orb (mobile)</span></Shortcut>
