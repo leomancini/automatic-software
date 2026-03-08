@@ -141,6 +141,19 @@ const FORMATION_SPRING = 0.08;
 const FORMATION_DAMPING = 0.82;
 const FORMATION_HOLD_MS = 3000;
 
+// ── Aurora borealis ─────────────────────────────────────────────────
+const AURORA_BAND_COUNT = 5;         // number of overlapping curtain bands
+const AURORA_BASE_ALPHA = 0.018;     // minimum opacity (visible even with 0 orbs)
+const AURORA_ACTIVITY_BOOST = 0.035; // extra opacity from orb activity
+const AURORA_SMOOTHING = 0.015;      // how fast aurora responds to activity changes
+const AURORA_COLORS = [
+  [67, 233, 123],   // green
+  [79, 172, 254],   // blue
+  [118, 75, 162],   // purple
+  [0, 242, 254],    // cyan
+  [240, 147, 251],  // pink
+];
+
 // ── Tornado ─────────────────────────────────────────────────────────
 const TORNADO_DURATION = 4500; // ms to cross the screen
 const TORNADO_RADIUS = 120; // pull/capture radius
@@ -1030,6 +1043,7 @@ function App() {
   const tapWavesRef = useRef([]); // concentric pulse waves from taps [{x, y, born, color, streak}]
   const shatterRef = useRef([]); // chain-shatter waves [{x, y, radius, generation, hitOrbs, color, delay}]
   const fountainsRef = useRef([]); // persistent orb spawners [{x, y, color, born, lastSpawn}]
+  const auroraActivityRef = useRef(0); // smoothed aurora intensity (0-1)
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -1883,6 +1897,64 @@ function App() {
         const flashAlpha = jumpT < 0.3 ? jumpT / 0.3 * 0.4 : 0.4 * (1 - (jumpT - 0.3) / 0.7);
         ctx.fillStyle = `rgba(200, 220, 255, ${flashAlpha})`;
         ctx.fillRect(0, 0, W, H);
+      }
+
+      // ── Aurora borealis ──
+      {
+        // Compute activity level from orb velocities (smoothed)
+        let rawActivity = 0;
+        for (let i = 0; i < orbs.length; i++) {
+          const o = orbs[i];
+          if (o.spark) continue;
+          rawActivity += Math.sqrt(o.vx * o.vx + o.vy * o.vy);
+        }
+        const orbFactor = Math.min(orbs.length / 20, 1); // 0-1 based on orb count
+        const speedFactor = orbs.length > 0
+          ? Math.min(rawActivity / orbs.length / 3, 1) // avg speed normalized
+          : 0;
+        const targetActivity = orbFactor * 0.5 + speedFactor * 0.5;
+        auroraActivityRef.current += (targetActivity - auroraActivityRef.current) * AURORA_SMOOTHING;
+        const activity = auroraActivityRef.current;
+        const alpha = AURORA_BASE_ALPHA + activity * AURORA_ACTIVITY_BOOST;
+
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+
+        for (let band = 0; band < AURORA_BAND_COUNT; band++) {
+          const color = AURORA_COLORS[band % AURORA_COLORS.length];
+          // Each band has a unique vertical position, wave speed, and frequency
+          const bandOffset = band / AURORA_BAND_COUNT;
+          const baseY = H * (0.08 + bandOffset * 0.22);
+          const amplitude = H * (0.03 + activity * 0.025);
+          const freq1 = 0.0018 + band * 0.0005;
+          const freq2 = 0.0042 + band * 0.0003;
+          const speed1 = 0.18 + band * 0.07;
+          const speed2 = 0.09 - band * 0.012;
+          const bandAlpha = alpha * (0.6 + 0.4 * Math.sin(time * 0.12 + band * 1.7));
+
+          ctx.beginPath();
+          ctx.moveTo(0, H);
+          for (let x = 0; x <= W; x += 8) {
+            const wave1 = Math.sin(x * freq1 + time * speed1 + band * 2.1) * amplitude;
+            const wave2 = Math.sin(x * freq2 - time * speed2 + band * 0.7) * amplitude * 0.6;
+            const shimmer = Math.sin(x * 0.01 + time * 0.5 + band) * amplitude * 0.15;
+            const y = baseY + wave1 + wave2 + shimmer;
+            ctx.lineTo(x, y);
+          }
+          ctx.lineTo(W, H);
+          ctx.closePath();
+
+          const curtainHeight = amplitude * 4;
+          const grad = ctx.createLinearGradient(0, baseY - amplitude, 0, baseY + curtainHeight);
+          grad.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${bandAlpha * 0.8})`);
+          grad.addColorStop(0.15, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${bandAlpha})`);
+          grad.addColorStop(0.4, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${bandAlpha * 0.4})`);
+          grad.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0)`);
+          ctx.fillStyle = grad;
+          ctx.fill();
+        }
+
+        ctx.restore();
       }
 
       // spawn shooting stars
