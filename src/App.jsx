@@ -93,6 +93,12 @@ const WARP_SETTLE_MS = 800;   // stars return to normal
 const WARP_PULL = 0.06;       // inward acceleration during charge
 const WARP_SCATTER_SPEED = 10; // outward velocity on jump
 
+// ── Tap pulse wave (concentric ripple on every tap) ────────────────
+const TAP_WAVE_DURATION = 900; // ms for full expansion
+const TAP_WAVE_MAX_RADIUS = 140; // max ring expansion in px
+const TAP_WAVE_PUSH = 0.6; // gentle outward push on orbs
+const TAP_WAVE_RINGS = 3; // concentric rings per tap
+
 // ── Tap streak / combo system ───────────────────────────────────────
 const STREAK_WINDOW = 600; // ms between taps to continue a streak
 const STREAK_DECAY_DELAY = 1200; // ms after last tap before streak counter fades
@@ -838,6 +844,7 @@ function App() {
   const tsunamisRef = useRef([]); // active tsunami waves [{x, dir, born, color, foam}]
   const colorWavesRef = useRef([]); // active color waves [{cx, cy, radius, born, hitOrbs}]
   const tsunamiDirRef = useRef(1); // alternates direction each trigger
+  const tapWavesRef = useRef([]); // concentric pulse waves from taps [{x, y, born, color, streak}]
   const fountainsRef = useRef([]); // persistent orb spawners [{x, y, color, born, lastSpawn}]
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
@@ -1240,6 +1247,9 @@ function App() {
           }
         }
       }
+
+      // ── Tap pulse wave — concentric ripples from every tap ──
+      tapWavesRef.current.push({ x: pos.x, y: pos.y, born: now, color: rippleColor, streak });
 
       setOrbCount(orbsRef.current.length);
       if (streak >= 2) {
@@ -1991,6 +2001,27 @@ function App() {
             const force = GPAINT_DOT_FORCE * fade / (1 + gDist * 0.008);
             orb.vx += (gdx / gDist) * force;
             orb.vy += (gdy / gDist) * force;
+          }
+        }
+
+        // tap pulse wave — gentle push as concentric rings pass through orbs
+        for (const tw of tapWavesRef.current) {
+          const twAge = now - tw.born;
+          if (twAge > TAP_WAVE_DURATION) continue;
+          const twProgress = twAge / TAP_WAVE_DURATION;
+          const streakMul = 1 + Math.min(tw.streak, 8) * 0.15;
+          const waveRadius = twProgress * TAP_WAVE_MAX_RADIUS * streakMul;
+          const tdx = orb.x - tw.x;
+          const tdy = orb.y - tw.y;
+          const tDist = Math.sqrt(tdx * tdx + tdy * tdy);
+          // push orbs that are near the expanding wavefront
+          const ringWidth = 25 * streakMul;
+          if (tDist > 0 && Math.abs(tDist - waveRadius) < ringWidth) {
+            const proximity = 1 - Math.abs(tDist - waveRadius) / ringWidth;
+            const fadeOut = 1 - twProgress;
+            const push = TAP_WAVE_PUSH * proximity * fadeOut * streakMul;
+            orb.vx += (tdx / tDist) * push;
+            orb.vy += (tdy / tDist) * push;
           }
         }
 
@@ -3377,6 +3408,44 @@ function App() {
         ctx.strokeStyle = ripple.color + hexAlpha(alpha * 0.6 * 255);
         ctx.lineWidth = 2 * (1 - progress);
         ctx.stroke();
+      }
+
+      // draw tap pulse waves — concentric expanding rings
+      tapWavesRef.current = tapWavesRef.current.filter((tw) => now - tw.born < TAP_WAVE_DURATION);
+      for (const tw of tapWavesRef.current) {
+        const twAge = now - tw.born;
+        const twProgress = twAge / TAP_WAVE_DURATION;
+        const fadeOut = 1 - twProgress;
+        const streakMul = 1 + Math.min(tw.streak, 8) * 0.15;
+        const maxR = TAP_WAVE_MAX_RADIUS * streakMul;
+        for (let ring = 0; ring < TAP_WAVE_RINGS; ring++) {
+          // stagger each ring slightly (each starts a bit later)
+          const ringDelay = ring * 0.12;
+          const ringProgress = Math.max(0, (twProgress - ringDelay) / (1 - ringDelay));
+          if (ringProgress <= 0 || ringProgress >= 1) continue;
+          const ringRadius = ringProgress * maxR;
+          // ease out — rings slow down as they expand
+          const ringAlpha = fadeOut * (1 - ringProgress) * (0.5 - ring * 0.12);
+          if (ringAlpha <= 0) continue;
+          const ringWidth = (3 - ring * 0.6) * (1 - ringProgress * 0.5) * streakMul;
+          ctx.beginPath();
+          ctx.arc(tw.x, tw.y, ringRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = tw.color + hexAlpha(Math.min(ringAlpha, 1) * 255);
+          ctx.lineWidth = ringWidth;
+          ctx.stroke();
+        }
+        // soft glow at center that fades quickly
+        if (twProgress < 0.3) {
+          const glowAlpha = (1 - twProgress / 0.3) * 0.25 * streakMul;
+          const glowR = 15 * streakMul;
+          const glowGrad = ctx.createRadialGradient(tw.x, tw.y, 0, tw.x, tw.y, glowR);
+          glowGrad.addColorStop(0, tw.color + hexAlpha(glowAlpha * 255));
+          glowGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(tw.x, tw.y, glowR, 0, Math.PI * 2);
+          ctx.fillStyle = glowGrad;
+          ctx.fill();
+        }
       }
 
       // draw burst particles
