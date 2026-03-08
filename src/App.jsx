@@ -44,6 +44,10 @@ const TRAIL_SPEED_THRESHOLD = 2.0; // min orb speed to shed trail particles
 const TRAIL_LIFETIME = 2500; // ms trail particles live
 const TRAIL_MAX = 600; // cap trail particle count for performance
 const TRAIL_SPAWN_RATE = 0.4; // probability per frame per orb (when fast enough)
+const CASCADE_MAX_GEN = 2; // max cascade depth for chain reaction shockwaves
+const CASCADE_SPEED_THRESHOLD = 3.5; // orb speed after hit to trigger cascade
+const CASCADE_FORCE_DECAY = 0.55; // each generation is 55% as strong
+const CASCADE_DELAY_FRAMES = 8; // frames to wait before cascade wave activates
 
 function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
@@ -589,32 +593,58 @@ function App() {
         setOrbCount(orbsRef.current.length);
       }
 
-      // update and draw shockwaves
+      // update and draw shockwaves (with cascade chain reactions)
       const maxWaveRadius = Math.sqrt(W * W + H * H) * WAVE_MAX_RADIUS_FACTOR;
       wavesRef.current = wavesRef.current.filter((w) => w.radius < maxWaveRadius);
+      const pendingCascades = [];
       for (const wave of wavesRef.current) {
+        // handle delayed cascade waves
+        if (wave.delay > 0) {
+          wave.delay--;
+          continue;
+        }
         wave.radius += WAVE_SPEED;
+        const gen = wave.generation || 0;
+        const genForceMultiplier = Math.pow(CASCADE_FORCE_DECAY, gen);
+        const genWidth = WAVE_WIDTH * Math.pow(0.8, gen);
         // push orbs that fall within the ring
         for (const orb of orbs) {
           if (orb === dragRef.current) continue;
           const dx = orb.x - wave.cx;
           const dy = orb.y - wave.cy;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > wave.radius - WAVE_WIDTH && dist < wave.radius + WAVE_WIDTH && dist > 0) {
-            const proximity = 1 - Math.abs(dist - wave.radius) / WAVE_WIDTH;
-            const force = WAVE_FORCE * proximity * (1 - wave.radius / maxWaveRadius);
+          if (dist > wave.radius - genWidth && dist < wave.radius + genWidth && dist > 0) {
+            const proximity = 1 - Math.abs(dist - wave.radius) / genWidth;
+            const force = WAVE_FORCE * genForceMultiplier * proximity * (1 - wave.radius / maxWaveRadius);
             orb.vx += (dx / dist) * force;
             orb.vy += (dy / dist) * force;
+            // cascade chain reaction: if orb hit hard enough, spawn secondary wave
+            if (!wave.hitOrbs) wave.hitOrbs = new Set();
+            if (!wave.hitOrbs.has(orb.id) && gen < CASCADE_MAX_GEN) {
+              wave.hitOrbs.add(orb.id);
+              const orbSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+              if (orbSpeed > CASCADE_SPEED_THRESHOLD) {
+                pendingCascades.push({
+                  cx: orb.x,
+                  cy: orb.y,
+                  radius: 0,
+                  color: orb.color,
+                  generation: gen + 1,
+                  hitOrbs: new Set([orb.id]),
+                  delay: CASCADE_DELAY_FRAMES,
+                });
+              }
+            }
           }
         }
         // draw the ring
-        const alpha = 0.6 * (1 - wave.radius / maxWaveRadius);
+        const alpha = 0.6 * (1 - wave.radius / maxWaveRadius) * Math.pow(0.75, gen);
         if (alpha > 0.01) {
           ctx.beginPath();
           ctx.arc(wave.cx, wave.cy, wave.radius, 0, Math.PI * 2);
           const ringGrad = ctx.createRadialGradient(
-            wave.cx, wave.cy, Math.max(0, wave.radius - WAVE_WIDTH),
-            wave.cx, wave.cy, wave.radius + WAVE_WIDTH
+            wave.cx, wave.cy, Math.max(0, wave.radius - genWidth),
+            wave.cx, wave.cy, wave.radius + genWidth
           );
           ringGrad.addColorStop(0, "transparent");
           ringGrad.addColorStop(0.3, wave.color + hexAlpha(alpha * 0.5 * 255));
@@ -622,8 +652,19 @@ function App() {
           ringGrad.addColorStop(0.7, wave.color + hexAlpha(alpha * 0.5 * 255));
           ringGrad.addColorStop(1, "transparent");
           ctx.strokeStyle = ringGrad;
-          ctx.lineWidth = WAVE_WIDTH * 2;
+          ctx.lineWidth = genWidth * 2;
           ctx.stroke();
+        }
+      }
+      // add cascade waves after iteration to avoid modifying array during loop
+      if (pendingCascades.length > 0) {
+        // cap cascades per frame to prevent performance issues
+        const maxCascadesPerFrame = 6;
+        for (let i = 0; i < Math.min(pendingCascades.length, maxCascadesPerFrame); i++) {
+          wavesRef.current.push(pendingCascades[i]);
+        }
+        if (pendingCascades.length > 0) {
+          shakeRef.current = Math.max(shakeRef.current, 6 * pendingCascades.length);
         }
       }
 
@@ -1080,6 +1121,9 @@ function App() {
       cy: H / 2,
       radius: 0,
       color: randomColor(),
+      generation: 0,
+      hitOrbs: new Set(),
+      delay: 0,
     });
     shakeRef.current = 16;
   }, []);
