@@ -124,6 +124,11 @@ const SHATTER_MAX_GEN = 5;           // max cascade depth
 const SHATTER_PARTICLE_COUNT = 14;   // fragments per shatter
 const SHATTER_DELAY_FRAMES = 6;      // frames before chain-shatter detonates
 
+// ── Shatter All (crystallize + explode) ──────────────────────
+const SHATTER_ALL_FREEZE_MS = 700;   // ms for crystallization phase
+const SHATTER_ALL_FRAG_COUNT = 3;    // fragments per orb
+const SHATTER_ALL_FRAG_SPEED = 5;    // outward velocity of fragments
+
 // ── Formation snap ────────────────────────────────────────────────
 const FORMATION_TYPES = ['circle', 'spiral', 'grid', 'wave'];
 const FORMATION_SPRING = 0.08;
@@ -888,6 +893,49 @@ function generateBolt(x1, y1, x2, y2, segments = LIGHTNING_SEGMENTS) {
   return points;
 }
 
+function playShatterAllSound() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  // Phase 1: crystallizing crackle (rising high-frequency)
+  const osc1 = audioCtx.createOscillator();
+  const g1 = audioCtx.createGain();
+  osc1.type = "square";
+  osc1.frequency.setValueAtTime(800, t);
+  osc1.frequency.exponentialRampToValueAtTime(3000, t + 0.5);
+  g1.gain.setValueAtTime(0.04, t);
+  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+  osc1.connect(g1);
+  g1.connect(masterGain);
+  osc1.start(t);
+  osc1.stop(t + 0.65);
+  // Phase 2: glass shatter burst (delayed)
+  const osc2 = audioCtx.createOscillator();
+  const g2 = audioCtx.createGain();
+  osc2.type = "sawtooth";
+  osc2.frequency.setValueAtTime(400, t + 0.6);
+  osc2.frequency.exponentialRampToValueAtTime(80, t + 1.2);
+  g2.gain.setValueAtTime(0, t);
+  g2.gain.setValueAtTime(0.2, t + 0.6);
+  g2.gain.exponentialRampToValueAtTime(0.001, t + 1.3);
+  osc2.connect(g2);
+  g2.connect(masterGain);
+  osc2.start(t);
+  osc2.stop(t + 1.35);
+  // High shatter tinkle
+  const osc3 = audioCtx.createOscillator();
+  const g3 = audioCtx.createGain();
+  osc3.type = "triangle";
+  osc3.frequency.setValueAtTime(2000, t + 0.6);
+  osc3.frequency.exponentialRampToValueAtTime(800, t + 1.0);
+  g3.gain.setValueAtTime(0, t);
+  g3.gain.setValueAtTime(0.08, t + 0.6);
+  g3.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
+  osc3.connect(g3);
+  g3.connect(masterGain);
+  osc3.start(t);
+  osc3.stop(t + 1.15);
+}
+
 function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
 }
@@ -963,6 +1011,7 @@ function App() {
   const meteorTrailsRef = useRef([]);
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
   const supernovaRef = useRef(null); // active supernova {cx, cy, born, phase}
+  const shatterAllRef = useRef(null); // active shatter-all {born, phase, frozenOrbs}
   const embersRef = useRef([]); // fire ember particles
   const mergeSparksRef = useRef([]); // collision spark particles
   const strikesRef = useRef([]); // active orbital strikes
@@ -4876,6 +4925,121 @@ function App() {
         }
       }
 
+      // ── Shatter All effect ──────────────────────────────────────────
+      if (shatterAllRef.current) {
+        const sa = shatterAllRef.current;
+        const age = now - sa.born;
+
+        if (sa.phase === "freeze" && age < SHATTER_ALL_FREEZE_MS) {
+          // Phase 1: crystallization — orbs frozen, icy visual overlay
+          const progress = age / SHATTER_ALL_FREEZE_MS;
+
+          // Keep orbs frozen
+          for (const orb of orbs) {
+            orb.vx = 0;
+            orb.vy = 0;
+          }
+
+          // Draw ice crystal overlay on each orb
+          for (const orb of orbs) {
+            // Icy glow
+            const iceAlpha = progress * 0.6;
+            const iceGrad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.radius * 2);
+            iceGrad.addColorStop(0, `rgba(180, 220, 255, ${iceAlpha * 0.4})`);
+            iceGrad.addColorStop(0.5, `rgba(120, 180, 255, ${iceAlpha * 0.2})`);
+            iceGrad.addColorStop(1, "transparent");
+            ctx.beginPath();
+            ctx.arc(orb.x, orb.y, orb.radius * 2, 0, Math.PI * 2);
+            ctx.fillStyle = iceGrad;
+            ctx.fill();
+
+            // Crack lines growing outward from orb center
+            const crackProgress = Math.min(progress * 1.5, 1);
+            if (crackProgress > 0.2) {
+              ctx.save();
+              ctx.strokeStyle = `rgba(200, 230, 255, ${(crackProgress - 0.2) * 0.7})`;
+              ctx.lineWidth = 1;
+              for (let c = 0; c < SHATTER_ALL_CRACK_COUNT; c++) {
+                const angle = (Math.PI * 2 * c) / SHATTER_ALL_CRACK_COUNT + orb.radius * 0.1;
+                const len = orb.radius * 1.5 * crackProgress;
+                ctx.beginPath();
+                ctx.moveTo(orb.x, orb.y);
+                // Jagged crack line
+                const midX = orb.x + Math.cos(angle) * len * 0.5 + (Math.sin(c * 7) * 3);
+                const midY = orb.y + Math.sin(angle) * len * 0.5 + (Math.cos(c * 5) * 3);
+                ctx.lineTo(midX, midY);
+                ctx.lineTo(orb.x + Math.cos(angle) * len, orb.y + Math.sin(angle) * len);
+                ctx.stroke();
+              }
+              ctx.restore();
+            }
+          }
+
+          // Global frost overlay
+          ctx.fillStyle = `rgba(140, 200, 255, ${progress * 0.04})`;
+          ctx.fillRect(0, 0, W, H);
+
+          shakeRef.current = Math.max(shakeRef.current, 1 + progress * 5);
+        } else if (sa.phase === "freeze" && age >= SHATTER_ALL_FREEZE_MS) {
+          // Transition to shatter phase
+          sa.phase = "shatter";
+          sa.shatterBorn = now;
+
+          // Snapshot current orbs, then replace with fragments
+          const oldOrbs = orbsRef.current.slice();
+          const newOrbs = [];
+          for (const orb of oldOrbs) {
+            for (let i = 0; i < SHATTER_ALL_FRAG_COUNT; i++) {
+              const angle = (Math.PI * 2 * i) / SHATTER_ALL_FRAG_COUNT + (Math.random() - 0.5) * 0.8;
+              const speed = SHATTER_ALL_FRAG_SPEED + Math.random() * 3;
+              const frag = createOrb(orb.x, orb.y);
+              frag.radius = Math.max(4, orb.radius * 0.45);
+              frag.vx = Math.cos(angle) * speed;
+              frag.vy = Math.sin(angle) * speed;
+              frag.color = orb.color;
+              newOrbs.push(frag);
+            }
+            // Burst particles for each shattered orb
+            for (let i = 0; i < 5; i++) {
+              const angle = Math.random() * Math.PI * 2;
+              burstsRef.current.push({
+                x: orb.x, y: orb.y,
+                vx: Math.cos(angle) * (2 + Math.random() * 3),
+                vy: Math.sin(angle) * (2 + Math.random() * 3),
+                color: `rgba(180, 220, 255, 0.8)`, radius: 2 + Math.random() * 2, born: now,
+              });
+            }
+          }
+          orbsRef.current = newOrbs;
+
+          // Big flash
+          flashesRef.current.push({
+            x: W / 2, y: H / 2, color: "#b4dcff",
+            radius: 80, born: now,
+          });
+
+          shakeRef.current = 30;
+          setOrbCount(orbsRef.current.length);
+        }
+
+        if (sa.phase === "shatter") {
+          const shatterAge = now - sa.shatterBorn;
+          // Expanding frost ring
+          if (shatterAge < 1000) {
+            const progress = shatterAge / 1000;
+            const ringR = progress * Math.max(W, H) * 0.6;
+            const ringAlpha = (1 - progress) * 0.25;
+            ctx.beginPath();
+            ctx.arc(W / 2, H / 2, ringR, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(180, 220, 255, ${ringAlpha})`;
+            ctx.lineWidth = 3 * (1 - progress);
+            ctx.stroke();
+          } else {
+            shatterAllRef.current = null;
+          }
+        }
+      }
+
       // ── Big Bang effect ────────────────────────────────────────────
       if (bigBangRef.current) {
         const bb = bigBangRef.current;
@@ -5896,6 +6060,28 @@ function App() {
     playSupernovaSound();
   }, []);
 
+  const handleShatterAll = useCallback(() => {
+    if (shatterAllRef.current) return;
+    const orbs = orbsRef.current;
+    if (orbs.length === 0) return;
+    // Snapshot orb positions/colors and freeze them
+    const frozenOrbs = orbs.map(o => ({
+      x: o.x, y: o.y, radius: o.radius, color: o.color,
+      vx: o.vx, vy: o.vy,
+    }));
+    // Freeze all orbs in place
+    for (const orb of orbs) {
+      orb.vx = 0;
+      orb.vy = 0;
+    }
+    shatterAllRef.current = {
+      born: performance.now(),
+      phase: "freeze",
+      frozenOrbs,
+    };
+    playShatterAllSound();
+  }, []);
+
   const handleIgnite = useCallback(() => {
     const orbs = orbsRef.current;
     if (orbs.length === 0) return;
@@ -6199,11 +6385,14 @@ function App() {
         case ".":
           handleTiltMode();
           break;
+        case ",":
+          handleShatterAll();
+          break;
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, handleWarpDrive, handleMagnetMode, handleNbodyMode, handleFormation, handleTornado, handlePulseMode, handleTiltMode, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, handleWarpDrive, handleMagnetMode, handleNbodyMode, handleFormation, handleTornado, handlePulseMode, handleTiltMode, handleShatterAll, setShowHelp]);
 
   return (
     <Wrapper>
@@ -6221,7 +6410,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to launch &middot; drag orb to fling &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big ones divide &middot; rapid taps unlock combos</Hint>
-        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j ; ' [ ] \ . 2 5 6 7 8 9 s p m - v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j ; ' [ ] \ . , 2 5 6 7 8 9 s p m - v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -6360,6 +6549,17 @@ function App() {
               <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
               <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleShatterAll} title="Shatter all" $active={!!shatterAllRef.current}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15 9 22 9 16 14 18 22 12 17 6 22 8 14 2 9 9 9" opacity="0.6" />
+              <line x1="12" y1="12" x2="5" y2="3" />
+              <line x1="12" y1="12" x2="21" y2="5" />
+              <line x1="12" y1="12" x2="4" y2="19" />
+              <line x1="12" y1="12" x2="20" y2="20" />
+              <line x1="12" y1="12" x2="3" y2="12" />
+              <line x1="12" y1="12" x2="21" y2="12" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleFirework} title="Firework">
@@ -6719,6 +6919,7 @@ function App() {
               <Shortcut><Key>'</Key><span>N-body gravity (mutual mass attraction)</span></Shortcut>
               <Shortcut><Key>[</Key><span>Formation snap (cycle: circle, spiral, grid, wave)</span></Shortcut>
               <Shortcut><Key>.</Key><span>Tilt gravity (gyroscope / mouse direction)</span></Shortcut>
+              <Shortcut><Key>,</Key><span>Shatter all (crystallize + explode)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
