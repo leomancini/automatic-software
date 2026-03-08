@@ -99,6 +99,16 @@ const TAP_WAVE_MAX_RADIUS = 140; // max ring expansion in px
 const TAP_WAVE_PUSH = 0.6; // gentle outward push on orbs
 const TAP_WAVE_RINGS = 3; // concentric rings per tap
 
+// ── Nova orbs (time-bomb orbs that detonate) ────────────────────────
+const NOVA_CHANCE = 0.12; // probability per tap-spawn
+const NOVA_FUSE_MIN = 5000; // minimum ms before detonation
+const NOVA_FUSE_MAX = 9000; // maximum ms before detonation
+const NOVA_WARN_MS = 2000; // ms before detonation when flickering starts
+const NOVA_BLAST_COUNT = 6; // fragment orbs on detonation
+const NOVA_BLAST_SPEED = 5; // outward velocity of fragments
+const NOVA_PUSH_RADIUS = 160; // force push radius on detonation
+const NOVA_PUSH_FORCE = 4; // force push strength
+
 // ── Tap streak / combo system ───────────────────────────────────────
 const STREAK_WINDOW = 600; // ms between taps to continue a streak
 const STREAK_DECAY_DELAY = 1200; // ms after last tap before streak counter fades
@@ -1213,6 +1223,11 @@ function App() {
           orb.radius += radiusBonus;
           orb.vx += pt.vx;
           orb.vy += pt.vy;
+          if (Math.random() < NOVA_CHANCE) {
+            orb.isNova = true;
+            orb.novaBorn = now;
+            orb.novaFuse = NOVA_FUSE_MIN + Math.random() * (NOVA_FUSE_MAX - NOVA_FUSE_MIN);
+          }
           orbsRef.current.push(orb);
           ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
         }
@@ -2300,6 +2315,73 @@ function App() {
         if (orbsPopped) setOrbCount(orbsRef.current.length);
       }
 
+      // ── Nova orb detonation ──
+      {
+        let novaDetonated = false;
+        for (let i = orbsRef.current.length - 1; i >= 0; i--) {
+          const orb = orbsRef.current[i];
+          if (!orb.isNova) continue;
+          const novaAge = now - orb.novaBorn;
+          if (novaAge > orb.novaFuse) {
+            novaDetonated = true;
+            // push nearby orbs outward
+            for (const other of orbsRef.current) {
+              if (other === orb) continue;
+              const dx = other.x - orb.x;
+              const dy = other.y - orb.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist < NOVA_PUSH_RADIUS && dist > 0) {
+                const force = NOVA_PUSH_FORCE * (1 - dist / NOVA_PUSH_RADIUS);
+                other.vx += (dx / dist) * force;
+                other.vy += (dy / dist) * force;
+              }
+            }
+            // spawn fragment orbs
+            for (let f = 0; f < NOVA_BLAST_COUNT; f++) {
+              const angle = (Math.PI * 2 * f) / NOVA_BLAST_COUNT + Math.random() * 0.3;
+              const fragment = createOrb(orb.x, orb.y);
+              fragment.radius = 4 + Math.random() * 4;
+              fragment.vx = Math.cos(angle) * (NOVA_BLAST_SPEED + Math.random() * 2);
+              fragment.vy = Math.sin(angle) * (NOVA_BLAST_SPEED + Math.random() * 2);
+              fragment.color = orb.color;
+              orbsRef.current.push(fragment);
+            }
+            // shockwave
+            wavesRef.current.push({
+              cx: orb.x, cy: orb.y,
+              radius: 0,
+              color: orb.color,
+              generation: 0,
+              hitOrbs: new Set(),
+              delay: 0,
+            });
+            // burst particles
+            for (let b = 0; b < 12; b++) {
+              const angle = (Math.PI * 2 * b) / 12;
+              burstsRef.current.push({
+                x: orb.x, y: orb.y,
+                vx: Math.cos(angle) * (3 + Math.random() * 3),
+                vy: Math.sin(angle) * (3 + Math.random() * 3),
+                color: orb.color,
+                radius: 3 + Math.random() * 2,
+                born: now,
+              });
+            }
+            // flash + shake
+            flashesRef.current.push({
+              x: orb.x, y: orb.y,
+              color: "#ffffff",
+              radius: orb.radius * 3,
+              born: now,
+            });
+            shakeRef.current = Math.max(shakeRef.current, 8);
+            orbsRef.current.splice(i, 1);
+            playBoom();
+          }
+        }
+        if (novaDetonated) setOrbCount(orbsRef.current.length);
+      }
+
       // merge overlapping orbs
       const toRemove = new Set();
       for (let i = 0; i < orbs.length; i++) {
@@ -2894,6 +2976,45 @@ function App() {
           ctx.lineWidth = 2;
           ctx.stroke();
         }
+      }
+
+      // draw nova orb indicators (countdown ring + warning glow)
+      for (const orb of orbs) {
+        if (!orb.isNova) continue;
+        const novaAge = now - orb.novaBorn;
+        const progress = Math.min(novaAge / orb.novaFuse, 1);
+        const pulse = 1 + 0.12 * Math.sin(time * 1.5 + orb.pulsePhase);
+        const r = orb.radius * pulse;
+        const isWarning = novaAge > orb.novaFuse - NOVA_WARN_MS;
+
+        // timer ring that fills up as detonation approaches
+        ctx.beginPath();
+        ctx.arc(orb.x, orb.y, r + 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+        ctx.strokeStyle = isWarning
+          ? `rgba(255, ${100 + Math.floor(Math.sin(time * 12) * 80)}, 50, 0.8)`
+          : `rgba(255, 200, 100, ${0.25 + progress * 0.35})`;
+        ctx.lineWidth = isWarning ? 2.5 : 1.5;
+        ctx.stroke();
+
+        // warning phase: flickering hot glow
+        if (isWarning) {
+          const warnFlicker = 0.25 + 0.2 * Math.sin(time * 15 + orb.pulsePhase);
+          const warnGrad = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, r * 4);
+          warnGrad.addColorStop(0, `rgba(255, 220, 100, ${warnFlicker})`);
+          warnGrad.addColorStop(0.5, `rgba(255, 150, 50, ${warnFlicker * 0.4})`);
+          warnGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(orb.x, orb.y, r * 4, 0, Math.PI * 2);
+          ctx.fillStyle = warnGrad;
+          ctx.fill();
+        }
+
+        // subtle warm tint over the orb
+        const tintAlpha = 0.08 + progress * 0.15;
+        ctx.beginPath();
+        ctx.arc(orb.x, orb.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 200, 80, ${tintAlpha})`;
+        ctx.fill();
       }
 
       // draw fire effects on ignited orbs
