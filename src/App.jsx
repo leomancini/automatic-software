@@ -61,6 +61,11 @@ const LIGHTNING_MAX_CHAIN = 20; // max orbs per chain
 const LIGHTNING_FORCE = 3; // velocity boost on struck orbs
 const LIGHTNING_SEGMENTS = 10; // jagged segments per bolt
 
+// ── Wormhole portals ─────────────────────────────────────────────
+const PORTAL_RADIUS = 22;
+const PORTAL_TELEPORT_DIST = 28; // orb enters portal at this distance
+const PORTAL_COOLDOWN = 500; // ms before orb can re-enter a portal
+
 // ── Tap streak / combo system ───────────────────────────────────────
 const STREAK_WINDOW = 600; // ms between taps to continue a streak
 const STREAK_DECAY_DELAY = 1200; // ms after last tap before streak counter fades
@@ -240,6 +245,40 @@ function playLightning() {
   playTone(150, 0.25, "square", 0.05);
 }
 
+function playPortalSound() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(300, t);
+  osc.frequency.exponentialRampToValueAtTime(900, t + 0.3);
+  g.gain.setValueAtTime(0.08, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.45);
+  playTone(600, 0.25, "triangle", 0.04);
+}
+
+function playWarpSound() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(800, t);
+  osc.frequency.exponentialRampToValueAtTime(200, t + 0.08);
+  osc.frequency.exponentialRampToValueAtTime(600, t + 0.2);
+  g.gain.setValueAtTime(0.1, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.3);
+}
+
 function generateBolt(x1, y1, x2, y2, segments = LIGHTNING_SEGMENTS) {
   const points = [{ x: x1, y: y1 }];
   const dx = x2 - x1;
@@ -329,6 +368,7 @@ function App() {
   const trailsRef = useRef([]);
   const vortexesRef = useRef([]);
   const lightningRef = useRef([]);
+  const portalsRef = useRef([]);
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
@@ -799,6 +839,32 @@ function App() {
           orb.y = H - orb.radius;
           orb.vy *= -0.6;
         }
+
+        // portal teleportation
+        const portals = portalsRef.current;
+        if (portals.length === 2) {
+          for (let pi = 0; pi < 2; pi++) {
+            const portal = portals[pi];
+            const partner = portals[1 - pi];
+            const pdx = portal.x - orb.x;
+            const pdy = portal.y - orb.y;
+            const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
+            if (pDist < PORTAL_TELEPORT_DIST && (!orb._portalCooldown || now - orb._portalCooldown > PORTAL_COOLDOWN)) {
+              const speed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+              const nvx = speed > 0.1 ? orb.vx / speed : 0;
+              const nvy = speed > 0.1 ? orb.vy / speed : 0;
+              orb.x = partner.x + nvx * (PORTAL_TELEPORT_DIST + 5);
+              orb.y = partner.y + nvy * (PORTAL_TELEPORT_DIST + 5);
+              orb.vx *= 1.2;
+              orb.vy *= 1.2;
+              orb._portalCooldown = now;
+              ripplesRef.current.push({ x: portal.x, y: portal.y, color: portal.color, born: now });
+              ripplesRef.current.push({ x: partner.x, y: partner.y, color: partner.color, born: now });
+              playWarpSound();
+              break;
+            }
+          }
+        }
       }
 
       // spawn nebula trail particles behind fast-moving orbs
@@ -980,6 +1046,29 @@ function App() {
             }
           }
         }
+        // shockwave portal transmission
+        if (portalsRef.current.length === 2) {
+          for (let pi = 0; pi < 2; pi++) {
+            const portal = portalsRef.current[pi];
+            const partner = portalsRef.current[1 - pi];
+            const dx = portal.x - wave.cx;
+            const dy = portal.y - wave.cy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > wave.radius - genWidth && dist < wave.radius + genWidth && gen < CASCADE_MAX_GEN) {
+              if (!wave._portalHits) wave._portalHits = new Set();
+              if (!wave._portalHits.has(pi)) {
+                wave._portalHits.add(pi);
+                pendingCascades.push({
+                  cx: partner.x, cy: partner.y,
+                  radius: 0, color: partner.color,
+                  generation: gen + 1,
+                  hitOrbs: new Set(), delay: CASCADE_DELAY_FRAMES,
+                });
+              }
+            }
+          }
+        }
+
         // draw the ring
         const alpha = 0.6 * (1 - wave.radius / maxWaveRadius) * Math.pow(0.75, gen);
         if (alpha > 0.01) {
@@ -1302,6 +1391,91 @@ function App() {
         ctx.arc(well.x, well.y, well.radius * 1.3, 0, Math.PI * 2);
         ctx.fillStyle = coreGrad;
         ctx.fill();
+      }
+
+      // draw portals
+      for (let pi = 0; pi < portalsRef.current.length; pi++) {
+        const portal = portalsRef.current[pi];
+        const age = (now - portal.born) / 1000;
+        const isA = pi === 0;
+        const baseColor = isA ? "#00f2fe" : "#fa709a";
+        const pulse = 1 + 0.08 * Math.sin(time * 3 + pi * Math.PI);
+        const r = PORTAL_RADIUS * pulse;
+
+        // Outer pull field
+        const fieldGrad = ctx.createRadialGradient(portal.x, portal.y, r, portal.x, portal.y, r * 3);
+        fieldGrad.addColorStop(0, baseColor + "30");
+        fieldGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(portal.x, portal.y, r * 3, 0, Math.PI * 2);
+        ctx.fillStyle = fieldGrad;
+        ctx.fill();
+
+        // Rotating ring 1
+        ctx.save();
+        ctx.translate(portal.x, portal.y);
+        ctx.rotate(age * 2 * (isA ? 1 : -1));
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.strokeStyle = baseColor + "cc";
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([8, 6]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+
+        // Rotating ring 2 (counter)
+        ctx.save();
+        ctx.translate(portal.x, portal.y);
+        ctx.rotate(-age * 1.3 * (isA ? 1 : -1));
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2);
+        ctx.strokeStyle = baseColor + "88";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 8]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+
+        // Swirling particles
+        for (let sp = 0; sp < 6; sp++) {
+          const theta = (Math.PI * 2 * sp) / 6 + age * 3 * (isA ? 1 : -1);
+          const orbitR = r * (0.5 + 0.4 * Math.sin(age * 2 + sp));
+          const px = portal.x + Math.cos(theta) * orbitR;
+          const py = portal.y + Math.sin(theta) * orbitR;
+          const pAlpha = 0.4 + 0.3 * Math.sin(age * 4 + sp * 1.5);
+          ctx.beginPath();
+          ctx.arc(px, py, 2, 0, Math.PI * 2);
+          ctx.fillStyle = baseColor + hexAlpha(pAlpha * 255);
+          ctx.fill();
+        }
+
+        // Inner core glow
+        const coreGrad = ctx.createRadialGradient(portal.x, portal.y, 0, portal.x, portal.y, r * 0.6);
+        coreGrad.addColorStop(0, "#ffffff4d");
+        coreGrad.addColorStop(0.5, baseColor + "33");
+        coreGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(portal.x, portal.y, r * 0.6, 0, Math.PI * 2);
+        ctx.fillStyle = coreGrad;
+        ctx.fill();
+      }
+
+      // Connection line between paired portals
+      if (portalsRef.current.length === 2) {
+        const pA = portalsRef.current[0];
+        const pB = portalsRef.current[1];
+        const linkAlpha = 0.08 + 0.04 * Math.sin(time * 2);
+        const linkGrad = ctx.createLinearGradient(pA.x, pA.y, pB.x, pB.y);
+        linkGrad.addColorStop(0, "#00f2fe" + hexAlpha(linkAlpha * 255));
+        linkGrad.addColorStop(0.5, "#ffffff" + hexAlpha(linkAlpha * 0.5 * 255));
+        linkGrad.addColorStop(1, "#fa709a" + hexAlpha(linkAlpha * 255));
+        ctx.beginPath();
+        ctx.moveTo(pA.x, pA.y);
+        ctx.lineTo(pB.x, pB.y);
+        ctx.strokeStyle = linkGrad;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
       }
 
       // draw spawn ripples
@@ -1822,6 +1996,40 @@ function App() {
     }
   }, []);
 
+  const handlePortal = useCallback(() => {
+    if (portalsRef.current.length >= 2) {
+      const now = performance.now();
+      for (const portal of portalsRef.current) {
+        for (let i = 0; i < 6; i++) {
+          const angle = (Math.PI * 2 * i) / 6;
+          burstsRef.current.push({
+            x: portal.x, y: portal.y,
+            vx: Math.cos(angle) * (1 + Math.random()),
+            vy: Math.sin(angle) * (1 + Math.random()),
+            color: portal.color, radius: 2.5, born: now,
+          });
+        }
+      }
+      portalsRef.current = [];
+      shakeRef.current = 4;
+      return;
+    }
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    const x = (mx > 0 || my > 0) ? mx : window.innerWidth / 2;
+    const y = (mx > 0 || my > 0) ? my : window.innerHeight / 2;
+    const isA = portalsRef.current.length === 0;
+    const color = isA ? "#00f2fe" : "#fa709a";
+    portalsRef.current.push({
+      id: Date.now() + Math.random(),
+      x, y, color,
+      born: performance.now(),
+    });
+    ripplesRef.current.push({ x, y, color, born: performance.now() });
+    shakeRef.current = 6;
+    playPortalSound();
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -1882,6 +2090,9 @@ function App() {
         case "l":
           handleLightning();
           break;
+        case "t":
+          handlePortal();
+          break;
         case "v":
           handleToggleAudio();
           break;
@@ -1892,7 +2103,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handlePortal, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -1910,7 +2121,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big orbs collapse</Hint>
-        <Hint>keys: space b f n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
+        <Hint>keys: space b f t n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -1991,6 +2202,13 @@ function App() {
           <ActionButton onClick={handleLightning} title="Chain lightning">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handlePortal} title="Wormhole portal">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="7" cy="12" r="5" />
+              <circle cx="17" cy="12" r="5" />
+              <line x1="12" y1="9" x2="12" y2="15" strokeDasharray="2 2" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleShuffle} title="Shuffle colors">
@@ -2130,6 +2348,7 @@ function App() {
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
+              <Shortcut><Key>T</Key><span>Wormhole portal (x2, then clear)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>G</Key><span>Toggle gravity</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
