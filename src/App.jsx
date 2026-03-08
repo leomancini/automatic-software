@@ -80,6 +80,8 @@ function App() {
   const [slowMo, setSlowMo] = useState(false);
   const slowMoRef = useRef(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [repelMode, setRepelMode] = useState(false);
+  const repelModeRef = useRef(false);
   const longPressRef = useRef(null);
 
   const resize = useCallback(() => {
@@ -354,7 +356,7 @@ function App() {
           }
         }
 
-        // gentle attraction toward cursor
+        // cursor interaction: attract or repel
         const mx = mouseRef.current.x;
         const my = mouseRef.current.y;
         const mdx = mx - orb.x;
@@ -362,8 +364,9 @@ function App() {
         const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
         if (mDist < ATTRACT_DIST && mDist > 0) {
           const pull = ATTRACT_FORCE * (1 - mDist / ATTRACT_DIST);
-          orb.vx += (mdx / mDist) * pull;
-          orb.vy += (mdy / mDist) * pull;
+          const direction = repelModeRef.current ? -3 : 1;
+          orb.vx += (mdx / mDist) * pull * direction;
+          orb.vy += (mdy / mDist) * pull * direction;
         }
 
         // gravity
@@ -776,6 +779,13 @@ function App() {
     });
   }, []);
 
+  const handleRepelMode = useCallback(() => {
+    setRepelMode((prev) => {
+      repelModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleShuffle = useCallback(() => {
     const now = performance.now();
     for (const orb of orbsRef.current) {
@@ -873,6 +883,9 @@ function App() {
         case "f":
           handleFirework();
           break;
+        case "d":
+          handleRepelMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -880,7 +893,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, setShowHelp]);
 
   return (
     <Wrapper>
@@ -898,7 +911,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; overlap to merge</Hint>
-        <Hint>keys: space b f c r w h g s p m x &middot; press ? for help</Hint>
+        <Hint>keys: space b f c r w h g d s p m x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
       </HUD>
       <ButtonGroup>
@@ -977,6 +990,15 @@ function App() {
               <polyline points="12 6 12 12 16 14" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleRepelMode} title="Repel mode" $active={repelMode}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <line x1="12" y1="2" x2="12" y2="5" />
+              <line x1="12" y1="19" x2="12" y2="22" />
+              <line x1="2" y1="12" x2="5" y2="12" />
+              <line x1="19" y1="12" x2="22" y2="12" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleGravity} title="Toggle gravity" $active={gravityOn}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="2" x2="12" y2="18" />
@@ -1045,6 +1067,7 @@ function App() {
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>G</Key><span>Toggle gravity</span></Shortcut>
+              <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
