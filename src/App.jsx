@@ -988,6 +988,8 @@ function createOrb(x, y) {
   };
 }
 
+let eruptionGravityTag = 0; // tag to safely cancel eruption's temporary gravity
+
 function App() {
   const canvasRef = useRef(null);
   const orbsRef = useRef([]);
@@ -5666,43 +5668,40 @@ function App() {
 
   const handleDomino = useCallback(() => {
     const orbs = orbsRef.current;
-    if (orbs.length < 2) return;
+    if (orbs.length === 0) return;
     const W = window.innerWidth;
-    const H = window.innerHeight;
     const cx = W / 2;
-    const cy = H / 2;
-    // Build chain order: nearest-neighbor starting from orb closest to center
-    const remaining = orbs.map((o) => ({ x: o.x, y: o.y, color: o.color, radius: o.radius, id: o.id }));
-    const chain = [];
-    let closest = 0;
-    let closestDist = Infinity;
-    for (let i = 0; i < remaining.length; i++) {
-      const dx = remaining[i].x - cx;
-      const dy = remaining[i].y - cy;
-      const d = dx * dx + dy * dy;
-      if (d < closestDist) { closestDist = d; closest = i; }
-    }
-    chain.push(remaining.splice(closest, 1)[0]);
-    while (remaining.length > 0) {
-      const last = chain[chain.length - 1];
-      let nearIdx = 0;
-      let nearDist = Infinity;
-      for (let i = 0; i < remaining.length; i++) {
-        const dx = remaining[i].x - last.x;
-        const dy = remaining[i].y - last.y;
-        const d = dx * dx + dy * dy;
-        if (d < nearDist) { nearDist = d; nearIdx = i; }
+    const now = performance.now();
+    // Eruption: blast all orbs upward with horizontal spread from center
+    for (const orb of orbs) {
+      const spreadX = cx > 0 ? (orb.x - cx) / cx : 0; // -1 to +1
+      orb.vy = -(10 + Math.random() * 8);
+      orb.vx += spreadX * 4 + (Math.random() - 0.5) * 3;
+      // Burst particles per orb
+      for (let i = 0; i < 3; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        burstsRef.current.push({
+          x: orb.x, y: orb.y,
+          vx: Math.cos(angle) * (1.5 + Math.random() * 2),
+          vy: Math.sin(angle) * (1.5 + Math.random() * 2) - 3,
+          color: orb.color,
+          born: now,
+        });
       }
-      chain.push(remaining.splice(nearIdx, 1)[0]);
     }
-    dominoRef.current = {
-      queue: chain,
-      index: 0,
-      nextTime: performance.now(),
-      respawnCount: orbs.length,
-      phase: "chain",
-    };
-    shakeRef.current = 8;
+    // Briefly enable gravity so orbs arc back down
+    if (!gravityRef.current) {
+      gravityRef.current = true;
+      setGravityOn(true);
+      const tag = ++eruptionGravityTag;
+      setTimeout(() => {
+        if (eruptionGravityTag === tag && gravityRef.current) {
+          gravityRef.current = false;
+          setGravityOn(false);
+        }
+      }, 4000);
+    }
+    shakeRef.current = 15;
     playBoom();
   }, []);
 
@@ -6611,16 +6610,16 @@ function App() {
               <path d="M2 12c1.5-2 3-2 5 0s3.5 2 5 0 3.5-2 5 0 3.5 2 5 0" opacity="0.3" />
             </svg>
           </ActionButton>
-        {orbCount > 1 && (
-          <ActionButton onClick={handleDomino} title="Domino cascade">
+        {orbCount > 0 && (
+          <ActionButton onClick={handleDomino} title="Eruption">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="4" cy="12" r="2" fill="currentColor" />
-              <circle cx="12" cy="12" r="2" />
-              <circle cx="20" cy="12" r="2" />
-              <path d="M6 12h4" strokeDasharray="2 1" />
-              <path d="M14 12h4" strokeDasharray="2 1" />
-              <path d="M3 7l2 3" />
-              <path d="M5 17l-2 3" />
+              <line x1="12" y1="22" x2="12" y2="12" />
+              <polyline points="7 16 12 11 17 16" />
+              <line x1="5" y1="7" x2="8" y2="2" />
+              <line x1="12" y1="9" x2="12" y2="2" />
+              <line x1="19" y1="7" x2="16" y2="2" />
+              <circle cx="8" cy="4" r="1" fill="currentColor" opacity="0.5" />
+              <circle cx="16" cy="4" r="1" fill="currentColor" opacity="0.5" />
             </svg>
           </ActionButton>
         )}
@@ -6908,7 +6907,7 @@ function App() {
               <Shortcut><Key>3</Key><span>Place / remove particle fountain</span></Shortcut>
               <Shortcut><Key>4</Key><span>Gravity painter (draw gravity trails)</span></Shortcut>
               <Shortcut><Key>5</Key><span>Constellation mode (connect nearby orbs)</span></Shortcut>
-              <Shortcut><Key>6</Key><span>Domino cascade (chain reaction)</span></Shortcut>
+              <Shortcut><Key>6</Key><span>Eruption (blast orbs upward)</span></Shortcut>
               <Shortcut><Key>7</Key><span>Light show (autoplay)</span></Shortcut>
               <Shortcut><Key>8</Key><span>Color wave (rainbow recolor)</span></Shortcut>
               <Shortcut><Key>9</Key><span>Big bang (implode + explode)</span></Shortcut>
