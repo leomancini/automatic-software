@@ -109,6 +109,48 @@ const NOVA_BLAST_SPEED = 5; // outward velocity of fragments
 const NOVA_PUSH_RADIUS = 160; // force push radius on detonation
 const NOVA_PUSH_FORCE = 4; // force push strength
 
+// ── Formation snap ────────────────────────────────────────────────
+const FORMATION_TYPES = ['circle', 'spiral', 'grid', 'wave'];
+const FORMATION_SPRING = 0.08;
+const FORMATION_DAMPING = 0.82;
+const FORMATION_HOLD_MS = 3000;
+
+function getFormationTargets(n, type, W, H) {
+  const cx = W / 2, cy = H / 2;
+  const targets = [];
+  const maxR = Math.min(W, H) * 0.32;
+
+  if (type === 'circle') {
+    for (let i = 0; i < n; i++) {
+      const a = (Math.PI * 2 * i) / n - Math.PI / 2;
+      targets.push({ x: cx + Math.cos(a) * maxR, y: cy + Math.sin(a) * maxR });
+    }
+  } else if (type === 'spiral') {
+    for (let i = 0; i < n; i++) {
+      const t = i / Math.max(n - 1, 1);
+      const a = t * Math.PI * 6;
+      targets.push({ x: cx + Math.cos(a) * t * maxR, y: cy + Math.sin(a) * t * maxR });
+    }
+  } else if (type === 'grid') {
+    const cols = Math.ceil(Math.sqrt(n));
+    const rows = Math.ceil(n / cols);
+    const spacing = Math.min(W / (cols + 2), H / (rows + 2), 45);
+    const sx = cx - ((cols - 1) * spacing) / 2;
+    const sy = cy - ((rows - 1) * spacing) / 2;
+    for (let i = 0; i < n; i++) {
+      targets.push({ x: sx + (i % cols) * spacing, y: sy + Math.floor(i / cols) * spacing });
+    }
+  } else if (type === 'wave') {
+    const amp = Math.min(H * 0.25, 120);
+    for (let i = 0; i < n; i++) {
+      const t = n > 1 ? i / (n - 1) : 0.5;
+      targets.push({ x: W * 0.08 + t * W * 0.84, y: cy + Math.sin(t * Math.PI * 3) * amp });
+    }
+  }
+
+  return targets;
+}
+
 // ── Tap streak / combo system ───────────────────────────────────────
 const STREAK_WINDOW = 600; // ms between taps to continue a streak
 const STREAK_DECAY_DELAY = 1200; // ms after last tap before streak counter fades
@@ -955,6 +997,8 @@ function App() {
   const vortexStormRef = useRef(null); // {cx, cy, born, exploded}
   const nebulaRef = useRef([]); // ambient nebula glow points
   const tapSparklesRef = useRef([]); // tiny sparkle particles from taps
+  const formationRef = useRef(null); // {targets, born, type}
+  const formationIndexRef = useRef(0);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -2008,6 +2052,27 @@ function App() {
           dominoRef.current = null;
           setOrbCount(orbsRef.current.length);
           playBurstSound();
+        }
+      }
+
+      // formation snap — spring force toward targets
+      if (formationRef.current) {
+        const fm = formationRef.current;
+        const fmElapsed = now - fm.born;
+        if (fmElapsed > FORMATION_HOLD_MS) {
+          formationRef.current = null;
+        } else {
+          const fmEase = Math.min(fmElapsed / 400, 1); // ramp up over 400ms
+          for (let fi = 0; fi < orbs.length; fi++) {
+            const o = orbs[fi];
+            if (o === dragRef.current) continue;
+            if (fm.targets[fi]) {
+              const fdx = fm.targets[fi].x - o.x;
+              const fdy = fm.targets[fi].y - o.y;
+              o.vx = (o.vx + fdx * FORMATION_SPRING * fmEase) * FORMATION_DAMPING;
+              o.vy = (o.vy + fdy * FORMATION_SPRING * fmEase) * FORMATION_DAMPING;
+            }
+          }
         }
       }
 
@@ -4999,6 +5064,21 @@ function App() {
     });
   }, []);
 
+  const handleFormation = useCallback(() => {
+    const orbs = orbsRef.current;
+    if (orbs.length < 2) return;
+    const W = window.innerWidth, H = window.innerHeight;
+    const type = FORMATION_TYPES[formationIndexRef.current % FORMATION_TYPES.length];
+    const targets = getFormationTargets(orbs.length, type, W, H);
+    formationRef.current = { targets, born: performance.now(), type };
+    formationIndexRef.current++;
+    playSwoosh();
+    // flash at center
+    flashesRef.current.push({
+      x: W / 2, y: H / 2, color: '#4facfe', radius: 30, born: performance.now(),
+    });
+  }, []);
+
   const handleGravityPaintMode = useCallback(() => {
     setGravityPaintMode((prev) => {
       gravityPaintModeRef.current = !prev;
@@ -5587,11 +5667,14 @@ function App() {
         case "'":
           handleNbodyMode();
           break;
+        case "[":
+          handleFormation();
+          break;
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, handleWarpDrive, handleMagnetMode, handleNbodyMode, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, handleWarpDrive, handleMagnetMode, handleNbodyMode, handleFormation, setShowHelp]);
 
   return (
     <Wrapper>
@@ -5609,7 +5692,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to launch &middot; drag orb to fling &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big ones divide &middot; rapid taps unlock combos</Hint>
-        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j ; ' 2 5 6 7 8 9 s p m - v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j ; ' [ 2 5 6 7 8 9 s p m - v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -5688,6 +5771,19 @@ function App() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="19 20 9 12 19 4 19 20" />
               <line x1="5" y1="4" x2="5" y2="20" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleFormation} title="Formation snap" $active={!!formationRef.current}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="4" r="2" />
+              <circle cx="4" cy="12" r="2" />
+              <circle cx="20" cy="12" r="2" />
+              <circle cx="12" cy="20" r="2" />
+              <circle cx="6" cy="6" r="1.5" opacity="0.5" />
+              <circle cx="18" cy="6" r="1.5" opacity="0.5" />
+              <circle cx="6" cy="18" r="1.5" opacity="0.5" />
+              <circle cx="18" cy="18" r="1.5" opacity="0.5" />
+              <circle cx="12" cy="12" r="1" fill="currentColor" opacity="0.3" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleBurst} title="Burst spawn">
@@ -6061,6 +6157,7 @@ function App() {
               <Shortcut><Key>=</Key><span>Warp drive (hyperspace jump)</span></Shortcut>
               <Shortcut><Key>;</Key><span>Magnetic polarity (attract/repel by charge)</span></Shortcut>
               <Shortcut><Key>'</Key><span>N-body gravity (mutual mass attraction)</span></Shortcut>
+              <Shortcut><Key>[</Key><span>Formation snap (cycle: circle, spiral, grid, wave)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
