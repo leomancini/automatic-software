@@ -113,6 +113,13 @@ const NOVA_PUSH_FORCE = 4; // force push strength
 const STREAK_WINDOW = 600; // ms between taps to continue a streak
 const STREAK_DECAY_DELAY = 1200; // ms after last tap before streak counter fades
 
+// ── Streak combo rewards (auto-trigger effects at milestones) ──────
+const STREAK_FIREWORK = 12;       // radial burst from tap point
+const STREAK_LIGHTNING = 16;      // chain lightning from tap point
+const STREAK_METEOR = 20;         // meteor shower
+const STREAK_SUPERNOVA = 25;      // supernova at tap point
+const COMBO_FLASH_DURATION = 1400; // ms for floating reward text
+
 // ── Orbital strike ─────────────────────────────────────────────────
 const STRIKE_BEAM_MS = 400; // beam descent duration
 const STRIKE_FADE_MS = 600; // post-impact fade
@@ -896,6 +903,7 @@ function App() {
   const lastTapTimeRef = useRef(0);
   const [streakDisplay, setStreakDisplay] = useState(0);
   const streakFadeRef = useRef(null);
+  const comboFlashRef = useRef([]); // [{text, x, y, born, color}]
   const mouseDownRef = useRef(false);
   const sprayActiveRef = useRef(false);
   const sprayStartRef = useRef({ x: 0, y: 0 });
@@ -1268,6 +1276,96 @@ function App() {
             orb.vy += (dx / dist) * force;
           }
         }
+      }
+
+      // ── Streak combo rewards — auto-trigger effects at milestones ──
+      if (streak === STREAK_FIREWORK) {
+        // Radial firework burst centered on tap position
+        const fwCount = 10;
+        for (let i = 0; i < fwCount; i++) {
+          const angle = (Math.PI * 2 * i) / fwCount + Math.random() * 0.3;
+          const orb = createOrb(pos.x, pos.y);
+          orb.radius = 5 + Math.random() * 6;
+          orb.vx = Math.cos(angle) * (4 + Math.random() * 3);
+          orb.vy = Math.sin(angle) * (4 + Math.random() * 3);
+          orbsRef.current.push(orb);
+          ripplesRef.current.push({ x: pos.x, y: pos.y, color: orb.color, born: now });
+        }
+        comboFlashRef.current.push({ text: "FIREWORK!", x: pos.x, y: pos.y - 40, born: now, color: "#fa709a" });
+        shakeRef.current = Math.max(shakeRef.current, 14);
+        playBurstSound();
+      }
+
+      if (streak === STREAK_LIGHTNING && orbsRef.current.length > 0) {
+        // Chain lightning emanating from tap point
+        mouseRef.current = pos;
+        const visited = new Set();
+        const bolts = [];
+        const lSparks = [];
+        let lcx = pos.x, lcy = pos.y;
+        for (let chain = 0; chain < LIGHTNING_MAX_CHAIN; chain++) {
+          let nearest = null;
+          let nearestDist = LIGHTNING_CHAIN_DIST;
+          for (const orb of orbsRef.current) {
+            if (visited.has(orb.id)) continue;
+            const dx = orb.x - lcx;
+            const dy = orb.y - lcy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < nearestDist) { nearestDist = dist; nearest = orb; }
+          }
+          if (!nearest) break;
+          visited.add(nearest.id);
+          bolts.push({ points: generateBolt(lcx, lcy, nearest.x, nearest.y), color: nearest.color });
+          for (let s = 0; s < 4; s++) {
+            const a = Math.random() * Math.PI * 2;
+            lSparks.push({ x: nearest.x, y: nearest.y, vx: Math.cos(a) * (1 + Math.random() * 2), vy: Math.sin(a) * (1 + Math.random() * 2), color: nearest.color });
+          }
+          const dx = nearest.x - lcx;
+          const dy = nearest.y - lcy;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          nearest.vx += (dx / dist) * LIGHTNING_FORCE * (0.5 + Math.random());
+          nearest.vy += (dy / dist) * LIGHTNING_FORCE * (0.5 + Math.random());
+          lcx = nearest.x; lcy = nearest.y;
+        }
+        if (bolts.length > 0) {
+          lightningRef.current.push({ bolts, sparks: lSparks, born: now });
+          shakeRef.current = Math.max(shakeRef.current, 6 + bolts.length);
+          playLightning();
+        }
+        comboFlashRef.current.push({ text: "LIGHTNING!", x: pos.x, y: pos.y - 40, born: now, color: "#4facfe" });
+      }
+
+      if (streak === STREAK_METEOR) {
+        // Inline meteor shower to avoid forward-ref issues
+        const W = window.innerWidth;
+        for (let i = 0; i < METEOR_COUNT; i++) {
+          setTimeout(() => {
+            const mx = W * 0.05 + Math.random() * W * 0.9;
+            const mAngle = Math.PI * 0.4 + Math.random() * Math.PI * 0.2;
+            const mSpeed = 4 + Math.random() * 4;
+            const mOrb = createOrb(mx, -20);
+            mOrb.radius = 6 + Math.random() * 8;
+            mOrb.vx = Math.cos(mAngle) * mSpeed * (Math.random() > 0.5 ? 1 : -1);
+            mOrb.vy = Math.sin(mAngle) * mSpeed;
+            orbsRef.current.push(mOrb);
+            ripplesRef.current.push({ x: mx, y: 0, color: mOrb.color, born: performance.now() });
+            meteorTrailsRef.current.push({
+              x: mx + (Math.random() - 0.5) * 40, y: -60 - Math.random() * 40,
+              dx: mOrb.vx * 25, dy: mOrb.vy * 25,
+              color: mOrb.color, born: performance.now(),
+            });
+            setOrbCount(orbsRef.current.length);
+          }, i * METEOR_STAGGER);
+        }
+        shakeRef.current = Math.max(shakeRef.current, 12);
+        playMeteorSound();
+        comboFlashRef.current.push({ text: "METEOR SHOWER!", x: pos.x, y: pos.y - 40, born: now, color: "#43e97b" });
+      }
+
+      if (streak === STREAK_SUPERNOVA && !supernovaRef.current) {
+        supernovaRef.current = { cx: pos.x, cy: pos.y, born: now, phase: "implode" };
+        playSupernovaSound();
+        comboFlashRef.current.push({ text: "SUPERNOVA!", x: pos.x, y: pos.y - 40, born: now, color: "#f093fb" });
       }
 
       // ── Tap pulse wave — concentric ripples from every tap ──
@@ -3682,6 +3780,67 @@ function App() {
         ctx.stroke();
       }
 
+      // draw streak aura around cursor during active streaks
+      const currentStreak = streakRef.current;
+      if (currentStreak >= 3) {
+        const mx = mouseRef.current.x;
+        const my = mouseRef.current.y;
+        if (mx > 0 || my > 0) {
+          const auraT = Math.min(currentStreak / STREAK_SUPERNOVA, 1);
+          const auraRadius = 30 + auraT * 55;
+          const pulseSpeed = 200 - currentStreak * 5;
+          const pulse = 1 + 0.15 * Math.sin(now / Math.max(pulseSpeed, 80));
+          const r = auraRadius * pulse;
+          const auraAlpha = 0.08 + auraT * 0.25;
+          // color shifts toward next milestone
+          let ac;
+          if (currentStreak >= 20) ac = "240,147,251";      // purple — supernova incoming
+          else if (currentStreak >= 16) ac = "67,233,123";   // green — meteor incoming
+          else if (currentStreak >= 12) ac = "79,172,254";   // blue — lightning incoming
+          else if (currentStreak >= 8) ac = "250,112,154";   // rose
+          else ac = "102,126,234";                            // cool blue
+          const aGrad = ctx.createRadialGradient(mx, my, r * 0.6, mx, my, r);
+          aGrad.addColorStop(0, `rgba(${ac},0)`);
+          aGrad.addColorStop(0.7, `rgba(${ac},${(auraAlpha * 0.5).toFixed(3)})`);
+          aGrad.addColorStop(1, `rgba(${ac},0)`);
+          ctx.beginPath();
+          ctx.arc(mx, my, r, 0, Math.PI * 2);
+          ctx.fillStyle = aGrad;
+          ctx.fill();
+          // rotating arc segments — one per streak count
+          const segs = Math.min(currentStreak, STREAK_SUPERNOVA);
+          const segAngle = (Math.PI * 2) / segs;
+          ctx.strokeStyle = `rgba(${ac},${auraAlpha.toFixed(3)})`;
+          ctx.lineWidth = 2;
+          for (let i = 0; i < segs; i++) {
+            const sa = (now / 1800) + i * segAngle;
+            ctx.beginPath();
+            ctx.arc(mx, my, r, sa, sa + segAngle * 0.55);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // draw combo flash text (floating reward labels)
+      comboFlashRef.current = comboFlashRef.current.filter((f) => now - f.born < COMBO_FLASH_DURATION);
+      for (const f of comboFlashRef.current) {
+        const progress = (now - f.born) / COMBO_FLASH_DURATION;
+        const alpha = progress < 0.1 ? progress / 0.1 : 1 - (progress - 0.1) / 0.9;
+        const yOff = progress * 70;
+        const scale = progress < 0.12 ? 0.4 + (progress / 0.12) * 0.6 : 1;
+        const fontSize = Math.round(28 * scale);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillText(f.text, f.x + 1, f.y - yOff + 1);
+        ctx.fillStyle = f.color;
+        ctx.fillText(f.text, f.x, f.y - yOff);
+        ctx.restore();
+      }
+
       // draw wall hit glow effects
       wallHitsRef.current = wallHitsRef.current.filter((h) => now - h.born < WALL_HIT_DURATION);
       for (const hit of wallHitsRef.current) {
@@ -5223,7 +5382,7 @@ function App() {
       />
       <HUD>
         <Title>Automatic Software</Title>
-        <Hint>tap to create &middot; drag to launch &middot; drag orb to fling &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big ones divide</Hint>
+        <Hint>tap to create &middot; drag to launch &middot; drag orb to fling &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big ones divide &middot; rapid taps unlock combos</Hint>
         <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j ; ' 2 5 6 7 8 9 s p m - v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
