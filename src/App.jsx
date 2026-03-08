@@ -54,6 +54,13 @@ const COLLAPSE_RADIUS = 35; // orbs this big implode into gravity wells
 const VORTEX_DURATION = 2000; // ms for spiral arms to fade
 const VORTEX_ARMS = 3; // number of spiral arms
 
+// ── Chain lightning effect ─────────────────────────────────────────
+const LIGHTNING_DURATION = 800; // ms for bolts to fade
+const LIGHTNING_CHAIN_DIST = 250; // max jump distance between orbs
+const LIGHTNING_MAX_CHAIN = 20; // max orbs per chain
+const LIGHTNING_FORCE = 3; // velocity boost on struck orbs
+const LIGHTNING_SEGMENTS = 10; // jagged segments per bolt
+
 // ── Tap streak / combo system ───────────────────────────────────────
 const STREAK_WINDOW = 600; // ms between taps to continue a streak
 const STREAK_DECAY_DELAY = 1200; // ms after last tap before streak counter fades
@@ -214,6 +221,44 @@ function playStreakTone(streak, x, screenW) {
   }
 }
 
+function playLightning() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  // High-frequency descending zap
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(2000, t);
+  osc.frequency.exponentialRampToValueAtTime(200, t + 0.15);
+  g.gain.setValueAtTime(0.1, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.25);
+  // Lower crackle
+  playTone(150, 0.25, "square", 0.05);
+}
+
+function generateBolt(x1, y1, x2, y2, segments = LIGHTNING_SEGMENTS) {
+  const points = [{ x: x1, y: y1 }];
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+  const px = -dy / dist;
+  const py = dx / dist;
+  for (let i = 1; i < segments; i++) {
+    const t = i / segments;
+    const jitter = (Math.random() - 0.5) * dist * 0.15;
+    points.push({
+      x: x1 + dx * t + px * jitter,
+      y: y1 + dy * t + py * jitter,
+    });
+  }
+  points.push({ x: x2, y: y2 });
+  return points;
+}
+
 function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
 }
@@ -283,6 +328,7 @@ function App() {
   const wellsRef = useRef([]);
   const trailsRef = useRef([]);
   const vortexesRef = useRef([]);
+  const lightningRef = useRef([]);
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
@@ -1095,6 +1141,56 @@ function App() {
         ctx.fill();
       }
 
+      // draw chain lightning
+      lightningRef.current = lightningRef.current.filter((l) => now - l.born < LIGHTNING_DURATION);
+      for (const lightning of lightningRef.current) {
+        const progress = (now - lightning.born) / LIGHTNING_DURATION;
+        const alpha = progress < 0.1 ? progress / 0.1 : Math.pow(1 - (progress - 0.1) / 0.9, 2);
+
+        for (const bolt of lightning.bolts) {
+          const pts = bolt.points;
+          const isBranch = bolt.branch;
+
+          // Wide glow layer
+          ctx.beginPath();
+          ctx.moveTo(pts[0].x, pts[0].y);
+          for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+          ctx.strokeStyle = bolt.color + hexAlpha(alpha * 0.3 * 255);
+          ctx.lineWidth = isBranch ? 6 : 12;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.stroke();
+
+          // Colored inner glow
+          ctx.beginPath();
+          ctx.moveTo(pts[0].x, pts[0].y);
+          for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+          ctx.strokeStyle = bolt.color + hexAlpha(alpha * 0.7 * 255);
+          ctx.lineWidth = isBranch ? 3 : 5;
+          ctx.stroke();
+
+          // Bright white core
+          ctx.beginPath();
+          ctx.moveTo(pts[0].x, pts[0].y);
+          for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+          ctx.strokeStyle = "#ffffff" + hexAlpha(alpha * 0.9 * 255);
+          ctx.lineWidth = isBranch ? 1.5 : 2.5;
+          ctx.stroke();
+        }
+
+        // Draw sparks
+        for (const spark of lightning.sparks) {
+          spark.x += spark.vx;
+          spark.y += spark.vy;
+          spark.vx *= 0.95;
+          spark.vy *= 0.95;
+          ctx.beginPath();
+          ctx.arc(spark.x, spark.y, 1.5, 0, Math.PI * 2);
+          ctx.fillStyle = "#ffffff" + hexAlpha(alpha * 0.8 * 255);
+          ctx.fill();
+        }
+      }
+
       // draw comet trails
       for (const orb of orbs) {
         const speed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
@@ -1649,6 +1745,83 @@ function App() {
     shakeRef.current = 6;
   }, []);
 
+  const handleLightning = useCallback(() => {
+    const orbs = orbsRef.current;
+    if (orbs.length === 0) return;
+
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    let cx = (mx > 0 || my > 0) ? mx : window.innerWidth / 2;
+    let cy = (mx > 0 || my > 0) ? my : window.innerHeight / 2;
+
+    const visited = new Set();
+    const bolts = [];
+    const sparks = [];
+
+    for (let chain = 0; chain < LIGHTNING_MAX_CHAIN; chain++) {
+      let nearest = null;
+      let nearestDist = LIGHTNING_CHAIN_DIST;
+
+      for (const orb of orbs) {
+        if (visited.has(orb.id)) continue;
+        const dx = orb.x - cx;
+        const dy = orb.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearest = orb;
+        }
+      }
+
+      if (!nearest) break;
+      visited.add(nearest.id);
+
+      const color = nearest.color;
+      bolts.push({ points: generateBolt(cx, cy, nearest.x, nearest.y), color });
+
+      // Random branch bolt (30% chance)
+      if (Math.random() < 0.3) {
+        const pts = bolts[bolts.length - 1].points;
+        const branchIdx = Math.floor(pts.length * 0.3 + Math.random() * pts.length * 0.4);
+        const bp = pts[branchIdx];
+        const branchAngle = Math.random() * Math.PI * 2;
+        const branchLen = 30 + Math.random() * 50;
+        bolts.push({
+          points: generateBolt(bp.x, bp.y, bp.x + Math.cos(branchAngle) * branchLen, bp.y + Math.sin(branchAngle) * branchLen, 5),
+          color,
+          branch: true,
+        });
+      }
+
+      // Sparks at hit point
+      for (let s = 0; s < 4; s++) {
+        const angle = Math.random() * Math.PI * 2;
+        sparks.push({
+          x: nearest.x, y: nearest.y,
+          vx: Math.cos(angle) * (1 + Math.random() * 2),
+          vy: Math.sin(angle) * (1 + Math.random() * 2),
+          color,
+        });
+      }
+
+      // Push the struck orb outward along the chain direction
+      const dx = nearest.x - cx;
+      const dy = nearest.y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      nearest.vx += (dx / dist) * LIGHTNING_FORCE * (0.5 + Math.random());
+      nearest.vy += (dy / dist) * LIGHTNING_FORCE * (0.5 + Math.random());
+
+      cx = nearest.x;
+      cy = nearest.y;
+    }
+
+    if (bolts.length > 0) {
+      lightningRef.current.push({ bolts, sparks, born: performance.now() });
+      shakeRef.current = Math.max(shakeRef.current, 6 + bolts.length);
+      playLightning();
+    }
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -1706,6 +1879,9 @@ function App() {
         case "n":
           handlePlaceWell();
           break;
+        case "l":
+          handleLightning();
+          break;
         case "v":
           handleToggleAudio();
           break;
@@ -1716,7 +1892,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -1734,7 +1910,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big orbs collapse</Hint>
-        <Hint>keys: space b f n c r w h g d a o j s p m v x &middot; press ? for help</Hint>
+        <Hint>keys: space b f n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -1810,6 +1986,11 @@ function App() {
               <circle cx="12" cy="12" r="3" />
               <circle cx="12" cy="12" r="7" opacity="0.6" />
               <circle cx="12" cy="12" r="11" opacity="0.3" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleLightning} title="Chain lightning">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleShuffle} title="Shuffle colors">
@@ -1948,6 +2129,7 @@ function App() {
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
+              <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>G</Key><span>Toggle gravity</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
