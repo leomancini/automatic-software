@@ -152,6 +152,11 @@ const FOUNTAIN_BASE_RADIUS = 10; // visual base size
 const DOMINO_DELAY = 70; // ms between each detonation in the chain
 const DOMINO_RESPAWN_DELAY = 350; // ms after last detonation before respawn burst
 
+// ── Color wave ──────────────────────────────────────────────────
+const COLOR_WAVE_SPEED = 3.5; // px per frame
+const COLOR_WAVE_WIDTH = 55; // visual width of the ring
+const COLOR_WAVE_SEGMENTS = 36; // arc segments for rainbow rendering
+
 // ── Autoplay (light show) ───────────────────────────────────────
 const AUTOPLAY_SPAWN_INTERVAL = 2000; // ms between auto-spawning orb clusters
 const AUTOPLAY_EFFECT_INTERVAL = 3500; // ms between auto-triggering effects
@@ -607,6 +612,26 @@ function playBlackHoleAbsorbSound() {
   playTone(base * 0.5, 0.4, "triangle", 0.05);
 }
 
+function playColorWaveSound() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  // Rising shimmer arpeggio
+  const notes = [523, 659, 784, 1047];
+  notes.forEach((freq, i) => {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(freq, t + i * 0.08);
+    g.gain.setValueAtTime(0, t + i * 0.08);
+    g.gain.linearRampToValueAtTime(0.06, t + i * 0.08 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.08 + 0.5);
+    osc.connect(g);
+    g.connect(masterGain);
+    osc.start(t + i * 0.08);
+    osc.stop(t + i * 0.08 + 0.55);
+  });
+}
+
 function generateBolt(x1, y1, x2, y2, segments = LIGHTNING_SEGMENTS) {
   const points = [{ x: x1, y: y1 }];
   const dx = x2 - x1;
@@ -704,6 +729,7 @@ function App() {
   const strikesRef = useRef([]); // active orbital strikes
   const stormRef = useRef(null); // active magnetic storm {born, cx, cy, lastZap}
   const tsunamisRef = useRef([]); // active tsunami waves [{x, dir, born, color, foam}]
+  const colorWavesRef = useRef([]); // active color waves [{cx, cy, radius, born, hitOrbs}]
   const tsunamiDirRef = useRef(1); // alternates direction each trigger
   const fountainsRef = useRef([]); // persistent orb spawners [{x, y, color, born, lastSpawn}]
   const [orbCount, setOrbCount] = useState(0);
@@ -748,6 +774,7 @@ function App() {
   const [autoplayMode, setAutoplayMode] = useState(false);
   const autoplayModeRef = useRef(false);
   const autoplayTimersRef = useRef({ lastSpawn: 0, lastEffect: 0 });
+  const bigBangRef = useRef(null); // {born, detonated, detonateTime}
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -2068,6 +2095,50 @@ function App() {
         }
       }
 
+      // update and draw color waves
+      const maxCWRadius = Math.sqrt(W * W + H * H) * 1.2;
+      colorWavesRef.current = colorWavesRef.current.filter((w) => w.radius < maxCWRadius);
+      for (const cw of colorWavesRef.current) {
+        cw.radius += COLOR_WAVE_SPEED;
+        // recolor orbs as the wave front passes
+        for (const orb of orbs) {
+          if (cw.hitOrbs.has(orb.id)) continue;
+          const dx = orb.x - cw.cx;
+          const dy = orb.y - cw.cy;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > cw.radius - COLOR_WAVE_WIDTH / 2 && dist < cw.radius + COLOR_WAVE_WIDTH / 2) {
+            cw.hitOrbs.add(orb.id);
+            const angle = Math.atan2(dy, dx);
+            const hue = ((angle * 180 / Math.PI) + 360) % 360;
+            orb.color = hslToHex(hue, 0.85, 0.55);
+            // tiny flash at recolor point
+            flashesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, radius: orb.radius, born: now });
+          }
+        }
+        // render rainbow ring
+        const cwAlpha = 0.7 * (1 - cw.radius / maxCWRadius);
+        if (cwAlpha > 0.01) {
+          const segAngle = (Math.PI * 2) / COLOR_WAVE_SEGMENTS;
+          const lineW = COLOR_WAVE_WIDTH * (1 - cw.radius / maxCWRadius * 0.5);
+          for (let i = 0; i < COLOR_WAVE_SEGMENTS; i++) {
+            const startAngle = i * segAngle;
+            const endAngle = (i + 1) * segAngle + 0.02; // slight overlap
+            const hue = (i / COLOR_WAVE_SEGMENTS) * 360;
+            ctx.beginPath();
+            ctx.arc(cw.cx, cw.cy, cw.radius, startAngle, endAngle);
+            ctx.strokeStyle = hslToHex(hue, 0.9, 0.6) + hexAlpha(cwAlpha * 255);
+            ctx.lineWidth = lineW;
+            ctx.stroke();
+          }
+          // soft white glow
+          ctx.beginPath();
+          ctx.arc(cw.cx, cw.cy, cw.radius, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(255, 255, 255, ${cwAlpha * 0.12})`;
+          ctx.lineWidth = lineW * 1.6;
+          ctx.stroke();
+        }
+      }
+
       // draw connections (enhanced with harmonic resonance)
       for (let i = 0; i < orbs.length; i++) {
         for (let j = i + 1; j < orbs.length; j++) {
@@ -3180,6 +3251,135 @@ function App() {
         }
       }
 
+      // ── Big Bang effect ────────────────────────────────────────────
+      if (bigBangRef.current) {
+        const bb = bigBangRef.current;
+        const age = now - bb.born;
+        const cx = W / 2;
+        const cy = H / 2;
+        const PULL_MS = 1500;
+        const AFTERGLOW_MS = 1000;
+
+        if (age < PULL_MS) {
+          // Phase 1: Pull everything inward with accelerating force
+          const progress = age / PULL_MS; // 0→1
+          const force = 0.2 + progress * progress * 0.8; // quadratic ramp
+          for (const orb of orbs) {
+            if (orb === dragRef.current) continue;
+            const dx = cx - orb.x;
+            const dy = cy - orb.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            orb.vx += (dx / dist) * force;
+            orb.vy += (dy / dist) * force;
+            orb.vx *= 0.92; // dampen to prevent oscillation
+            orb.vy *= 0.92;
+          }
+
+          // Visual: compression rings shrinking inward
+          const ringCount = 4;
+          for (let ri = 0; ri < ringCount; ri++) {
+            const phase = (ri / ringCount + progress * 1.5) % 1;
+            const maxR = Math.max(W, H) * 0.6;
+            const ringR = maxR * (1 - phase);
+            const ringAlpha = (1 - progress * 0.5) * 0.25 * (1 - phase);
+            if (ringAlpha > 0.01 && ringR > 5) {
+              ctx.beginPath();
+              ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+              ctx.strokeStyle = `rgba(102, 126, 234, ${ringAlpha})`;
+              ctx.lineWidth = 1.5 + phase * 3;
+              ctx.stroke();
+            }
+          }
+
+          // Growing core glow
+          const coreR = 8 + progress * 60;
+          const coreAlpha = progress * 0.6;
+          const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
+          coreGrad.addColorStop(0, `rgba(255, 255, 255, ${coreAlpha})`);
+          coreGrad.addColorStop(0.4, `rgba(102, 126, 234, ${coreAlpha * 0.4})`);
+          coreGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+          ctx.fillStyle = coreGrad;
+          ctx.fill();
+
+          shakeRef.current = Math.max(shakeRef.current, 2 + progress * 10);
+
+        } else if (!bb.detonated) {
+          // Phase 2: DETONATE!
+          bb.detonated = true;
+          bb.detonateTime = now;
+
+          // Massive screen flash
+          ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+          ctx.fillRect(0, 0, W, H);
+
+          // Scatter all existing orbs with extreme force
+          for (const orb of orbs) {
+            const dx = orb.x - cx;
+            const dy = orb.y - cy;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const strength = 10 + Math.random() * 6;
+            orb.vx = (dx / dist) * strength;
+            orb.vy = (dy / dist) * strength;
+          }
+
+          // Spawn spiral ring of new orbs
+          const spiralCount = 18;
+          for (let i = 0; i < spiralCount; i++) {
+            const angle = (Math.PI * 2 * i) / spiralCount;
+            const speed = 5 + Math.random() * 4;
+            const newOrb = createOrb(cx + Math.cos(angle) * 5, cy + Math.sin(angle) * 5);
+            newOrb.vx = Math.cos(angle) * speed;
+            newOrb.vy = Math.sin(angle) * speed;
+            newOrb.radius = 10 + Math.random() * 8;
+            orbs.push(newOrb);
+          }
+
+          // Shockwave
+          wavesRef.current.push({
+            cx, cy, radius: 0,
+            color: "#667eea",
+            generation: 0,
+            hitOrbs: new Set(),
+            delay: 0,
+          });
+
+          // Burst particles
+          for (let i = 0; i < 24; i++) {
+            const angle = (Math.PI * 2 * i) / 24;
+            burstsRef.current.push({
+              x: cx, y: cy,
+              vx: Math.cos(angle) * (4 + Math.random() * 4),
+              vy: Math.sin(angle) * (4 + Math.random() * 4),
+              color: COLORS[i % COLORS.length],
+              radius: 3 + Math.random() * 3,
+              born: now,
+            });
+          }
+
+          shakeRef.current = 35;
+          setOrbCount(orbs.length);
+          playBoom();
+
+        } else if (now - bb.detonateTime < AFTERGLOW_MS) {
+          // Phase 3: Fading afterglow at center
+          const afterProgress = (now - bb.detonateTime) / AFTERGLOW_MS;
+          const glowR = 30 + afterProgress * 80;
+          const glowAlpha = (1 - afterProgress) * 0.3;
+          const afterGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
+          afterGrad.addColorStop(0, `rgba(102, 126, 234, ${glowAlpha})`);
+          afterGrad.addColorStop(0.5, `rgba(118, 75, 162, ${glowAlpha * 0.4})`);
+          afterGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
+          ctx.fillStyle = afterGrad;
+          ctx.fill();
+        } else {
+          bigBangRef.current = null;
+        }
+      }
+
       // ── Tsunami wave update & render ──
       tsunamisRef.current = tsunamisRef.current.filter((t) => {
         return t.dir > 0 ? t.x < W + TSUNAMI_WIDTH : t.x > -TSUNAMI_WIDTH;
@@ -3560,6 +3760,22 @@ function App() {
     };
     shakeRef.current = 8;
     playBoom();
+  }, []);
+
+  const handleColorWave = useCallback(() => {
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    const cx = (mx > 0 || my > 0) ? mx : window.innerWidth / 2;
+    const cy = (mx > 0 || my > 0) ? my : window.innerHeight / 2;
+    colorWavesRef.current.push({
+      cx,
+      cy,
+      radius: 0,
+      born: performance.now(),
+      hitOrbs: new Set(),
+    });
+    shakeRef.current = 10;
+    playColorWaveSound();
   }, []);
 
   const handleAutoplay = useCallback(() => {
@@ -3990,6 +4206,16 @@ function App() {
     playBlackHoleSound();
   }, []);
 
+  const handleBigBang = useCallback(() => {
+    if (bigBangRef.current) return; // already in progress
+    bigBangRef.current = {
+      born: performance.now(),
+      detonated: false,
+      detonateTime: 0,
+    };
+    playSupernovaSound();
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -4098,6 +4324,12 @@ function App() {
         case "7":
           handleAutoplay();
           break;
+        case "8":
+          handleColorWave();
+          break;
+        case "9":
+          handleBigBang();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -4105,7 +4337,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, setShowHelp]);
 
   return (
     <Wrapper>
@@ -4123,7 +4355,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to spray &middot; drag orb to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
-        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j 2 5 6 7 s p m v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j 2 5 6 7 8 9 s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -4154,6 +4386,21 @@ function App() {
               <circle cx="12" cy="4" r="1" fill="currentColor" opacity="0.6" />
               <circle cx="16" cy="7" r="1" fill="currentColor" opacity="0.4" />
               <circle cx="8" cy="6" r="1" fill="currentColor" opacity="0.5" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleBigBang} title="Big bang" $active={!!bigBangRef.current}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
+              <circle cx="12" cy="12" r="5" />
+              <line x1="12" y1="1" x2="12" y2="5" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="1" y1="12" x2="5" y2="12" />
+              <line x1="19" y1="12" x2="23" y2="12" />
+              <line x1="4.22" y1="4.22" x2="7.76" y2="7.76" />
+              <line x1="16.24" y1="16.24" x2="19.78" y2="19.78" />
+              <line x1="4.22" y1="19.78" x2="7.76" y2="16.24" />
+              <line x1="16.24" y1="7.76" x2="19.78" y2="4.22" />
+              <circle cx="12" cy="12" r="9" opacity="0.3" strokeDasharray="3 3" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleBurst} title="Burst spawn">
@@ -4279,6 +4526,16 @@ function App() {
               <circle cx="12" cy="12" r="3" />
               <circle cx="12" cy="12" r="7" opacity="0.6" />
               <circle cx="12" cy="12" r="11" opacity="0.3" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleColorWave} title="Color wave">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
+              <path d="M12 5a7 7 0 0 1 7 7" />
+              <path d="M19 12a7 7 0 0 1-7 7" />
+              <path d="M12 19a7 7 0 0 1-7-7" />
+              <path d="M5 12a7 7 0 0 1 7-7" />
+              <circle cx="12" cy="12" r="10" opacity="0.3" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleLightning} title="Chain lightning">
@@ -4487,6 +4744,8 @@ function App() {
               <Shortcut><Key>5</Key><span>Constellation mode (connect nearby orbs)</span></Shortcut>
               <Shortcut><Key>6</Key><span>Domino cascade (chain reaction)</span></Shortcut>
               <Shortcut><Key>7</Key><span>Light show (autoplay)</span></Shortcut>
+              <Shortcut><Key>8</Key><span>Color wave (rainbow recolor)</span></Shortcut>
+              <Shortcut><Key>9</Key><span>Big bang (implode + explode)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
