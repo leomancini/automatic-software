@@ -1011,6 +1011,7 @@ function App() {
   const slowMoRef = useRef(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showModes, setShowModes] = useState(false);
+  const [saveFlash, setSaveFlash] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
   const [repelMode, setRepelMode] = useState(false);
   const repelModeRef = useRef(false);
@@ -5777,6 +5778,22 @@ function App() {
     setAutoPlay(prev => !prev);
   }, []);
 
+  const handleSaveCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setSaveFlash(true);
+    setTimeout(() => setSaveFlash(false), 400);
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `orbs-${Date.now()}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }, "image/png");
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -5849,6 +5866,9 @@ function App() {
         case "z":
           handleAutoPlay();
           break;
+        case "k":
+          handleSaveCanvas();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -5856,7 +5876,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleRewind, handleToggleAudio, handleAutoPlay, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -5923,66 +5943,6 @@ function App() {
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
-        {showModes && orbCount > 0 && (
-        <ButtonRow>
-            <ActionButton onClick={handlePaintMode} title="Paint mode" $active={paintMode}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 19l7-7 3 3-7 7-3-3z" />
-                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-                <path d="M2 2l7.586 7.586" />
-                <circle cx="11" cy="11" r="2" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handlePlaceWell} title="Place gravity well">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3" />
-                <circle cx="12" cy="12" r="7" strokeDasharray="3 3" />
-                <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleGather} title="Gather orbs">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="5" y1="5" x2="12" y2="12" />
-                <polyline points="12 8 12 12 8 12" />
-                <line x1="19" y1="5" x2="12" y2="12" />
-                <polyline points="12 8 12 12 16 12" />
-                <line x1="5" y1="19" x2="12" y2="12" />
-                <polyline points="8 12 12 12 12 16" />
-                <line x1="19" y1="19" x2="12" y2="12" />
-                <polyline points="16 12 12 12 12 16" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleGravity} title="Toggle gravity" $active={gravityOn}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: `rotate(${gravityOn ? (gravityDirRef.current === "down" ? 0 : gravityDirRef.current === "right" ? -90 : gravityDirRef.current === "up" ? 180 : 90) : 0}deg)`, transition: "transform 0.2s ease" }}>
-                <line x1="12" y1="2" x2="12" y2="18" />
-                <polyline points="6 14 12 20 18 14" />
-                <line x1="4" y1="22" x2="20" y2="22" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleSlowMo} title="Slow motion" $active={slowMo}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleRepelMode} title="Repel mode" $active={repelMode}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3" />
-                <line x1="12" y1="2" x2="12" y2="5" />
-                <line x1="12" y1="19" x2="12" y2="22" />
-                <line x1="2" y1="12" x2="5" y2="12" />
-                <line x1="19" y1="12" x2="22" y2="12" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleOrbitMode} title="Orbit mode" $active={orbitMode}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="2" />
-                <ellipse cx="12" cy="12" rx="10" ry="4" />
-                <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)" />
-              </svg>
-            </ActionButton>
-        </ButtonRow>
-        )}
         <ButtonRow>
           <ActionButton onClick={handleBurst} title="Burst spawn">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -6097,15 +6057,19 @@ function App() {
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </ActionButton>
-            <ActionButton onClick={() => setShowModes(m => !m)} title={showModes ? "Hide modes" : "More modes"} $active={showModes}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showModes ? "rotate(180deg)" : "none", transition: "transform 0.2s ease" }}>
-                <polyline points="6 15 12 9 18 15" />
-              </svg>
-            </ActionButton>
             </>
           )}
         </ButtonRow>
         </ButtonGroup>
+      <SaveButton onClick={handleSaveCanvas} title="Save screenshot (K)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <circle cx="12" cy="13" r="4" />
+          <line x1="8" y1="3" x2="8" y2="7" />
+          <line x1="16" y1="3" x2="16" y2="7" />
+        </svg>
+      </SaveButton>
+      {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           {audioEnabled ? (
@@ -6164,6 +6128,7 @@ function App() {
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Autoplay (ambient mode)</span></Shortcut>
+              <Shortcut><Key>K</Key><span>Save screenshot</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all orbs</span></Shortcut>
               <Shortcut><Key>?</Key><span>Toggle this help</span></Shortcut>
@@ -6415,6 +6380,52 @@ const MuteButton = styled.button`
     right: 56px;
     width: 32px;
     height: 32px;
+  }
+`;
+
+const SaveButton = styled.button`
+  position: fixed;
+  top: 24px;
+  right: 112px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  background: rgba(15, 15, 26, 0.7);
+  color: rgba(102, 126, 234, 0.7);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(102, 126, 234, 0.15);
+    color: #667eea;
+    border-color: rgba(102, 126, 234, 0.6);
+    transform: scale(1.1);
+  }
+
+  @media (max-width: 600px) {
+    top: 16px;
+    right: 96px;
+    width: 32px;
+    height: 32px;
+  }
+`;
+
+const SaveFlash = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.15);
+  pointer-events: none;
+  z-index: 200;
+  animation: flashFade 0.4s ease-out forwards;
+
+  @keyframes flashFade {
+    from { opacity: 1; }
+    to { opacity: 0; }
   }
 `;
 
