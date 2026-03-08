@@ -447,6 +447,17 @@ function playBurstSound() {
   playTone(659.25, 0.25, "sine", 0.04);
 }
 
+function playGalaxySound() {
+  if (!ensureAudio() || audioMuted) return;
+  const notes = [261.63, 329.63, 392.00, 523.25, 659.25];
+  notes.forEach((note, i) => {
+    setTimeout(() => {
+      playTone(note, 0.5 - i * 0.06, "sine", 0.06);
+      playTone(note * 1.5, 0.3, "triangle", 0.02);
+    }, i * 60);
+  });
+}
+
 function playCollapse() {
   if (!ensureAudio() || audioMuted) return;
   const t = audioCtx.currentTime;
@@ -5630,6 +5641,41 @@ function App() {
     playBurstSound();
   }, []);
 
+  const handleGalaxy = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    const cx = (mx > 0 || my > 0) ? mx : W / 2;
+    const cy = (mx > 0 || my > 0) ? my : H / 2;
+    const count = 12;
+    const now = performance.now();
+    const arms = 2;
+    const spinDir = Math.random() < 0.5 ? 1 : -1;
+
+    for (let i = 0; i < count; i++) {
+      const arm = i % arms;
+      const t = (Math.floor(i / arms) + 1) / (count / arms);
+      const spiralAngle = arm * Math.PI + t * Math.PI * 1.5 * spinDir;
+      const dist = 15 + t * 80;
+      const x = cx + Math.cos(spiralAngle) * dist;
+      const y = cy + Math.sin(spiralAngle) * dist;
+      const orb = createOrb(x, y);
+      orb.radius = 6 + Math.random() * 8;
+      // tangential velocity for orbital motion
+      const tangentAngle = spiralAngle + (Math.PI / 2) * spinDir;
+      const speed = 1.5 + t * 2;
+      orb.vx = Math.cos(tangentAngle) * speed;
+      orb.vy = Math.sin(tangentAngle) * speed;
+      orbsRef.current.push(orb);
+      ripplesRef.current.push({ x, y, color: orb.color, born: now });
+    }
+
+    setOrbCount(orbsRef.current.length);
+    shakeRef.current = 6;
+    playGalaxySound();
+  }, []);
+
   const handleFirework = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -5988,6 +6034,10 @@ function App() {
           handleSupernova();
           flashLabel("SUPERNOVA", "#f093fb");
           break;
+        case "i":
+          handleGalaxy();
+          flashLabel("GALAXY", "#667eea");
+          break;
         case "t":
           handleRewind();
           flashLabel("REWIND", "#00f2fe");
@@ -6011,7 +6061,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6128,6 +6178,13 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleGalaxy} title="Galaxy spiral">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
+              <path d="M12 12c2-4 7-5 8-1s-3 6-7 5" />
+              <path d="M12 12c-2 4-7 5-8 1s3-6 7-5" />
+            </svg>
+          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handleShuffle} title="Shuffle colors">
@@ -6236,6 +6293,7 @@ function App() {
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
+              <Shortcut><Key>I</Key><span>Galaxy spiral</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
