@@ -3846,14 +3846,30 @@ function App() {
           ctx.fill();
         }
 
-        // outer glow
-        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 3);
-        grad.addColorStop(0, orb.color + "66");
+        // outer glow (expands + brightens with speed)
+        const speed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+        const heat = Math.min(speed / 8, 1);
+        const glowR = r * (3 + heat * 3);
+        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, glowR);
+        grad.addColorStop(0, orb.color + hexAlpha(0x66 + heat * 0x55));
         grad.addColorStop(1, "transparent");
         ctx.beginPath();
-        ctx.arc(0, 0, r * 3, 0, Math.PI * 2);
+        ctx.arc(0, 0, glowR, 0, Math.PI * 2);
         ctx.fillStyle = grad;
         ctx.fill();
+
+        // speed corona: warm white glow when moving fast
+        if (heat > 0.15) {
+          const coronaA = (heat - 0.15) * 0.45;
+          const coronaR = r * (1.5 + heat * 1.5);
+          const corona = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, coronaR);
+          corona.addColorStop(0, `rgba(255, 245, 230, ${coronaA})`);
+          corona.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(0, 0, coronaR, 0, Math.PI * 2);
+          ctx.fillStyle = corona;
+          ctx.fill();
+        }
 
         // core
         const coreGrad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 0, 0, 0, r);
