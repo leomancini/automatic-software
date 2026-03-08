@@ -315,6 +315,10 @@ const NEBULA_COLORS_RGB = [
 const TILT_GRAVITY_FORCE = 0.18;  // directional gravity strength
 const TILT_SMOOTHING = 0.12;      // lerp factor for smooth transitions
 
+// ── Time rewind ─────────────────────────────────────────────────────
+const REWIND_BUFFER_SIZE = 180; // ~3 seconds at 60fps
+const REWIND_STEP_RATE = 3; // play back 3 frames per animation frame (fast rewind)
+
 // ── Tap sparkle particles ───────────────────────────────────────────
 const TAP_SPARKLE_COUNT = 8;       // particles per tap
 const TAP_SPARKLE_SPEED = 2.5;     // outward velocity
@@ -651,6 +655,33 @@ function playSupernovaSound() {
   g3.connect(masterGain);
   osc3.start(t);
   osc3.stop(t + 1.35);
+}
+
+function playRewindSound() {
+  if (!ensureAudio()) return;
+  // Descending warble — VHS tape rewind feel
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = "sawtooth";
+  o.frequency.setValueAtTime(600, now);
+  o.frequency.exponentialRampToValueAtTime(200, now + 0.3);
+  g.gain.setValueAtTime(0.12, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+  o.connect(g).connect(masterGain);
+  o.start(now);
+  o.stop(now + 0.4);
+  // second voice — higher whine
+  const o2 = audioCtx.createOscillator();
+  const g2 = audioCtx.createGain();
+  o2.type = "sine";
+  o2.frequency.setValueAtTime(1200, now);
+  o2.frequency.exponentialRampToValueAtTime(400, now + 0.35);
+  g2.gain.setValueAtTime(0.06, now);
+  g2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+  o2.connect(g2).connect(masterGain);
+  o2.start(now);
+  o2.stop(now + 0.35);
 }
 
 function playIgniteSound() {
@@ -1020,6 +1051,9 @@ function App() {
   const tiltModeRef = useRef(false);
   const tiltVecRef = useRef({ x: 0, y: 1 }); // normalized gravity direction
   const hasTiltSensorRef = useRef(false);
+  const rewindRef = useRef(null); // {index} when rewinding
+  const rewindBufferRef = useRef([]); // circular buffer of orb snapshots
+  const blackHoleRef = useRef(null); // {x, y, born, absorbed, mass, diskDots}
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1350,7 +1384,7 @@ function App() {
           const orb = createOrb(ox, oy);
           orb.radius += radiusBonus;
           orb.vx += ovx;
-          orb.vy += pt.vy;
+          orb.vy += ovy;
           if (Math.random() < NOVA_CHANCE) {
             orb.isNova = true;
             orb.novaBorn = now;
@@ -3005,6 +3039,45 @@ function App() {
         rewindBufferRef.current.push(snap);
         if (rewindBufferRef.current.length > REWIND_BUFFER_SIZE) {
           rewindBufferRef.current.shift();
+        }
+      }
+
+      // ── Rewind playback: step backward through buffer ──
+      if (rewindRef.current) {
+        const buf = rewindBufferRef.current;
+        const rw = rewindRef.current;
+        for (let step = 0; step < REWIND_STEP_RATE && rw.index >= 0; step++) {
+          rw.index--;
+        }
+        if (rw.index >= 0 && buf[rw.index]) {
+          const snap = buf[rw.index];
+          // Restore orb positions from snapshot
+          const currentOrbs = orbsRef.current;
+          for (const saved of snap) {
+            const orb = currentOrbs.find(o => o.id === saved.id);
+            if (orb) {
+              orb.x = saved.x;
+              orb.y = saved.y;
+              orb.vx = saved.vx;
+              orb.vy = saved.vy;
+            }
+          }
+          // Reconstruct orb set from snapshot (handles merges/spawns)
+          if (snap.length !== currentOrbs.length) {
+            orbsRef.current = snap.map(s => {
+              const existing = currentOrbs.find(o => o.id === s.id);
+              if (existing) {
+                Object.assign(existing, { x: s.x, y: s.y, vx: s.vx, vy: s.vy, radius: s.radius, color: s.color });
+                return existing;
+              }
+              return { ...s, pulsePhase: s.pulsePhase || 0 };
+            });
+            setOrbCount(orbsRef.current.length);
+          }
+        } else {
+          // Reached beginning of buffer — stop rewinding
+          rewindRef.current = null;
+          rewindBufferRef.current = [];
         }
       }
 
