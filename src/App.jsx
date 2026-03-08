@@ -137,6 +137,10 @@ const GPAINT_DOT_MAX = 150; // max active dots
 const TSUNAMI_TUMBLE = 2.5; // random vertical scatter
 const TSUNAMI_FOAM_COUNT = 18; // foam particles at leading edge
 
+// ── Constellation mode ──────────────────────────────────────────────
+const CONSTELLATION_DIST = 200; // max distance for constellation lines
+const CONSTELLATION_NODE_THRESHOLD = 0.55; // proximity threshold for midpoint stars
+
 // ── Particle fountain ──────────────────────────────────────────────
 const FOUNTAIN_SPAWN_INTERVAL = 180; // ms between spawns
 const FOUNTAIN_SPAWN_SPEED = 4.5; // initial upward velocity
@@ -717,6 +721,8 @@ function App() {
   const kaleidoscopeModeRef = useRef(false);
   const [gravityPaintMode, setGravityPaintMode] = useState(false);
   const gravityPaintModeRef = useRef(false);
+  const [constellationMode, setConstellationMode] = useState(false);
+  const constellationModeRef = useRef(false);
   const gravityDotsRef = useRef([]);
   const blackHoleRef = useRef(null); // {x, y, born, absorbed, mass, diskDots[]}
   const longPressRef = useRef(null);
@@ -2044,6 +2050,45 @@ function App() {
         }
       }
 
+      // ── Constellation connections ──
+      if (constellationModeRef.current && orbs.length > 1) {
+        ctx.lineCap = "round";
+        for (let i = 0; i < orbs.length; i++) {
+          for (let j = i + 1; j < orbs.length; j++) {
+            const a = orbs[i];
+            const b = orbs[j];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < CONSTELLATION_DIST) {
+              const proximity = 1 - dist / CONSTELLATION_DIST;
+              const shimmer = 0.7 + 0.3 * Math.sin(time * 2 + i * 0.5 + j * 0.3);
+              const alpha = proximity * proximity * shimmer * 0.55;
+              const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+              grad.addColorStop(0, a.color + hexAlpha(alpha * 255));
+              grad.addColorStop(1, b.color + hexAlpha(alpha * 255));
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.strokeStyle = grad;
+              ctx.lineWidth = 1 + proximity * 1.5;
+              ctx.stroke();
+              // small star at connection midpoint for bright connections
+              if (proximity > CONSTELLATION_NODE_THRESHOLD) {
+                const mx = (a.x + b.x) / 2;
+                const my = (a.y + b.y) / 2;
+                const starAlpha = (proximity - CONSTELLATION_NODE_THRESHOLD) * 2.2 * shimmer * 0.5;
+                const starSize = 1.5 + proximity * 2;
+                ctx.beginPath();
+                ctx.arc(mx, my, starSize, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${starAlpha})`;
+                ctx.fill();
+              }
+            }
+          }
+        }
+      }
+
       // draw orbs
       for (const orb of orbs) {
         const pulse = 1 + 0.12 * Math.sin(time * 1.5 + orb.pulsePhase);
@@ -3247,6 +3292,13 @@ function App() {
     });
   }, []);
 
+  const handleConstellationMode = useCallback(() => {
+    setConstellationMode((prev) => {
+      constellationModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleGravityPaintMode = useCallback(() => {
     setGravityPaintMode((prev) => {
       gravityPaintModeRef.current = !prev;
@@ -3763,6 +3815,9 @@ function App() {
         case "4":
           handleGravityPaintMode();
           break;
+        case "5":
+          handleConstellationMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -3770,7 +3825,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, setShowHelp]);
 
   return (
     <Wrapper>
@@ -3788,7 +3843,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to spray &middot; drag orb to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
-        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j 2 s p m v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j 2 5 s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -3807,6 +3862,7 @@ function App() {
           {flockMode && <ModePill $color="#43e97b">flock</ModePill>}
           {kaleidoscopeMode && <ModePill $color="#f093fb">kaleidoscope</ModePill>}
           {gravityPaintMode && <ModePill $color="#43e97b">gravity paint</ModePill>}
+          {constellationMode && <ModePill $color="#667eea">constellation</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -4003,6 +4059,21 @@ function App() {
               <circle cx="17" cy="17" r="2" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleConstellationMode} title="Constellation mode" $active={constellationMode}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="5" cy="5" r="1.5" fill="currentColor" />
+              <circle cx="19" cy="7" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              <circle cx="7" cy="18" r="1.5" fill="currentColor" />
+              <circle cx="18" cy="17" r="1.5" fill="currentColor" />
+              <line x1="5" y1="5" x2="12" y2="12" opacity="0.6" />
+              <line x1="19" y1="7" x2="12" y2="12" opacity="0.6" />
+              <line x1="12" y1="12" x2="7" y2="18" opacity="0.6" />
+              <line x1="12" y1="12" x2="18" y2="17" opacity="0.6" />
+              <line x1="5" y1="5" x2="19" y2="7" opacity="0.3" />
+              <line x1="7" y1="18" x2="18" y2="17" opacity="0.3" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleColorCycle} title="Color cycle" $active={colorCycle}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="5" />
@@ -4110,6 +4181,7 @@ function App() {
               <Shortcut><Key>2</Key><span>Kaleidoscope mode (4-fold symmetry)</span></Shortcut>
               <Shortcut><Key>3</Key><span>Place / remove particle fountain</span></Shortcut>
               <Shortcut><Key>4</Key><span>Gravity painter (draw gravity trails)</span></Shortcut>
+              <Shortcut><Key>5</Key><span>Constellation mode (connect nearby orbs)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
