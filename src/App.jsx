@@ -1027,6 +1027,7 @@ function App() {
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
+  const gravityDirRef = useRef("down"); // "down" | "right" | "up" | "left"
   const [frozen, setFrozen] = useState(false);
   const frozenRef = useRef(false);
   const [paintMode, setPaintMode] = useState(false);
@@ -2257,9 +2258,13 @@ function App() {
           orb.vy += (mdy / mDist) * pull * direction;
         }
 
-        // gravity
+        // gravity (directional)
         if (gravityRef.current) {
-          orb.vy += GRAVITY;
+          const gDir = gravityDirRef.current;
+          if (gDir === "down") orb.vy += GRAVITY;
+          else if (gDir === "up") orb.vy -= GRAVITY;
+          else if (gDir === "right") orb.vx += GRAVITY;
+          else if (gDir === "left") orb.vx -= GRAVITY;
         }
 
         // tilt gravity: directional gravity from device tilt or mouse position
@@ -5445,10 +5450,24 @@ function App() {
   }, []);
 
   const handleGravity = useCallback(() => {
-    setGravityOn((prev) => {
-      gravityRef.current = !prev;
-      return !prev;
-    });
+    const dirs = ["down", "right", "up", "left"];
+    if (!gravityRef.current) {
+      // off → on (down)
+      gravityRef.current = true;
+      gravityDirRef.current = "down";
+      setGravityOn(true);
+    } else {
+      const idx = dirs.indexOf(gravityDirRef.current);
+      if (idx < dirs.length - 1) {
+        // cycle to next direction
+        gravityDirRef.current = dirs[idx + 1];
+        setGravityOn(true); // force re-render for pill update
+      } else {
+        // after left → off
+        gravityRef.current = false;
+        setGravityOn(false);
+      }
+    }
   }, []);
 
   const handleFreeze = useCallback(() => {
@@ -5689,9 +5708,10 @@ function App() {
         });
       }
     }
-    // Briefly enable gravity so orbs arc back down
+    // Briefly enable gravity (down) so orbs arc back down
     if (!gravityRef.current) {
       gravityRef.current = true;
+      gravityDirRef.current = "down";
       setGravityOn(true);
       const tag = ++eruptionGravityTag;
       setTimeout(() => {
@@ -6418,7 +6438,7 @@ function App() {
         )}
         <ModeIndicators>
           {frozen && <ModePill $color="#4facfe">frozen</ModePill>}
-          {gravityOn && <ModePill $color="#43e97b">gravity</ModePill>}
+          {gravityOn && <ModePill $color="#43e97b">gravity {gravityDirRef.current === "down" ? "↓" : gravityDirRef.current === "up" ? "↑" : gravityDirRef.current === "right" ? "→" : "←"}</ModePill>}
           {orbitMode && <ModePill $color="#f093fb">orbit</ModePill>}
           {repelMode && <ModePill $color="#fa709a">repel</ModePill>}
           {attractMode && <ModePill $color="#f093fb">magnet</ModePill>}
@@ -6805,7 +6825,7 @@ function App() {
             </svg>
           </ActionButton>
           <ActionButton onClick={handleGravity} title="Toggle gravity" $active={gravityOn}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: `rotate(${gravityOn ? (gravityDirRef.current === "down" ? 0 : gravityDirRef.current === "right" ? -90 : gravityDirRef.current === "up" ? 180 : 90) : 0}deg)`, transition: "transform 0.2s ease" }}>
               <line x1="12" y1="2" x2="12" y2="18" />
               <polyline points="6 14 12 20 18 14" />
               <line x1="4" y1="22" x2="20" y2="22" />
@@ -6895,7 +6915,7 @@ function App() {
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
-              <Shortcut><Key>G</Key><span>Toggle gravity</span></Shortcut>
+              <Shortcut><Key>G</Key><span>Cycle gravity (↓ → ↑ ← off)</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
               <Shortcut><Key>A</Key><span>Attract mode</span></Shortcut>
               <Shortcut><Key>O</Key><span>Orbit mode</span></Shortcut>
