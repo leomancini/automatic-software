@@ -166,6 +166,9 @@ const AUTOPLAY_SPAWN_INTERVAL = 2000; // ms between auto-spawning orb clusters
 const AUTOPLAY_EFFECT_INTERVAL = 3500; // ms between auto-triggering effects
 const AUTOPLAY_SPAWN_COUNT = 4; // orbs per auto-spawn cluster
 
+// ── Light trails (comet tails behind orbs) ──────────────────────────
+const LIGHT_TRAIL_LENGTH = 50; // positions stored per orb trail
+
 // ── Audio engine ──────────────────────────────────────────────────────
 let audioCtx = null;
 let masterGain = null;
@@ -811,6 +814,8 @@ function App() {
   const rewindBufferRef = useRef([]); // circular buffer of orb snapshots for rewind
   const rewindRef = useRef(null); // {index} when rewinding, null otherwise
   const slingshotRef = useRef(null); // {startX, startY} when flick-aiming
+  const [trailMode, setTrailMode] = useState(false);
+  const trailModeRef = useRef(false);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1751,6 +1756,13 @@ function App() {
         orb.x += orb.vx * speed_factor;
         orb.y += orb.vy * speed_factor;
 
+        // record position for light trails
+        if (trailModeRef.current) {
+          if (!orb.trail) orb.trail = [];
+          orb.trail.push({ x: orb.x, y: orb.y });
+          if (orb.trail.length > LIGHT_TRAIL_LENGTH) orb.trail.shift();
+        }
+
         // bounce off walls
         if (orb.x < orb.radius) {
           if (Math.abs(orb.vx) > WALL_HIT_SPEED_THRESHOLD) {
@@ -2249,6 +2261,38 @@ function App() {
           ctx.strokeStyle = `rgba(255, 255, 255, ${cwAlpha * 0.12})`;
           ctx.lineWidth = lineW * 1.6;
           ctx.stroke();
+        }
+      }
+
+      // ── Light trails: glowing comet tails behind each orb ──
+      if (trailModeRef.current) {
+        ctx.lineCap = "round";
+        for (const orb of orbs) {
+          const trail = orb.trail;
+          if (!trail || trail.length < 2) continue;
+          for (let t = 1; t < trail.length; t++) {
+            const progress = t / trail.length; // 0 at tail, 1 at head
+            const alpha = progress * progress * 0.55; // quadratic fade
+            const width = progress * orb.radius * 0.7;
+            ctx.beginPath();
+            ctx.moveTo(trail[t - 1].x, trail[t - 1].y);
+            ctx.lineTo(trail[t].x, trail[t].y);
+            ctx.strokeStyle = orb.color + hexAlpha(alpha * 255);
+            ctx.lineWidth = Math.max(0.5, width);
+            ctx.stroke();
+          }
+          // soft glow at trail head
+          if (trail.length > 2) {
+            const head = trail[trail.length - 1];
+            const glowR = orb.radius * 1.2;
+            const glow = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, glowR);
+            glow.addColorStop(0, orb.color + "30");
+            glow.addColorStop(1, orb.color + "00");
+            ctx.beginPath();
+            ctx.arc(head.x, head.y, glowR, 0, Math.PI * 2);
+            ctx.fillStyle = glow;
+            ctx.fill();
+          }
         }
       }
 
@@ -3787,6 +3831,19 @@ function App() {
     });
   }, []);
 
+  const handleTrailMode = useCallback(() => {
+    setTrailMode((prev) => {
+      const next = !prev;
+      trailModeRef.current = next;
+      if (!next) {
+        for (const orb of orbsRef.current) {
+          orb.trail = [];
+        }
+      }
+      return next;
+    });
+  }, []);
+
   const handleClearAll = useCallback(() => {
     const now = performance.now();
     for (const orb of orbsRef.current) {
@@ -4545,6 +4602,9 @@ function App() {
         case "0":
           handleRewind();
           break;
+        case "-":
+          handleTrailMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -4552,7 +4612,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, handleAutoplay, handleColorWave, handleBigBang, handleRewind, handleTrailMode, setShowHelp]);
 
   return (
     <Wrapper>
@@ -4570,7 +4630,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to launch &middot; drag orb to fling &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
-        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j 2 5 6 7 8 9 s p m v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j 2 5 6 7 8 9 s p m - v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -4590,6 +4650,7 @@ function App() {
           {kaleidoscopeMode && <ModePill $color="#f093fb">kaleidoscope</ModePill>}
           {gravityPaintMode && <ModePill $color="#43e97b">gravity paint</ModePill>}
           {constellationMode && <ModePill $color="#667eea">constellation</ModePill>}
+          {trailMode && <ModePill $color="#fa709a">trails</ModePill>}
           {autoplayMode && <ModePill $color="#feb47b">autoplay</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -4797,6 +4858,14 @@ function App() {
               <polyline points="12 6 12 12 16 14" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleTrailMode} title="Light trails" $active={trailMode}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="18" cy="6" r="3" fill="currentColor" />
+              <path d="M15 8c-3 3-6 5-10 7" opacity="0.7" />
+              <path d="M14 9c-2.5 3.5-5 6-9 8" opacity="0.4" />
+              <path d="M13 10c-2 4-4 6.5-8 9" opacity="0.2" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleRepelMode} title="Repel mode" $active={repelMode}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
@@ -4968,6 +5037,7 @@ function App() {
               <Shortcut><Key>8</Key><span>Color wave (rainbow recolor)</span></Shortcut>
               <Shortcut><Key>9</Key><span>Big bang (implode + explode)</span></Shortcut>
               <Shortcut><Key>0</Key><span>Time rewind (VHS replay)</span></Shortcut>
+              <Shortcut><Key>-</Key><span>Light trails (comet tails)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
