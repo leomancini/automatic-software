@@ -96,6 +96,13 @@ const IGNITE_SPARK_SPEED = 4; // initial spark velocity
 const IGNITE_SPREAD_CHANCE = 0.04; // per-frame probability of spreading
 const EMBER_LIFETIME = 700; // ms for ember particles
 
+// ── Magnetic storm ───────────────────────────────────────────────────
+const STORM_DURATION = 3000; // ms total storm length
+const STORM_ZAP_INTERVAL = 140; // ms between auto-lightning arcs
+const STORM_SPIN_FORCE = 0.35; // tangential chaos force
+const STORM_RADIAL_FORCE = 0.2; // oscillating push/pull
+const STORM_ARC_COUNT = 6; // visual energy arcs from epicenter
+
 // ── Audio engine ──────────────────────────────────────────────────────
 let audioCtx = null;
 let masterGain = null;
@@ -436,6 +443,41 @@ function playFirePop() {
   playTone(400 + Math.random() * 300, 0.12, "sine", 0.06);
 }
 
+function playStormSound() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  // deep rumbling bass
+  const bass = audioCtx.createOscillator();
+  const bg = audioCtx.createGain();
+  bass.type = "sawtooth";
+  bass.frequency.setValueAtTime(55, t);
+  bass.frequency.linearRampToValueAtTime(40, t + 2.5);
+  bass.frequency.linearRampToValueAtTime(80, t + 3);
+  bg.gain.setValueAtTime(0, t);
+  bg.gain.linearRampToValueAtTime(0.08, t + 0.3);
+  bg.gain.setValueAtTime(0.08, t + 2.5);
+  bg.gain.linearRampToValueAtTime(0, t + 3.2);
+  bass.connect(bg);
+  bg.connect(masterGain);
+  bass.start(t);
+  bass.stop(t + 3.3);
+  // crackling high noise
+  const noise = audioCtx.createOscillator();
+  const ng = audioCtx.createGain();
+  noise.type = "square";
+  noise.frequency.setValueAtTime(120, t);
+  noise.frequency.linearRampToValueAtTime(200, t + 1.5);
+  noise.frequency.linearRampToValueAtTime(80, t + 3);
+  ng.gain.setValueAtTime(0, t);
+  ng.gain.linearRampToValueAtTime(0.04, t + 0.2);
+  ng.gain.setValueAtTime(0.04, t + 2.6);
+  ng.gain.exponentialRampToValueAtTime(0.001, t + 3.2);
+  noise.connect(ng);
+  ng.connect(masterGain);
+  noise.start(t);
+  noise.stop(t + 3.3);
+}
+
 function generateBolt(x1, y1, x2, y2, segments = LIGHTNING_SEGMENTS) {
   const points = [{ x: x1, y: y1 }];
   const dx = x2 - x1;
@@ -531,6 +573,7 @@ function App() {
   const supernovaRef = useRef(null); // active supernova {cx, cy, born, phase}
   const embersRef = useRef([]); // fire ember particles
   const strikesRef = useRef([]); // active orbital strikes
+  const stormRef = useRef(null); // active magnetic storm {born, cx, cy, lastZap}
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -1018,6 +1061,30 @@ function App() {
           // gentle inward pull to prevent escape
           orb.vx -= (odx / oDist) * 0.05;
           orb.vy -= (ody / oDist) * 0.05;
+        }
+
+        // magnetic storm chaos forces
+        if (stormRef.current) {
+          const storm = stormRef.current;
+          const stormAge = now - storm.born;
+          const stormProgress = stormAge / STORM_DURATION;
+          const intensity = stormProgress < 0.15 ? stormProgress / 0.15
+            : stormProgress > 0.85 ? (1 - stormProgress) / 0.15
+            : 1;
+          const sdx = orb.x - storm.cx;
+          const sdy = orb.y - storm.cy;
+          const sDist = Math.sqrt(sdx * sdx + sdy * sdy) || 1;
+          // tangential spin (alternates direction with time)
+          const spinDir = Math.sin(stormAge * 0.003) > 0 ? 1 : -1;
+          orb.vx += (-sdy / sDist) * STORM_SPIN_FORCE * intensity * spinDir;
+          orb.vy += (sdx / sDist) * STORM_SPIN_FORCE * intensity * spinDir;
+          // oscillating radial push/pull
+          const radialPhase = Math.sin(stormAge * 0.005 + sDist * 0.02);
+          orb.vx += (sdx / sDist) * STORM_RADIAL_FORCE * radialPhase * intensity;
+          orb.vy += (sdy / sDist) * STORM_RADIAL_FORCE * radialPhase * intensity;
+          // random jitter
+          orb.vx += (Math.random() - 0.5) * 0.5 * intensity;
+          orb.vy += (Math.random() - 0.5) * 0.5 * intensity;
         }
 
         // gravity well attraction
@@ -2092,6 +2159,112 @@ function App() {
         }
       }
 
+      // ── Magnetic storm effect ──
+      if (stormRef.current) {
+        const storm = stormRef.current;
+        const stormAge = now - storm.born;
+        const stormProgress = stormAge / STORM_DURATION;
+
+        if (stormAge >= STORM_DURATION) {
+          // Storm ends — final shockwave burst
+          wavesRef.current.push({
+            cx: storm.cx, cy: storm.cy,
+            radius: 0, color: "#4facfe",
+            generation: 0, hitOrbs: new Set(), delay: 0,
+          });
+          shakeRef.current = Math.max(shakeRef.current, 25);
+          playBoom();
+          stormRef.current = null;
+        } else {
+          const intensity = stormProgress < 0.15 ? stormProgress / 0.15
+            : stormProgress > 0.85 ? (1 - stormProgress) / 0.15
+            : 1;
+
+          // Continuous screen shake
+          shakeRef.current = Math.max(shakeRef.current, 4 + intensity * 10);
+
+          // Auto-lightning between random orb pairs
+          if (now - storm.lastZap > STORM_ZAP_INTERVAL && orbs.length >= 2) {
+            storm.lastZap = now;
+            const a = orbs[Math.floor(Math.random() * orbs.length)];
+            let b = orbs[Math.floor(Math.random() * orbs.length)];
+            let tries = 0;
+            while (b === a && tries < 5) { b = orbs[Math.floor(Math.random() * orbs.length)]; tries++; }
+            if (b !== a) {
+              const bolt = generateBolt(a.x, a.y, b.x, b.y);
+              const color = a.color;
+              lightningRef.current.push({
+                bolts: [{ points: bolt, color }],
+                sparks: [
+                  { x: b.x, y: b.y, vx: (Math.random() - 0.5) * 3, vy: (Math.random() - 0.5) * 3, color },
+                  { x: b.x, y: b.y, vx: (Math.random() - 0.5) * 3, vy: (Math.random() - 0.5) * 3, color },
+                ],
+                born: now,
+              });
+              // Small push on struck orb
+              const dx = b.x - a.x;
+              const dy = b.y - a.y;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+              b.vx += (dx / dist) * 1.5;
+              b.vy += (dy / dist) * 1.5;
+            }
+          }
+
+          // Visual: pulsing electromagnetic field rings
+          const ringCount = 4;
+          for (let ri = 0; ri < ringCount; ri++) {
+            const phase = (ri / ringCount + stormProgress * 3) % 1;
+            const maxR = Math.min(W, H) * 0.45;
+            const ringR = maxR * phase;
+            const ringAlpha = intensity * 0.2 * (1 - phase);
+            if (ringAlpha > 0.01 && ringR > 5) {
+              ctx.beginPath();
+              ctx.arc(storm.cx, storm.cy, ringR, 0, Math.PI * 2);
+              ctx.strokeStyle = `rgba(79, 172, 254, ${ringAlpha})`;
+              ctx.lineWidth = 2 + (1 - phase) * 3;
+              ctx.stroke();
+            }
+          }
+
+          // Visual: energy arcs radiating from epicenter
+          for (let ai = 0; ai < STORM_ARC_COUNT; ai++) {
+            const arcAngle = (Math.PI * 2 * ai) / STORM_ARC_COUNT + stormAge * 0.002;
+            const arcLen = 60 + intensity * 120 + Math.sin(stormAge * 0.008 + ai * 2) * 40;
+            const arcAlpha = intensity * (0.15 + 0.1 * Math.sin(stormAge * 0.01 + ai));
+            const endX = storm.cx + Math.cos(arcAngle) * arcLen;
+            const endY = storm.cy + Math.sin(arcAngle) * arcLen;
+            // Jagged arc line
+            ctx.beginPath();
+            ctx.moveTo(storm.cx, storm.cy);
+            const segs = 5;
+            for (let si = 1; si <= segs; si++) {
+              const t = si / segs;
+              const jx = (Math.random() - 0.5) * 20 * intensity;
+              const jy = (Math.random() - 0.5) * 20 * intensity;
+              ctx.lineTo(
+                storm.cx + (endX - storm.cx) * t + jx,
+                storm.cy + (endY - storm.cy) * t + jy
+              );
+            }
+            ctx.strokeStyle = `rgba(102, 126, 234, ${arcAlpha})`;
+            ctx.lineWidth = 1.5;
+            ctx.lineCap = "round";
+            ctx.stroke();
+          }
+
+          // Visual: glowing core
+          const coreR = 15 + intensity * 25 + Math.sin(stormAge * 0.01) * 8;
+          const coreGrad = ctx.createRadialGradient(storm.cx, storm.cy, 0, storm.cx, storm.cy, coreR);
+          coreGrad.addColorStop(0, `rgba(255, 255, 255, ${intensity * 0.4})`);
+          coreGrad.addColorStop(0.3, `rgba(79, 172, 254, ${intensity * 0.2})`);
+          coreGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(storm.cx, storm.cy, coreR, 0, Math.PI * 2);
+          ctx.fillStyle = coreGrad;
+          ctx.fill();
+        }
+      }
+
       // supernova effect (two-phase: implode then explode)
       if (supernovaRef.current) {
         const sn = supernovaRef.current;
@@ -2747,6 +2920,23 @@ function App() {
     playStrikeSound();
   }, []);
 
+  const handleStorm = useCallback(() => {
+    if (stormRef.current) return; // already active
+    const orbs = orbsRef.current;
+    if (orbs.length === 0) return;
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    const cx = (mx > 0 || my > 0) ? mx : window.innerWidth / 2;
+    const cy = (mx > 0 || my > 0) ? my : window.innerHeight / 2;
+    stormRef.current = {
+      cx, cy,
+      born: performance.now(),
+      lastZap: 0,
+    };
+    shakeRef.current = Math.max(shakeRef.current, 15);
+    playStormSound();
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -2822,6 +3012,9 @@ function App() {
         case "k":
           handleStrike();
           break;
+        case "z":
+          handleStorm();
+          break;
         case "v":
           handleToggleAudio();
           break;
@@ -2832,7 +3025,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -2850,7 +3043,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to spray &middot; drag orb to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
-        <Hint>keys: space b q e i k f t n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k z f t n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -2933,6 +3126,16 @@ function App() {
               <line x1="12" y1="19" x2="12" y2="23" />
               <line x1="5" y1="15" x2="1" y2="15" />
               <line x1="23" y1="15" x2="19" y2="15" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleStorm} title="Magnetic storm">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="5" />
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" opacity="0.6" transform="scale(0.5) translate(12, 12)" />
+              <path d="M2 12c0-5.52 4.48-10 10-10" strokeDasharray="3 3" />
+              <path d="M22 12c0 5.52-4.48 10-10 10" strokeDasharray="3 3" />
+              <path d="M12 2c5.52 0 10 4.48 10 10" strokeDasharray="3 3" opacity="0.5" />
+              <path d="M12 22c-5.52 0-10-4.48-10-10" strokeDasharray="3 3" opacity="0.5" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handlePlaceWell} title="Place gravity well">
@@ -3117,6 +3320,7 @@ function App() {
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
               <Shortcut><Key>I</Key><span>Ignite (chain combustion)</span></Shortcut>
               <Shortcut><Key>K</Key><span>Orbital strike</span></Shortcut>
+              <Shortcut><Key>Z</Key><span>Magnetic storm</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
