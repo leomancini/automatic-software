@@ -77,6 +77,8 @@ function App() {
   const frozenRef = useRef(false);
   const [paintMode, setPaintMode] = useState(false);
   const paintModeRef = useRef(false);
+  const [slowMo, setSlowMo] = useState(false);
+  const slowMoRef = useRef(false);
   const [showHelp, setShowHelp] = useState(false);
   const longPressRef = useRef(null);
 
@@ -371,8 +373,9 @@ function App() {
 
         orb.vx *= FRICTION;
         orb.vy *= FRICTION;
-        orb.x += orb.vx;
-        orb.y += orb.vy;
+        const speed_factor = slowMoRef.current ? 0.3 : 1;
+        orb.x += orb.vx * speed_factor;
+        orb.y += orb.vy * speed_factor;
 
         // bounce off walls
         if (orb.x < orb.radius) {
@@ -766,6 +769,13 @@ function App() {
     });
   }, []);
 
+  const handleSlowMo = useCallback(() => {
+    setSlowMo((prev) => {
+      slowMoRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleShuffle = useCallback(() => {
     const now = performance.now();
     for (const orb of orbsRef.current) {
@@ -837,6 +847,9 @@ function App() {
         case "h":
           handleShuffle();
           break;
+        case "m":
+          handleSlowMo();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -844,7 +857,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, setShowHelp]);
 
   return (
     <Wrapper>
@@ -862,7 +875,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; overlap to merge</Hint>
-        <Hint>keys: space b c r w h g s p x &middot; press ? for help</Hint>
+        <Hint>keys: space b c r w h g s p m x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
       </HUD>
       <ButtonGroup>
@@ -921,6 +934,12 @@ function App() {
               <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
               <path d="M2 2l7.586 7.586" />
               <circle cx="11" cy="11" r="2" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleSlowMo} title="Slow motion" $active={slowMo}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleGravity} title="Toggle gravity" $active={gravityOn}>
@@ -991,6 +1010,7 @@ function App() {
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>G</Key><span>Toggle gravity</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
+              <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all orbs</span></Shortcut>
               <Shortcut><Key>?</Key><span>Toggle this help</span></Shortcut>
