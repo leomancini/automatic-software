@@ -36,6 +36,8 @@ const WAVE_SPEED = 5; // px per frame
 const WAVE_FORCE = 6;
 const WAVE_WIDTH = 40; // thickness of the ring
 const WAVE_MAX_RADIUS_FACTOR = 1.2; // expand to 120% of screen diagonal
+const WALL_HIT_DURATION = 350; // ms
+const WALL_HIT_SPEED_THRESHOLD = 1.5; // minimum pre-bounce speed to trigger
 
 function randomColor() {
   return COLORS[Math.floor(Math.random() * COLORS.length)];
@@ -98,6 +100,7 @@ function App() {
   const shootingStarsRef = useRef([]);
   const motesRef = useRef([]);
   const wavesRef = useRef([]);
+  const wallHitsRef = useRef([]);
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
@@ -443,18 +446,26 @@ function App() {
 
         // bounce off walls
         if (orb.x < orb.radius) {
+          if (Math.abs(orb.vx) > WALL_HIT_SPEED_THRESHOLD)
+            wallHitsRef.current.push({ x: 0, y: orb.y, color: orb.color, born: now, intensity: Math.min(Math.abs(orb.vx) / 5, 1) });
           orb.x = orb.radius;
           orb.vx *= -0.6;
         }
         if (orb.x > W - orb.radius) {
+          if (Math.abs(orb.vx) > WALL_HIT_SPEED_THRESHOLD)
+            wallHitsRef.current.push({ x: W, y: orb.y, color: orb.color, born: now, intensity: Math.min(Math.abs(orb.vx) / 5, 1) });
           orb.x = W - orb.radius;
           orb.vx *= -0.6;
         }
         if (orb.y < orb.radius) {
+          if (Math.abs(orb.vy) > WALL_HIT_SPEED_THRESHOLD)
+            wallHitsRef.current.push({ x: orb.x, y: 0, color: orb.color, born: now, intensity: Math.min(Math.abs(orb.vy) / 5, 1) });
           orb.y = orb.radius;
           orb.vy *= -0.6;
         }
         if (orb.y > H - orb.radius) {
+          if (Math.abs(orb.vy) > WALL_HIT_SPEED_THRESHOLD)
+            wallHitsRef.current.push({ x: orb.x, y: H, color: orb.color, born: now, intensity: Math.min(Math.abs(orb.vy) / 5, 1) });
           orb.y = H - orb.radius;
           orb.vy *= -0.6;
         }
@@ -706,6 +717,22 @@ function App() {
         ctx.strokeStyle = color + (0.25 * pulse).toFixed(2) + ")";
         ctx.lineWidth = 1.5;
         ctx.stroke();
+      }
+
+      // draw wall hit glow effects
+      wallHitsRef.current = wallHitsRef.current.filter((h) => now - h.born < WALL_HIT_DURATION);
+      for (const hit of wallHitsRef.current) {
+        const progress = (now - hit.born) / WALL_HIT_DURATION;
+        const alpha = (1 - progress) * 0.5 * hit.intensity;
+        const size = 15 + progress * 35;
+        const grad = ctx.createRadialGradient(hit.x, hit.y, 0, hit.x, hit.y, size);
+        grad.addColorStop(0, hit.color + Math.round(alpha * 255).toString(16).padStart(2, "0"));
+        grad.addColorStop(0.4, hit.color + Math.round(alpha * 0.4 * 255).toString(16).padStart(2, "0"));
+        grad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(hit.x, hit.y, size, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
       }
 
       // draw vignette overlay for cinematic depth
