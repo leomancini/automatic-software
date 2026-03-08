@@ -216,6 +216,15 @@ const AUTOPLAY_SPAWN_INTERVAL = 2000; // ms between auto-spawning orb clusters
 const AUTOPLAY_EFFECT_INTERVAL = 3500; // ms between auto-triggering effects
 const AUTOPLAY_SPAWN_COUNT = 4; // orbs per auto-spawn cluster
 
+// ── Vortex storm ───────────────────────────────────────────────────
+const VORTEX_STORM_SPIRAL_MS = 2000;    // spiral-in phase duration
+const VORTEX_STORM_HOLD_MS = 400;       // brief hold at center
+const VORTEX_STORM_EXPLODE_MS = 1200;   // spiral-out explosion
+const VORTEX_STORM_SPIRAL_FORCE = 0.12; // radial inward pull
+const VORTEX_STORM_TANGENT_FORCE = 0.15; // tangential spin force
+const VORTEX_STORM_EXPLODE_SPEED = 8;   // outward velocity on release
+const VORTEX_STORM_ARM_COUNT = 5;       // visible spiral arms
+
 // ── Light trails (comet tails behind orbs) ──────────────────────────
 const LIGHT_TRAIL_LENGTH = 50; // positions stored per orb trail
 
@@ -924,6 +933,7 @@ function App() {
   const magnetModeRef = useRef(false);
   const [nbodyMode, setNbodyMode] = useState(false);
   const nbodyModeRef = useRef(false);
+  const vortexStormRef = useRef(null); // {cx, cy, born, exploded}
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -3987,6 +3997,106 @@ function App() {
       }
 
       // supernova effect (two-phase: implode then explode)
+      // ── Vortex storm ──────────────────────────────────────────────
+      if (vortexStormRef.current) {
+        const vs = vortexStormRef.current;
+        const vsAge = now - vs.born;
+        const vsTotalDuration = VORTEX_STORM_SPIRAL_MS + VORTEX_STORM_HOLD_MS + VORTEX_STORM_EXPLODE_MS;
+
+        if (vsAge < VORTEX_STORM_SPIRAL_MS) {
+          // Phase 1: Spiral in
+          const progress = vsAge / VORTEX_STORM_SPIRAL_MS;
+          const force = VORTEX_STORM_SPIRAL_FORCE * (0.5 + progress * 2);
+          const tangent = VORTEX_STORM_TANGENT_FORCE * (1 + progress);
+          for (const orb of orbs) {
+            if (orb === dragRef.current) continue;
+            const dx = vs.cx - orb.x;
+            const dy = vs.cy - orb.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            orb.vx += (dx / dist) * force * 0.12;
+            orb.vy += (dy / dist) * force * 0.12;
+            orb.vx += (-dy / dist) * tangent * 0.08;
+            orb.vy += (dx / dist) * tangent * 0.08;
+            orb.vx *= 0.96;
+            orb.vy *= 0.96;
+          }
+          shakeRef.current = Math.max(shakeRef.current, 2 + progress * 10);
+        } else if (vsAge < VORTEX_STORM_SPIRAL_MS + VORTEX_STORM_HOLD_MS) {
+          // Phase 2: Hold at center
+          for (const orb of orbs) {
+            orb.vx *= 0.85;
+            orb.vy *= 0.85;
+          }
+          shakeRef.current = Math.max(shakeRef.current, 15);
+        } else if (vsAge < vsTotalDuration) {
+          // Phase 3: Spiral explosion
+          if (!vs.exploded) {
+            vs.exploded = true;
+            for (const orb of orbs) {
+              const dx = orb.x - vs.cx;
+              const dy = orb.y - vs.cy;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+              const speed = VORTEX_STORM_EXPLODE_SPEED + Math.random() * 3;
+              orb.vx = (dx / dist) * speed + (-dy / dist) * speed * 0.4;
+              orb.vy = (dy / dist) * speed + (dx / dist) * speed * 0.4;
+            }
+            wavesRef.current.push({
+              cx: vs.cx, cy: vs.cy, radius: 0,
+              color: "#4facfe", generation: 0,
+              hitOrbs: new Set(), delay: 0,
+            });
+            flashesRef.current.push({
+              x: vs.cx, y: vs.cy, color: "#4facfe",
+              radius: 50, born: now,
+            });
+            shakeRef.current = 35;
+            playBoom();
+          }
+        } else {
+          vortexStormRef.current = null;
+        }
+
+        // Visuals: spinning spiral arms + core glow
+        if (vsAge < vsTotalDuration) {
+          const progress = Math.min(vsAge / VORTEX_STORM_SPIRAL_MS, 1);
+          const fadeOut = vsAge > VORTEX_STORM_SPIRAL_MS + VORTEX_STORM_HOLD_MS
+            ? 1 - (vsAge - VORTEX_STORM_SPIRAL_MS - VORTEX_STORM_HOLD_MS) / VORTEX_STORM_EXPLODE_MS
+            : 1;
+          const rotation = vsAge * 0.004;
+          const maxR = Math.min(W, H) * 0.4 * (1 - progress * 0.5);
+
+          for (let arm = 0; arm < VORTEX_STORM_ARM_COUNT; arm++) {
+            const armAngle = (Math.PI * 2 * arm) / VORTEX_STORM_ARM_COUNT + rotation;
+            ctx.beginPath();
+            for (let t = 0; t < 1; t += 0.02) {
+              const r = maxR * t;
+              const spiralAngle = armAngle + t * 4;
+              const sx = vs.cx + Math.cos(spiralAngle) * r;
+              const sy = vs.cy + Math.sin(spiralAngle) * r;
+              if (t === 0) ctx.moveTo(sx, sy);
+              else ctx.lineTo(sx, sy);
+            }
+            const alpha = Math.max(0, fadeOut) * 0.25 * (1 - progress * 0.3);
+            ctx.strokeStyle = `rgba(79, 172, 254, ${alpha})`;
+            ctx.lineWidth = 2.5 + progress * 2;
+            ctx.lineCap = "round";
+            ctx.stroke();
+          }
+
+          const coreR = 15 + progress * 40;
+          const coreAlpha = Math.max(0, fadeOut) * (0.2 + progress * 0.4);
+          const coreGrad = ctx.createRadialGradient(vs.cx, vs.cy, 0, vs.cx, vs.cy, coreR);
+          coreGrad.addColorStop(0, `rgba(255, 255, 255, ${coreAlpha})`);
+          coreGrad.addColorStop(0.3, `rgba(79, 172, 254, ${coreAlpha * 0.6})`);
+          coreGrad.addColorStop(0.6, `rgba(102, 126, 234, ${coreAlpha * 0.3})`);
+          coreGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(vs.cx, vs.cy, coreR, 0, Math.PI * 2);
+          ctx.fillStyle = coreGrad;
+          ctx.fill();
+        }
+      }
+
       if (supernovaRef.current) {
         const sn = supernovaRef.current;
         const age = now - sn.born;
@@ -5229,6 +5339,19 @@ function App() {
     shakeRef.current = Math.max(shakeRef.current, 8);
   }, []);
 
+  const handleVortexStorm = useCallback(() => {
+    if (vortexStormRef.current) return;
+    const orbs = orbsRef.current;
+    if (orbs.length === 0) return;
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    const cx = (mx > 0 || my > 0) ? mx : window.innerWidth / 2;
+    const cy = (mx > 0 || my > 0) ? my : window.innerHeight / 2;
+    vortexStormRef.current = { cx, cy, born: performance.now(), exploded: false };
+    playSwoosh();
+    shakeRef.current = Math.max(shakeRef.current, 8);
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -5290,7 +5413,7 @@ function App() {
           handleLightning();
           break;
         case "t":
-          handlePortal();
+          handleVortexStorm();
           break;
         case "q":
           handleMeteorShower();
@@ -5447,6 +5570,15 @@ function App() {
               <line x1="12" y1="12" x2="1" y2="12" />
               <line x1="12" y1="12" x2="23" y2="12" />
               <circle cx="12" cy="12" r="8" opacity="0.2" strokeDasharray="2 3" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleVortexStorm} title="Vortex storm" $active={!!vortexStormRef.current}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 5h18" />
+              <path d="M5 9h14" />
+              <path d="M7 13h10" />
+              <path d="M9 17h6" />
+              <path d="M11 21h2" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleRewind} title="Time rewind" $active={!!rewindRef.current}>
@@ -5798,6 +5930,7 @@ function App() {
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
               <Shortcut><Key>K</Key><span>Orbital strike</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
+              <Shortcut><Key>T</Key><span>Vortex storm (spiral + explode)</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
