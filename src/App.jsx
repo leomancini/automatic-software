@@ -240,6 +240,11 @@ const MERGE_SPARK_SPEED = 3.5;    // initial outward velocity
 const MERGE_SPARK_LIFETIME = 450; // ms before spark fades
 const MERGE_SPARK_SIZE = 2.5;     // base radius
 
+// ── Merge shockwave (high-speed collisions push nearby orbs) ────────
+const MERGE_PUSH_RADIUS = 110;     // radius of outward push
+const MERGE_PUSH_FORCE = 2.2;      // max outward force
+const MERGE_PUSH_SPEED_MIN = 3.0;  // min relative collision speed to trigger
+
 // ── Magnetic polarity ────────────────────────────────────────────────
 const MAGNET_RANGE = 160;      // interaction range between orb pairs
 const MAGNET_FORCE = 0.045;    // base force strength (opposites attract, likes repel)
@@ -3001,6 +3006,9 @@ function App() {
             const newArea = Math.PI * a.radius * a.radius + Math.PI * b.radius * b.radius;
             const bigger = a.radius >= b.radius ? a : b;
             const lesser = a.radius >= b.radius ? b : a;
+            // capture relative velocity before blend overwrites it
+            const collisionVx = a.vx - b.vx;
+            const collisionVy = a.vy - b.vy;
             bigger.radius = Math.sqrt(newArea / Math.PI);
             // blend velocity weighted by size
             const totalR = a.radius + b.radius;
@@ -3032,6 +3040,26 @@ function App() {
                 size: MERGE_SPARK_SIZE * (0.6 + Math.random() * 0.8),
                 born: now,
               });
+            }
+            // merge shockwave: energetic collisions push nearby orbs
+            const collisionSpeed = Math.sqrt(collisionVx * collisionVx + collisionVy * collisionVy);
+            if (collisionSpeed > MERGE_PUSH_SPEED_MIN) {
+              const intensity = Math.min(collisionSpeed / 8, 1);
+              for (let k = 0; k < orbs.length; k++) {
+                if (toRemove.has(k) || k === i || k === j) continue;
+                const other = orbs[k];
+                const pdx = other.x - bigger.x;
+                const pdy = other.y - bigger.y;
+                const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
+                if (pDist < MERGE_PUSH_RADIUS && pDist > 1) {
+                  const falloff = 1 - pDist / MERGE_PUSH_RADIUS;
+                  const force = MERGE_PUSH_FORCE * intensity * falloff;
+                  other.vx += (pdx / pDist) * force;
+                  other.vy += (pdy / pDist) * force;
+                }
+              }
+              ripplesRef.current.push({ x: bigger.x, y: bigger.y, color: bigger.color, born: now });
+              shakeRef.current = Math.max(shakeRef.current, Math.floor(3 + intensity * 5));
             }
             toRemove.add(a === bigger ? j : i);
           }
