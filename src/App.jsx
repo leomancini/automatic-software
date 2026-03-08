@@ -148,6 +148,10 @@ const FOUNTAIN_SPRAY_ANGLE = 0.5; // radians of spray spread
 const FOUNTAIN_ORB_CAP = 200; // won't spawn if total orbs exceed this
 const FOUNTAIN_BASE_RADIUS = 10; // visual base size
 
+// ── Domino cascade ──────────────────────────────────────────────
+const DOMINO_DELAY = 70; // ms between each detonation in the chain
+const DOMINO_RESPAWN_DELAY = 350; // ms after last detonation before respawn burst
+
 // ── Audio engine ──────────────────────────────────────────────────────
 let audioCtx = null;
 let masterGain = null;
@@ -725,6 +729,7 @@ function App() {
   const constellationModeRef = useRef(false);
   const gravityDotsRef = useRef([]);
   const blackHoleRef = useRef(null); // {x, y, born, absorbed, mass, diskDots[]}
+  const dominoRef = useRef(null); // {queue, index, nextTime, respawnCount, phase}
   const longPressRef = useRef(null);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const streakRef = useRef(0);
@@ -1212,6 +1217,63 @@ function App() {
           }
         }
         if (fountainsRef.current.length > 0) setOrbCount(orbsRef.current.length);
+      }
+
+      // ── Domino cascade processing ──
+      const domino = dominoRef.current;
+      if (domino) {
+        if (domino.phase === "chain") {
+          while (domino.index < domino.queue.length && now >= domino.nextTime) {
+            const target = domino.queue[domino.index];
+            // Remove this orb from the live array
+            orbsRef.current = orbsRef.current.filter((o) => o.id !== target.id);
+            // Create burst particles
+            for (let i = 0; i < BURST_PARTICLE_COUNT; i++) {
+              const angle = (Math.PI * 2 * i) / BURST_PARTICLE_COUNT;
+              burstsRef.current.push({
+                x: target.x, y: target.y,
+                vx: Math.cos(angle) * (2.5 + Math.random() * 2),
+                vy: Math.sin(angle) * (2.5 + Math.random() * 2),
+                color: target.color,
+                radius: target.radius * 0.35,
+                born: now,
+              });
+            }
+            ripplesRef.current.push({ x: target.x, y: target.y, color: target.color, born: now });
+            // Draw a connecting line to the next target
+            if (domino.index < domino.queue.length - 1) {
+              const next = domino.queue[domino.index + 1];
+              lightningRef.current.push({
+                points: [{ x: target.x, y: target.y }, { x: next.x, y: next.y }],
+                color: target.color,
+                born: now,
+              });
+            }
+            shakeRef.current = Math.max(shakeRef.current, 4);
+            domino.index++;
+            domino.nextTime = now + DOMINO_DELAY;
+          }
+          if (domino.index >= domino.queue.length) {
+            domino.phase = "wait";
+            domino.nextTime = now + DOMINO_RESPAWN_DELAY;
+          }
+          setOrbCount(orbsRef.current.length);
+        } else if (domino.phase === "wait" && now >= domino.nextTime) {
+          // Respawn all orbs from center in a radial burst
+          const count = domino.respawnCount;
+          for (let i = 0; i < count; i++) {
+            const angle = (Math.PI * 2 * i) / count;
+            const orb = createOrb(W / 2, H / 2);
+            orb.vx = Math.cos(angle) * (3 + Math.random() * 3);
+            orb.vy = Math.sin(angle) * (3 + Math.random() * 3);
+            orbsRef.current.push(orb);
+            ripplesRef.current.push({ x: W / 2, y: H / 2, color: orb.color, born: now });
+          }
+          shakeRef.current = 20;
+          dominoRef.current = null;
+          setOrbCount(orbsRef.current.length);
+          playBurstSound();
+        }
       }
 
       // update physics
@@ -3299,6 +3361,48 @@ function App() {
     });
   }, []);
 
+  const handleDomino = useCallback(() => {
+    const orbs = orbsRef.current;
+    if (orbs.length < 2) return;
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cx = W / 2;
+    const cy = H / 2;
+    // Build chain order: nearest-neighbor starting from orb closest to center
+    const remaining = orbs.map((o) => ({ x: o.x, y: o.y, color: o.color, radius: o.radius, id: o.id }));
+    const chain = [];
+    let closest = 0;
+    let closestDist = Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const dx = remaining[i].x - cx;
+      const dy = remaining[i].y - cy;
+      const d = dx * dx + dy * dy;
+      if (d < closestDist) { closestDist = d; closest = i; }
+    }
+    chain.push(remaining.splice(closest, 1)[0]);
+    while (remaining.length > 0) {
+      const last = chain[chain.length - 1];
+      let nearIdx = 0;
+      let nearDist = Infinity;
+      for (let i = 0; i < remaining.length; i++) {
+        const dx = remaining[i].x - last.x;
+        const dy = remaining[i].y - last.y;
+        const d = dx * dx + dy * dy;
+        if (d < nearDist) { nearDist = d; nearIdx = i; }
+      }
+      chain.push(remaining.splice(nearIdx, 1)[0]);
+    }
+    dominoRef.current = {
+      queue: chain,
+      index: 0,
+      nextTime: performance.now(),
+      respawnCount: orbs.length,
+      phase: "chain",
+    };
+    shakeRef.current = 8;
+    playBoom();
+  }, []);
+
   const handleGravityPaintMode = useCallback(() => {
     setGravityPaintMode((prev) => {
       gravityPaintModeRef.current = !prev;
@@ -3818,6 +3922,9 @@ function App() {
         case "5":
           handleConstellationMode();
           break;
+        case "6":
+          handleDomino();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -3825,7 +3932,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handlePlaceFountain, handleLightning, handlePortal, handleMeteorShower, handleSupernova, handleIgnite, handleStrike, handleStorm, handleTsunami, handleBlackHole, handleToggleAudio, handleGravityPaintMode, handleConstellationMode, handleDomino, setShowHelp]);
 
   return (
     <Wrapper>
@@ -3843,7 +3950,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>tap to create &middot; drag to spray &middot; drag orb to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow</Hint>
-        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j 2 5 s p m v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q e i k z y f t n c r w l h g d a o u j 2 5 6 s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -3951,6 +4058,19 @@ function App() {
               <path d="M2 12c1.5-2 3-2 5 0s3.5 2 5 0 3.5-2 5 0 3.5 2 5 0" opacity="0.3" />
             </svg>
           </ActionButton>
+        {orbCount > 1 && (
+          <ActionButton onClick={handleDomino} title="Domino cascade">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="4" cy="12" r="2" fill="currentColor" />
+              <circle cx="12" cy="12" r="2" />
+              <circle cx="20" cy="12" r="2" />
+              <path d="M6 12h4" strokeDasharray="2 1" />
+              <path d="M14 12h4" strokeDasharray="2 1" />
+              <path d="M3 7l2 3" />
+              <path d="M5 17l-2 3" />
+            </svg>
+          </ActionButton>
+        )}
         {orbCount > 0 && (
           <>
           <ActionButton onClick={handleGather} title="Gather orbs">
@@ -4182,6 +4302,7 @@ function App() {
               <Shortcut><Key>3</Key><span>Place / remove particle fountain</span></Shortcut>
               <Shortcut><Key>4</Key><span>Gravity painter (draw gravity trails)</span></Shortcut>
               <Shortcut><Key>5</Key><span>Constellation mode (connect nearby orbs)</span></Shortcut>
+              <Shortcut><Key>6</Key><span>Domino cascade (chain reaction)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
