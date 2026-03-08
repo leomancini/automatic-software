@@ -22,8 +22,12 @@ const MERGE_FLASH_DURATION = 400;
 const STAR_COUNT = 80;
 const SHOOTING_STAR_CHANCE = 0.003; // probability per frame
 const SHOOTING_STAR_DURATION = 800; // ms
-const MOTE_COUNT = 40;
+const MOTE_COUNT = 60;
 const MOTE_SPEED = 0.15;
+const MOTE_ORB_PUSH_RANGE = 90;     // px — orbs push motes within this distance
+const MOTE_ORB_PUSH_FORCE = 0.35;   // push strength (scales with orb speed)
+const MOTE_FRICTION = 0.94;         // velocity damping per frame
+const MOTE_DISTURBED_GLOW = 0.5;    // extra brightness when pushed
 const SPLIT_COUNT = 3;
 const LONG_PRESS_MS = 500;
 const FRICTION = 0.98;
@@ -1954,20 +1958,42 @@ function App() {
         }
       }
 
-      // update and draw ambient motes
+      // update and draw ambient motes (reactive to nearby orbs)
       for (const mote of motesRef.current) {
-        mote.y -= MOTE_SPEED * mote.speed;
-        mote.x += mote.drift;
-        if (mote.y < -5) {
-          mote.y = H + 5;
-          mote.x = Math.random() * W;
+        // orb proximity push — motes get swept aside by passing orbs
+        for (let oi = 0; oi < orbs.length; oi++) {
+          const orb = orbs[oi];
+          const dx = mote.x - orb.x;
+          const dy = mote.y - orb.y;
+          const distSq = dx * dx + dy * dy;
+          if (distSq < MOTE_ORB_PUSH_RANGE * MOTE_ORB_PUSH_RANGE && distSq > 1) {
+            const dist = Math.sqrt(distSq);
+            const orbSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+            const proximity = 1 - dist / MOTE_ORB_PUSH_RANGE; // 1 at center, 0 at edge
+            const push = proximity * proximity * MOTE_ORB_PUSH_FORCE * (0.5 + orbSpeed * 0.3);
+            mote.vx += (dx / dist) * push;
+            mote.vy += (dy / dist) * push;
+            mote.disturbance = Math.min(mote.disturbance + proximity * 0.3, 1);
+          }
         }
+        // apply velocity + friction
+        mote.vx *= MOTE_FRICTION;
+        mote.vy *= MOTE_FRICTION;
+        mote.x += mote.drift + mote.vx;
+        mote.y += -MOTE_SPEED * mote.speed + mote.vy;
+        // decay disturbance glow
+        mote.disturbance *= 0.92;
+        // wrap edges
+        if (mote.y < -5) { mote.y = H + 5; mote.x = Math.random() * W; }
         if (mote.x < -5) mote.x = W + 5;
         if (mote.x > W + 5) mote.x = -5;
-        const flicker = 0.15 + 0.15 * Math.sin(time * mote.speed * 2 + mote.phase);
+        // draw with disturbance glow
+        const baseFlicker = 0.15 + 0.15 * Math.sin(time * mote.speed * 2 + mote.phase);
+        const alpha = baseFlicker + mote.disturbance * MOTE_DISTURBED_GLOW;
+        const drawSize = mote.baseSize + mote.disturbance * 1.5;
         ctx.beginPath();
-        ctx.arc(mote.x, mote.y, mote.size, 0, Math.PI * 2);
-        ctx.fillStyle = mote.color + hexAlpha(flicker * 255);
+        ctx.arc(mote.x, mote.y, drawSize, 0, Math.PI * 2);
+        ctx.fillStyle = mote.color + hexAlpha(Math.min(alpha, 1) * 255);
         ctx.fill();
       }
 
@@ -5445,11 +5471,15 @@ function App() {
       x: Math.random() * W,
       y: Math.random() * H,
       size: 0.8 + Math.random() * 1.2,
+      baseSize: 0,      // set below
       drift: (Math.random() - 0.5) * 0.3,
       phase: Math.random() * Math.PI * 2,
       speed: 0.5 + Math.random() * 0.5,
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      vx: 0, vy: 0,     // reactive velocity from orb pushes
+      disturbance: 0,    // 0–1 glow factor when pushed
     }));
+    for (const m of motesRef.current) m.baseSize = m.size;
     // generate ambient nebula points
     nebulaRef.current = Array.from({ length: NEBULA_COUNT }, (_, i) => ({
       x: Math.random() * W,
