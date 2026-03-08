@@ -61,6 +61,11 @@ const LIGHTNING_MAX_CHAIN = 20; // max orbs per chain
 const LIGHTNING_FORCE = 3; // velocity boost on struck orbs
 const LIGHTNING_SEGMENTS = 10; // jagged segments per bolt
 
+// ── Meteor shower ────────────────────────────────────────────────
+const METEOR_COUNT = 14; // orbs per shower
+const METEOR_STAGGER = 60; // ms between each meteor spawn
+const METEOR_TRAIL_DURATION = 600; // ms for entry trail to fade
+
 // ── Wormhole portals ─────────────────────────────────────────────
 const PORTAL_RADIUS = 22;
 const PORTAL_TELEPORT_DIST = 28; // orb enters portal at this distance
@@ -279,6 +284,25 @@ function playWarpSound() {
   osc.stop(t + 0.3);
 }
 
+function playMeteorSound() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  // Descending whistle (falling from sky)
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(1200, t);
+  osc.frequency.exponentialRampToValueAtTime(300, t + 0.4);
+  g.gain.setValueAtTime(0.06, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.55);
+  // Rumble undertone
+  playTone(60, 0.6, "sine", 0.08);
+}
+
 function generateBolt(x1, y1, x2, y2, segments = LIGHTNING_SEGMENTS) {
   const points = [{ x: x1, y: y1 }];
   const dx = x2 - x1;
@@ -369,6 +393,7 @@ function App() {
   const vortexesRef = useRef([]);
   const lightningRef = useRef([]);
   const portalsRef = useRef([]);
+  const meteorTrailsRef = useRef([]);
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
@@ -713,6 +738,43 @@ function App() {
         ctx.lineWidth = 1.5;
         ctx.lineCap = "round";
         ctx.stroke();
+      }
+
+      // draw meteor entry trails
+      meteorTrailsRef.current = meteorTrailsRef.current.filter((m) => now - m.born < METEOR_TRAIL_DURATION);
+      for (const m of meteorTrailsRef.current) {
+        const progress = (now - m.born) / METEOR_TRAIL_DURATION;
+        const alpha = (1 - progress) * 0.9;
+        // head position moves down
+        const hx = m.x + m.dx * progress;
+        const hy = m.y + m.dy * progress;
+        // tail lags behind
+        const tailProgress = Math.max(0, progress - 0.3);
+        const tx = m.x + m.dx * tailProgress;
+        const ty = m.y + m.dy * tailProgress;
+        const grad = ctx.createLinearGradient(hx, hy, tx, ty);
+        grad.addColorStop(0, m.color + hexAlpha(alpha * 255));
+        grad.addColorStop(0.3, m.color + hexAlpha(alpha * 0.6 * 255));
+        grad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.moveTo(hx, hy);
+        ctx.lineTo(tx, ty);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.stroke();
+        // bright head glow
+        if (progress < 0.5) {
+          const headAlpha = (1 - progress * 2) * 0.4;
+          const headGrad = ctx.createRadialGradient(hx, hy, 0, hx, hy, 8);
+          headGrad.addColorStop(0, "#ffffff" + hexAlpha(headAlpha * 255));
+          headGrad.addColorStop(0.5, m.color + hexAlpha(headAlpha * 0.5 * 255));
+          headGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(hx, hy, 8, 0, Math.PI * 2);
+          ctx.fillStyle = headGrad;
+          ctx.fill();
+        }
       }
 
       // update and draw ambient motes
@@ -2030,6 +2092,41 @@ function App() {
     playPortalSound();
   }, []);
 
+  const handleMeteorShower = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const now = performance.now();
+
+    for (let i = 0; i < METEOR_COUNT; i++) {
+      setTimeout(() => {
+        const x = W * 0.05 + Math.random() * W * 0.9;
+        const angle = Math.PI * 0.4 + Math.random() * Math.PI * 0.2; // mostly downward
+        const speed = 4 + Math.random() * 4;
+        const orb = createOrb(x, -20);
+        orb.radius = 6 + Math.random() * 8;
+        orb.vx = Math.cos(angle) * speed * (Math.random() > 0.5 ? 1 : -1);
+        orb.vy = Math.sin(angle) * speed;
+        orbsRef.current.push(orb);
+        ripplesRef.current.push({ x, y: 0, color: orb.color, born: performance.now() });
+
+        // meteor entry trail
+        meteorTrailsRef.current.push({
+          x: x + (Math.random() - 0.5) * 40,
+          y: -60 - Math.random() * 40,
+          dx: orb.vx * 25,
+          dy: orb.vy * 25,
+          color: orb.color,
+          born: performance.now(),
+        });
+
+        setOrbCount(orbsRef.current.length);
+      }, i * METEOR_STAGGER);
+    }
+
+    shakeRef.current = Math.max(shakeRef.current, 12);
+    playMeteorSound();
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e) => {
@@ -2093,6 +2190,9 @@ function App() {
         case "t":
           handlePortal();
           break;
+        case "q":
+          handleMeteorShower();
+          break;
         case "v":
           handleToggleAudio();
           break;
@@ -2103,7 +2203,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handlePortal, handleToggleAudio, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handlePlaceWell, handleLightning, handlePortal, handleMeteorShower, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -2121,7 +2221,7 @@ function App() {
       <HUD>
         <Title>Automatic Software</Title>
         <Hint>click to create &middot; drag to move &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big orbs collapse</Hint>
-        <Hint>keys: space b f t n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
+        <Hint>keys: space b q f t n c r w l h g d a o j s p m v x &middot; press ? for help</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -2151,6 +2251,16 @@ function App() {
               <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
               <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
               <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleMeteorShower} title="Meteor shower">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="2" x2="10" y2="14" />
+              <line x1="12" y1="1" x2="14" y2="11" />
+              <line x1="20" y1="3" x2="16" y2="13" />
+              <circle cx="10" cy="15" r="1.5" fill="currentColor" />
+              <circle cx="14" cy="12" r="1.5" fill="currentColor" />
+              <circle cx="16" cy="14" r="1.5" fill="currentColor" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleFirework} title="Firework">
@@ -2342,6 +2452,7 @@ function App() {
               <Shortcut><Key>overlap</Key><span>Merge (big ones collapse!)</span></Shortcut>
               <hr />
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
+              <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
