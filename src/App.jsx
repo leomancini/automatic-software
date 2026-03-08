@@ -48,6 +48,11 @@ const TRAIL_SPEED_THRESHOLD = 2.0; // min orb speed to shed trail particles
 const TRAIL_LIFETIME = 2500; // ms trail particles live
 const TRAIL_MAX = 600; // cap trail particle count for performance
 const TRAIL_SPAWN_RATE = 0.4; // probability per frame per orb (when fast enough)
+
+const HOLD_CHARGE_DELAY = 400; // ms before hold-to-attract activates
+const HOLD_CHARGE_RANGE = 220; // px attraction radius
+const HOLD_CHARGE_FORCE = 0.12; // base attraction force per frame
+const HOLD_CHARGE_MAX_MS = 2500; // ms to reach full charge power
 const CASCADE_MAX_GEN = 2; // max cascade depth for chain reaction shockwaves
 const CASCADE_SPEED_THRESHOLD = 3.5; // orb speed after hit to trigger cascade
 const CASCADE_FORCE_DECAY = 0.55; // each generation is 55% as strong
@@ -1109,6 +1114,8 @@ function App() {
   const formationRef = useRef(null); // {targets, born, type}
   const formationIndexRef = useRef(0);
   const tornadoRef = useRef(null); // {x, y, born, dir, debris[]}
+  const holdChargeRef = useRef(null); // {x, y, born} when hold-to-attract is active
+  const holdChargeTimerRef = useRef(null);
   const [pulseMode, setPulseMode] = useState(false);
   const pulseModeRef = useRef(false);
   const pulseTimerRef = useRef(0); // last pulse timestamp
@@ -1186,6 +1193,12 @@ function App() {
         sprayActiveRef.current = false;
         sprayStartRef.current = { x: pos.x, y: pos.y };
         lastSprayPosRef.current = { x: pos.x, y: pos.y };
+        // Start hold-to-attract timer
+        if (holdChargeTimerRef.current) clearTimeout(holdChargeTimerRef.current);
+        holdChargeTimerRef.current = setTimeout(() => {
+          holdChargeRef.current = { x: pos.x, y: pos.y, born: performance.now() };
+          holdChargeTimerRef.current = null;
+        }, HOLD_CHARGE_DELAY);
       }
       mouseRef.current = pos;
     },
@@ -1241,7 +1254,12 @@ function App() {
         const startDy = pos.y - sprayStartRef.current.y;
         const startDist = Math.sqrt(startDx * startDx + startDy * startDy);
         if (startDist > 20) {
-          if (!paintModeRef.current && !gravityPaintModeRef.current) {
+          // Cancel hold-to-attract timer if user starts dragging
+          if (holdChargeTimerRef.current) {
+            clearTimeout(holdChargeTimerRef.current);
+            holdChargeTimerRef.current = null;
+          }
+          if (!paintModeRef.current && !gravityPaintModeRef.current && !holdChargeRef.current) {
             // Flick aiming mode — show trajectory line, launch on release
             slingshotRef.current = { startX: sprayStartRef.current.x, startY: sprayStartRef.current.y };
           } else {
@@ -1309,6 +1327,43 @@ function App() {
       if (longPressRef.current) {
         clearTimeout(longPressRef.current);
         longPressRef.current = null;
+      }
+      // Cancel hold-to-attract timer
+      if (holdChargeTimerRef.current) {
+        clearTimeout(holdChargeTimerRef.current);
+        holdChargeTimerRef.current = null;
+      }
+      // Hold-to-attract release — burst orbs outward
+      if (holdChargeRef.current) {
+        const charge = holdChargeRef.current;
+        holdChargeRef.current = null;
+        const chargeDuration = performance.now() - charge.born;
+        const power = Math.min(chargeDuration / HOLD_CHARGE_MAX_MS, 1);
+        const releaseForce = 3 + power * 12;
+        const range = HOLD_CHARGE_RANGE * (0.8 + power * 0.5);
+        for (const orb of orbsRef.current) {
+          const dx = orb.x - charge.x;
+          const dy = orb.y - charge.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 0 && dist < range) {
+            const falloff = 1 - dist / range;
+            const force = releaseForce * falloff;
+            orb.vx += (dx / dist) * force;
+            orb.vy += (dy / dist) * force;
+          }
+        }
+        wavesRef.current.push({
+          cx: charge.x,
+          cy: charge.y,
+          radius: 0,
+          color: "#4facfe",
+          generation: 0,
+          hitOrbs: new Set(),
+          delay: 0,
+        });
+        shakeRef.current = Math.max(shakeRef.current, 3 + power * 10);
+        playBoom();
+        return;
       }
       if (dragRef.current) {
         // fling: compute velocity from recent drag history
@@ -2586,6 +2641,21 @@ function App() {
             const force = WELL_GRAVITY / (1 + wDist * 0.01);
             orb.vx += (wdx / wDist) * force;
             orb.vy += (wdy / wDist) * force;
+          }
+        }
+
+        // hold-to-attract pull
+        if (holdChargeRef.current) {
+          const hc = holdChargeRef.current;
+          const chargeDuration = now - hc.born;
+          const power = Math.min(chargeDuration / HOLD_CHARGE_MAX_MS, 1);
+          const hdx = hc.x - orb.x;
+          const hdy = hc.y - orb.y;
+          const hDist = Math.sqrt(hdx * hdx + hdy * hdy);
+          if (hDist < HOLD_CHARGE_RANGE && hDist > 3) {
+            const force = HOLD_CHARGE_FORCE * power / (1 + hDist * 0.008);
+            orb.vx += (hdx / hDist) * force;
+            orb.vy += (hdy / hDist) * force;
           }
         }
 
@@ -4034,6 +4104,55 @@ function App() {
           ctx.fillStyle = scorchGrad;
           ctx.fill();
         }
+      }
+
+      // draw hold-to-attract vortex
+      if (holdChargeRef.current) {
+        const hc = holdChargeRef.current;
+        const chargeDuration = now - hc.born;
+        const power = Math.min(chargeDuration / HOLD_CHARGE_MAX_MS, 1);
+        const pulse = Math.sin(time * 4) * 0.15;
+
+        // Outer attraction field glow
+        const fieldRadius = HOLD_CHARGE_RANGE * (0.3 + power * 0.7);
+        const fieldAlpha = 0.06 + power * 0.12 + pulse * 0.03;
+        const fieldGrad = ctx.createRadialGradient(hc.x, hc.y, 0, hc.x, hc.y, fieldRadius);
+        fieldGrad.addColorStop(0, "#4facfe" + hexAlpha(fieldAlpha * 2 * 255));
+        fieldGrad.addColorStop(0.5, "#667eea" + hexAlpha(fieldAlpha * 255));
+        fieldGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(hc.x, hc.y, fieldRadius, 0, Math.PI * 2);
+        ctx.fillStyle = fieldGrad;
+        ctx.fill();
+
+        // Spinning accretion rings
+        const ringCount = 2 + Math.floor(power * 2);
+        for (let ring = 0; ring < ringCount; ring++) {
+          const ringRadius = 15 + ring * 20 + power * 30;
+          const rotSpeed = (ring % 2 === 0 ? 1 : -1) * (3 + power * 2);
+          const rotation = time * rotSpeed;
+          const ringAlpha = (0.3 + power * 0.4) * (1 - ring * 0.2);
+          ctx.save();
+          ctx.translate(hc.x, hc.y);
+          ctx.rotate(rotation);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, ringRadius, ringRadius * 0.35, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = "#4facfe" + hexAlpha(Math.min(ringAlpha, 1) * 255);
+          ctx.lineWidth = 2 - ring * 0.3;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Bright core
+        const coreSize = 4 + power * 8;
+        const coreGrad = ctx.createRadialGradient(hc.x, hc.y, 0, hc.x, hc.y, coreSize);
+        coreGrad.addColorStop(0, "#ffffff" + hexAlpha((0.7 + power * 0.3) * 255));
+        coreGrad.addColorStop(0.5, "#4facfe" + hexAlpha((0.4 + power * 0.3) * 255));
+        coreGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(hc.x, hc.y, coreSize, 0, Math.PI * 2);
+        ctx.fillStyle = coreGrad;
+        ctx.fill();
       }
 
       // draw gravity wells
@@ -6586,8 +6705,7 @@ function App() {
       />
       <HUD>
         <Title>Automatic Software</Title>
-        <Hint>tap to create &middot; drag to launch &middot; drag orb to fling &middot; double-click to remove &middot; right-click to split &middot; merge to grow &middot; big ones divide &middot; rapid taps unlock combos</Hint>
-        <Hint>keys: / b q e f w l r s c g m d o space &middot; press ? for help</Hint>
+        <Hint>tap to create &middot; hold to attract &middot; drag to launch &middot; double-click to remove &middot; right-click to split &middot; rapid taps unlock combos</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -6807,6 +6925,7 @@ function App() {
               <Shortcut><Key>drag</Key><span>Spray orbs (empty space)</span></Shortcut>
               <Shortcut><Key>drag orb</Key><span>Move orb</span></Shortcut>
               <Shortcut><Key>dbl-click</Key><span>Remove orb</span></Shortcut>
+              <Shortcut><Key>hold</Key><span>Attract orbs (release to burst)</span></Shortcut>
               <Shortcut><Key>right-click</Key><span>Split orb</span></Shortcut>
               <Shortcut><Key>long-press</Key><span>Split orb (mobile)</span></Shortcut>
               <Shortcut><Key>overlap</Key><span>Merge (big ones split!)</span></Shortcut>
