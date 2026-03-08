@@ -98,6 +98,7 @@ function App() {
   const shootingStarsRef = useRef([]);
   const motesRef = useRef([]);
   const wavesRef = useRef([]);
+  const shakeRef = useRef(0); // screen shake intensity (decays each frame)
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -302,6 +303,16 @@ function App() {
       const orbs = orbsRef.current;
 
       const now = performance.now();
+
+      // screen shake
+      const shake = shakeRef.current;
+      if (shake > 0.5) {
+        const sx = (Math.random() - 0.5) * shake;
+        const sy = (Math.random() - 0.5) * shake;
+        ctx.save();
+        ctx.translate(sx, sy);
+        shakeRef.current *= 0.88; // fast decay
+      }
 
       // fade trail background (skip in paint mode for persistent trails)
       if (!paintModeRef.current) {
@@ -704,6 +715,11 @@ function App() {
       ctx.fillStyle = vignetteGrad;
       ctx.fillRect(0, 0, W, H);
 
+      // restore shake transform
+      if (shake > 0.5) {
+        ctx.restore();
+      }
+
       animRef.current = requestAnimationFrame(draw);
     }
 
@@ -756,6 +772,7 @@ function App() {
       orb.vx += (dx / dist) * strength;
       orb.vy += (dy / dist) * strength;
     }
+    shakeRef.current = 12;
   }, []);
 
   const handleGather = useCallback(() => {
@@ -822,6 +839,7 @@ function App() {
     }
     orbsRef.current = [];
     setOrbCount(0);
+    shakeRef.current = 20;
   }, []);
 
   const handleSpin = useCallback(() => {
@@ -852,6 +870,7 @@ function App() {
       radius: 0,
       color: randomColor(),
     });
+    shakeRef.current = 16;
   }, []);
 
   const handleSlowMo = useCallback(() => {
@@ -932,6 +951,7 @@ function App() {
       ripplesRef.current.push({ x: cx, y: cy, color: orb.color, born: now });
     }
     setOrbCount(orbsRef.current.length);
+    shakeRef.current = 10;
   }, []);
 
   const handleFirework = useCallback(() => {
@@ -952,6 +972,7 @@ function App() {
       ripplesRef.current.push({ x: launchX, y: H, color: orb.color, born: now });
     }
     setOrbCount(orbsRef.current.length);
+    shakeRef.current = 8;
   }, []);
 
   // Keyboard shortcuts
