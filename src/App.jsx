@@ -5715,9 +5715,6 @@ function App() {
         case "o":
           handleOrbitMode();
           break;
-        case "j":
-          handleColorCycle();
-          break;
         case "a":
           handleAttractMode();
           break;
@@ -5733,35 +5730,17 @@ function App() {
         case "e":
           handleSupernova();
           break;
-        case "u":
-          handleFlockMode();
-          break;
-        case "t":
-          handleWrapMode();
-          break;
         case "v":
           handleToggleAudio();
           break;
-        case "1":
-          handleBlackHole();
-          break;
-        case "2":
-          handleKaleidoscopeMode();
-          break;
-        case "7":
-          handleAutoplay();
-          break;
         case "?":
           setShowHelp((prev) => !prev);
-          break;
-        case "z":
-          handleRewind();
           break;
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleColorCycle, handleAttractMode, handleFlockMode, handleKaleidoscopeMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoplay, handleWrapMode, handleRewind, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleToggleAudio, setShowHelp]);
 
   return (
     <Wrapper>
@@ -5804,12 +5783,6 @@ function App() {
           {attractMode && <ModePill $color="#f093fb">magnet</ModePill>}
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
-          {colorCycle && <ModePill $color="#667eea">rainbow</ModePill>}
-          {flockMode && <ModePill $color="#43e97b">flock</ModePill>}
-          {kaleidoscopeMode && <ModePill $color="#f093fb">kaleidoscope</ModePill>}
-          {wrapMode && <ModePill $color="#00f2fe">wrap</ModePill>}
-          {sparklerMode && <ModePill $color="#feb47b">sparkler</ModePill>}
-          {autoplayMode && <ModePill $color="#feb47b">autoplay</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -5924,6 +5897,15 @@ function App() {
           </ActionButton>
           {orbCount > 0 && (
             <>
+            <ActionButton onClick={handleShuffle} title="Shuffle colors">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="16 3 21 3 21 8" />
+                <line x1="4" y1="20" x2="21" y2="3" />
+                <polyline points="21 16 21 21 16 21" />
+                <line x1="15" y1="15" x2="21" y2="21" />
+                <line x1="4" y1="4" x2="9" y2="9" />
+              </svg>
+            </ActionButton>
             <ActionButton onClick={handleWave} title="Shockwave">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3" />
@@ -6021,18 +6003,11 @@ function App() {
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
               <Shortcut><Key>A</Key><span>Attract mode</span></Shortcut>
               <Shortcut><Key>O</Key><span>Orbit mode</span></Shortcut>
-              <Shortcut><Key>U</Key><span>Flock mode (boid swarm)</span></Shortcut>
-              <Shortcut><Key>J</Key><span>Color cycle</span></Shortcut>
               <Shortcut><Key>N</Key><span>Place / remove gravity well</span></Shortcut>
-              <Shortcut><Key>1</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
-              <Shortcut><Key>2</Key><span>Kaleidoscope mode (4-fold symmetry)</span></Shortcut>
-              <Shortcut><Key>7</Key><span>Light show (autoplay)</span></Shortcut>
-              <Shortcut><Key>T</Key><span>Wrap mode (no walls)</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
-              <Shortcut><Key>Z</Key><span>Time rewind (~1.5s playback)</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all orbs</span></Shortcut>
               <Shortcut><Key>?</Key><span>Toggle this help</span></Shortcut>
             </ShortcutList>
