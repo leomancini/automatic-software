@@ -6,7 +6,7 @@ import {
   MOTE_ORB_PUSH_FORCE, MOTE_FRICTION, MOTE_DISTURBED_GLOW, SPLIT_COUNT,
   LONG_PRESS_MS, FRICTION, REPEL_DIST, REPEL_FORCE, ATTRACT_DIST, ATTRACT_FORCE,
   GRAVITY, WAVE_SPEED, WAVE_FORCE, WAVE_WIDTH, WAVE_MAX_RADIUS_FACTOR,
-  WALL_HIT_DURATION, WALL_HIT_SPEED_THRESHOLD, WELL_RANGE, WELL_GRAVITY,
+  WALL_HIT_DURATION, WALL_HIT_SPEED_THRESHOLD, WELL_RANGE, WELL_GRAVITY, WELL_CRITICAL_MASS, WELL_CRITICAL_MS, WELL_CRITICAL_SCATTER,
   TRAIL_SPEED_THRESHOLD, TRAIL_LIFETIME, TRAIL_MAX, TRAIL_SPAWN_RATE,
   HOLD_CHARGE_DELAY, HOLD_CHARGE_RANGE, HOLD_CHARGE_FORCE, HOLD_CHARGE_MAX_MS,
   CASCADE_MAX_GEN, CASCADE_SPEED_THRESHOLD, CASCADE_FORCE_DECAY, CASCADE_DELAY_FRAMES,
@@ -2146,6 +2146,53 @@ function App() {
         }
       }
 
+      // ── Gravity well critical mass check ──
+      for (let wi = wellsRef.current.length - 1; wi >= 0; wi--) {
+        const well = wellsRef.current[wi];
+        let orbiting = 0;
+        for (const orb of orbs) {
+          const wdx = well.x - orb.x;
+          const wdy = well.y - orb.y;
+          if (wdx * wdx + wdy * wdy < WELL_RANGE * WELL_RANGE) orbiting++;
+        }
+        well.orbitCount = orbiting;
+        if (orbiting >= WELL_CRITICAL_MASS) {
+          if (!well.criticalSince) well.criticalSince = now;
+          if (now - well.criticalSince >= WELL_CRITICAL_MS) {
+            // DETONATE — scatter all orbiting orbs outward
+            for (const orb of orbs) {
+              const wdx = orb.x - well.x;
+              const wdy = orb.y - well.y;
+              const d = Math.sqrt(wdx * wdx + wdy * wdy);
+              if (d < WELL_RANGE && d > 1) {
+                orb.vx += (wdx / d) * WELL_CRITICAL_SCATTER;
+                orb.vy += (wdy / d) * WELL_CRITICAL_SCATTER;
+              }
+            }
+            // burst particles
+            for (let i = 0; i < 16; i++) {
+              const angle = (Math.PI * 2 * i) / 16;
+              burstsRef.current.push({
+                x: well.x, y: well.y,
+                vx: Math.cos(angle) * (2 + Math.random() * 3),
+                vy: Math.sin(angle) * (2 + Math.random() * 3),
+                color: well.color, radius: 3.5, born: now,
+              });
+            }
+            // shockwave
+            wavesRef.current.push({ x: well.x, y: well.y, born: now, color: "#ffffff" });
+            // flash label
+            comboFlashRef.current.push({ text: "CRITICAL MASS", x: well.x, y: well.y - 30, born: now, color: "#ff3366" });
+            shakeRef.current = 25;
+            playBoom();
+            playSupernovaSound();
+            wellsRef.current.splice(wi, 1);
+          }
+        } else {
+          well.criticalSince = null;
+        }
+      }
+
       // spawn nebula trail particles behind fast-moving orbs
       if (trailsRef.current.length < TRAIL_MAX) {
         for (const orb of orbs) {
@@ -3652,47 +3699,64 @@ function App() {
       // draw gravity wells
       for (const well of wellsRef.current) {
         const wellAge = (now - well.born) / 1000;
+        const charge = Math.min((well.orbitCount || 0) / WELL_CRITICAL_MASS, 1);
+        const isCritical = well.criticalSince != null;
+        const criticalProg = isCritical ? Math.min((now - well.criticalSince) / WELL_CRITICAL_MS, 1) : 0;
 
-        // outer gravitational field glow
-        const fieldAlpha = 0.04 + 0.02 * Math.sin(time * 2);
+        // outer gravitational field glow — intensifies with charge
+        const baseFieldAlpha = 0.04 + 0.02 * Math.sin(time * 2);
+        const fieldAlpha = baseFieldAlpha + charge * 0.08;
         const fieldGrad = ctx.createRadialGradient(well.x, well.y, well.radius * 2, well.x, well.y, WELL_RANGE * 0.6);
-        fieldGrad.addColorStop(0, well.color + hexAlpha(fieldAlpha * 255));
+        fieldGrad.addColorStop(0, (isCritical ? "#ff3366" : well.color) + hexAlpha(fieldAlpha * 255));
         fieldGrad.addColorStop(1, "transparent");
         ctx.beginPath();
         ctx.arc(well.x, well.y, WELL_RANGE * 0.6, 0, Math.PI * 2);
         ctx.fillStyle = fieldGrad;
         ctx.fill();
 
-        // rotating accretion rings
+        // critical mass warning pulse — expanding/contracting ring
+        if (charge > 0.5) {
+          const pulseSpeed = 4 + criticalProg * 8;
+          const pulseRadius = well.radius * (3 + Math.sin(time * pulseSpeed) * 1.5);
+          const pulseAlpha = (charge - 0.5) * 2 * (0.3 + criticalProg * 0.4);
+          ctx.beginPath();
+          ctx.arc(well.x, well.y, pulseRadius, 0, Math.PI * 2);
+          ctx.strokeStyle = "#ff3366" + hexAlpha(pulseAlpha * 255);
+          ctx.lineWidth = 2 + criticalProg * 2;
+          ctx.stroke();
+        }
+
+        // rotating accretion rings — speed up with charge
+        const ringSpeedMult = 1 + charge * 2;
         for (let ring = 0; ring < 3; ring++) {
           const ringRadius = well.radius * (2.2 + ring * 1.4);
-          const rotSpeed = (ring % 2 === 0 ? 1 : -1) * (2.0 - ring * 0.4) * (well.spinDir || 1);
+          const rotSpeed = (ring % 2 === 0 ? 1 : -1) * (2.0 - ring * 0.4) * (well.spinDir || 1) * ringSpeedMult;
           const rotation = wellAge * rotSpeed;
-          const ringAlpha = 0.35 - ring * 0.08;
+          const ringAlpha = 0.35 - ring * 0.08 + charge * 0.15;
           ctx.save();
           ctx.translate(well.x, well.y);
           ctx.rotate(rotation);
           ctx.beginPath();
           ctx.ellipse(0, 0, ringRadius, ringRadius * 0.28, 0, 0, Math.PI * 2);
-          ctx.strokeStyle = well.color + hexAlpha(ringAlpha * 255);
-          ctx.lineWidth = 1.8 - ring * 0.4;
+          ctx.strokeStyle = (isCritical ? "#ff3366" : well.color) + hexAlpha(ringAlpha * 255);
+          ctx.lineWidth = 1.8 - ring * 0.4 + charge;
           ctx.stroke();
           ctx.restore();
         }
 
         // photon sphere edge ring
-        const edgePulse = 0.45 + 0.15 * Math.sin(time * 3 + well.born);
+        const edgePulse = 0.45 + 0.15 * Math.sin(time * 3 + well.born) + charge * 0.3;
         ctx.beginPath();
         ctx.arc(well.x, well.y, well.radius * 1.15, 0, Math.PI * 2);
-        ctx.strokeStyle = well.color + hexAlpha(edgePulse * 255);
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = (isCritical ? "#ff3366" : well.color) + hexAlpha(edgePulse * 255);
+        ctx.lineWidth = 2 + charge;
         ctx.stroke();
 
         // dark core (event horizon)
         const coreGrad = ctx.createRadialGradient(well.x, well.y, 0, well.x, well.y, well.radius * 1.3);
         coreGrad.addColorStop(0, "#000000");
         coreGrad.addColorStop(0.5, "#050510");
-        coreGrad.addColorStop(0.8, well.color + "33");
+        coreGrad.addColorStop(0.8, (isCritical ? "#ff3366" : well.color) + "33");
         coreGrad.addColorStop(1, "transparent");
         ctx.beginPath();
         ctx.arc(well.x, well.y, well.radius * 1.3, 0, Math.PI * 2);
@@ -6054,6 +6118,17 @@ function App() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 12a9 9 0 1 1-6.22-8.56" />
                 <polyline points="21 3 21 9 15 9" />
+              </svg>
+            </ActionButton>
+            <ActionButton onClick={() => { handlePlaceWell(); }} title="Place gravity well">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <circle cx="12" cy="12" r="7" opacity="0.5" />
+                <circle cx="12" cy="12" r="10" opacity="0.25" />
+                <line x1="12" y1="1" x2="12" y2="4" opacity="0.4" />
+                <line x1="12" y1="20" x2="12" y2="23" opacity="0.4" />
+                <line x1="1" y1="12" x2="4" y2="12" opacity="0.4" />
+                <line x1="20" y1="12" x2="23" y2="12" opacity="0.4" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
