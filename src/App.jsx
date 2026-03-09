@@ -16,7 +16,6 @@ import {
   METEOR_COUNT, METEOR_STAGGER, METEOR_TRAIL_DURATION,
   PORTAL_RADIUS, PORTAL_TELEPORT_DIST, PORTAL_COOLDOWN,
   SUPERNOVA_IMPLODE_MS, SUPERNOVA_RING_COUNT, SUPERNOVA_RING_SPEED, SUPERNOVA_PULL_STRENGTH,
-  MAELSTROM_SPIRAL_MS, MAELSTROM_RELEASE_MS, MAELSTROM_PULL, MAELSTROM_TANGENT, MAELSTROM_RELEASE_SPEED,
   COMET_SPEED, COMET_TRAIL_INTERVAL, COMET_ORB_COUNT, COMET_HEAD_RADIUS, COMET_TAIL_POINTS,
   WARP_CHARGE_MS, WARP_JUMP_MS, WARP_SETTLE_MS, WARP_PULL, WARP_SCATTER_SPEED,
   TAP_WAVE_DURATION, TAP_WAVE_MAX_RADIUS, TAP_WAVE_PUSH, TAP_WAVE_RINGS,
@@ -65,8 +64,6 @@ import {
   FLOCK_ALIGNMENT_FORCE, FLOCK_COHESION_FORCE, FLOCK_MAX_SPEED,
   LIGHTNING_SEGMENTS,
   PALETTES,
-  ORBIT_LOCK_GATHER_MS, ORBIT_LOCK_SPIN_MS, ORBIT_LOCK_RELEASE_MS,
-  ORBIT_LOCK_RING_GAP, ORBIT_LOCK_SPIN_SPEED,
 } from './constants.js';
 import {
   PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce,
@@ -113,8 +110,6 @@ function App() {
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
   const bloomRef = useRef(null); // offscreen canvas for bloom post-process
   const supernovaRef = useRef(null); // active supernova {cx, cy, born, phase}
-  const maelstromRef = useRef(null); // active maelstrom {cx, cy, born, phase}
-  const orbitLockRef = useRef(null); // active orbit lock {cx, cy, born, phase, rings}
   const shatterAllRef = useRef(null); // active shatter-all {born, phase, frozenOrbs}
   const embersRef = useRef([]); // fire ember particles
   const mergeSparksRef = useRef([]); // collision spark particles
@@ -197,7 +192,6 @@ function App() {
   const tiltVecRef = useRef({ x: 0, y: 1 }); // normalized gravity direction
   const hasTiltSensorRef = useRef(false);
   const blackHoleRef = useRef(null); // {x, y, born, absorbed, mass, diskDots}
-  const tidalPulseRef = useRef(null); // {cx, cy, born, color} — inhale-exhale gravity pulse
   const autoplayTimersRef = useRef({ lastSpawn: 0, lastEffect: 0 });
   const [colorCycle, setColorCycle] = useState(false);
   const colorCycleRef = useRef(false);
@@ -913,20 +907,35 @@ function App() {
         setOrbCount(orbsRef.current.length);
         playBoom();
       } else {
-        // Double-tap on empty space: spawn a burst of orbs at that location
+        // Double-tap on empty space: spawn orbiting ring with temporary gravity well
         const now = performance.now();
         const count = 5;
+        const orbitRadius = 45;
+        const spinDir = Math.random() < 0.5 ? 1 : -1;
+        const wellColor = randomColor();
+        wellsRef.current.push({
+          id: Date.now() + Math.random(),
+          x: pos.x, y: pos.y,
+          radius: 10,
+          color: wellColor,
+          born: now,
+          spinDir,
+          expiry: now + 4000,
+        });
         for (let i = 0; i < count; i++) {
           const angle = (Math.PI * 2 * i) / count;
-          const orb = createOrb(pos.x, pos.y);
-          orb.vx = Math.cos(angle) * (2.5 + Math.random() * 2);
-          orb.vy = Math.sin(angle) * (2.5 + Math.random() * 2);
+          const ox = pos.x + Math.cos(angle) * orbitRadius;
+          const oy = pos.y + Math.sin(angle) * orbitRadius;
+          const orb = createOrb(ox, oy);
+          const speed = 2.5 + Math.random() * 0.5;
+          orb.vx = Math.cos(angle + Math.PI / 2 * spinDir) * speed;
+          orb.vy = Math.sin(angle + Math.PI / 2 * spinDir) * speed;
           orbsRef.current.push(orb);
-          ripplesRef.current.push({ x: pos.x, y: pos.y, color: orb.color, born: now });
+          ripplesRef.current.push({ x: ox, y: oy, color: orb.color, born: now });
         }
         setOrbCount(orbsRef.current.length);
-        shakeRef.current = Math.max(shakeRef.current, 8);
-        playBurstSound();
+        shakeRef.current = Math.max(shakeRef.current, 6);
+        playGalaxySound();
       }
     },
     [getPos, findOrb]
@@ -2020,7 +2029,12 @@ function App() {
           const wdy = well.y - orb.y;
           const wDist = Math.sqrt(wdx * wdx + wdy * wdy);
           if (wDist < WELL_RANGE && wDist > 3) {
-            const force = WELL_GRAVITY / (1 + wDist * 0.01);
+            let wellStrength = 1;
+            if (well.expiry) {
+              wellStrength = Math.min((well.expiry - now) / 1500, 1);
+              if (wellStrength <= 0) continue;
+            }
+            const force = WELL_GRAVITY * wellStrength / (1 + wDist * 0.01);
             // radial attraction
             orb.vx += (wdx / wDist) * force;
             orb.vy += (wdy / wDist) * force;
@@ -2220,6 +2234,21 @@ function App() {
       // ── Gravity well critical mass check ──
       for (let wi = wellsRef.current.length - 1; wi >= 0; wi--) {
         const well = wellsRef.current[wi];
+        // Auto-remove expired temporary wells
+        if (well.expiry && now >= well.expiry) {
+          for (let i = 0; i < 8; i++) {
+            const angle = (Math.PI * 2 * i) / 8;
+            burstsRef.current.push({
+              x: well.x, y: well.y,
+              vx: Math.cos(angle) * (1 + Math.random()),
+              vy: Math.sin(angle) * (1 + Math.random()),
+              color: well.color, radius: 2, born: now,
+            });
+          }
+          ripplesRef.current.push({ x: well.x, y: well.y, color: well.color, born: now });
+          wellsRef.current.splice(wi, 1);
+          continue;
+        }
         let orbiting = 0;
         for (const orb of orbs) {
           const wdx = well.x - orb.x;
@@ -2759,80 +2788,6 @@ function App() {
         }
       }
 
-      // ── Tidal Pulse: inhale-exhale gravitational oscillation ──────────
-      if (tidalPulseRef.current) {
-        const tp = tidalPulseRef.current;
-        const age = now - tp.born;
-        const TIDAL_DURATION = 1800;
-        if (age > TIDAL_DURATION) {
-          tidalPulseRef.current = null;
-        } else {
-          const cx = tp.cx;
-          const cy = tp.cy;
-          // Phase: 0→600ms inhale (pull in), 600→1200ms exhale (push out), 1200→1800ms gentle inhale
-          const phase = age / TIDAL_DURATION; // 0→1
-          let forceMul;
-          if (age < 600) {
-            // inhale: pull inward, peaks at 300ms
-            const t = age / 600;
-            forceMul = -Math.sin(t * Math.PI) * 0.35;
-          } else if (age < 1200) {
-            // exhale: push outward, peaks at 900ms
-            const t = (age - 600) / 600;
-            forceMul = Math.sin(t * Math.PI) * 0.55;
-          } else {
-            // gentle final inhale, fading
-            const t = (age - 1200) / 600;
-            forceMul = -Math.sin(t * Math.PI) * 0.15;
-          }
-          for (const orb of orbs) {
-            if (orb === dragRef.current) continue;
-            const dx = orb.x - cx;
-            const dy = orb.y - cy;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const force = forceMul * (3 + Math.min(dist * 0.008, 2));
-            orb.vx += (dx / dist) * force;
-            orb.vy += (dy / dist) * force;
-          }
-          // Visual: pulsing rings
-          const ringCount = 3;
-          for (let ri = 0; ri < ringCount; ri++) {
-            const ringPhase = (phase * 2 + ri * 0.33) % 1;
-            const maxR = Math.sqrt(W * W + H * H) * 0.5;
-            let ringRadius, ringAlpha;
-            if (age < 600) {
-              // contracting rings during inhale
-              ringRadius = maxR * (1 - ringPhase) * 0.8;
-              ringAlpha = (1 - phase * 1.5) * 0.3 * Math.sin(ringPhase * Math.PI);
-            } else if (age < 1200) {
-              // expanding rings during exhale
-              ringRadius = maxR * ringPhase * 0.9;
-              ringAlpha = (1 - phase) * 0.4 * Math.sin(ringPhase * Math.PI);
-            } else {
-              // gentle contracting rings
-              ringRadius = maxR * (1 - ringPhase) * 0.4;
-              ringAlpha = (1 - phase) * 0.2 * Math.sin(ringPhase * Math.PI);
-            }
-            if (ringAlpha > 0.01 && ringRadius > 5) {
-              ctx.beginPath();
-              ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2);
-              ctx.strokeStyle = tp.color + hexAlpha(Math.min(ringAlpha, 1) * 255);
-              ctx.lineWidth = 2 + (1 - phase) * 3;
-              ctx.stroke();
-            }
-          }
-          // Central glow
-          const glowAlpha = (1 - phase) * 0.3;
-          const glowR = 40 + Math.abs(forceMul) * 120;
-          const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
-          grd.addColorStop(0, tp.color + hexAlpha(glowAlpha * 255));
-          grd.addColorStop(1, tp.color + "00");
-          ctx.beginPath();
-          ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
-          ctx.fillStyle = grd;
-          ctx.fill();
-        }
-      }
 
       // ── Shatter chain reaction ──────────────────────────────────────
       shatterRef.current = shatterRef.current.filter((s) => s.radius < SHATTER_WAVE_MAX_RADIUS);
@@ -3812,6 +3767,15 @@ function App() {
         const isCritical = well.criticalSince != null;
         const criticalProg = isCritical ? Math.min((now - well.criticalSince) / WELL_CRITICAL_MS, 1) : 0;
 
+        // Fade out temporary wells approaching expiry
+        let wellFade = 1;
+        if (well.expiry) {
+          wellFade = Math.min((well.expiry - now) / 1500, 1);
+          if (wellFade <= 0) continue;
+        }
+        ctx.save();
+        ctx.globalAlpha = wellFade;
+
         // outer gravitational field glow — intensifies with charge
         const baseFieldAlpha = 0.04 + 0.02 * Math.sin(time * 2);
         const fieldAlpha = baseFieldAlpha + charge * 0.08;
@@ -3871,6 +3835,7 @@ function App() {
         ctx.arc(well.x, well.y, well.radius * 1.3, 0, Math.PI * 2);
         ctx.fillStyle = coreGrad;
         ctx.fill();
+        ctx.restore(); // restore wellFade globalAlpha
       }
 
       // draw gravity paint dots
@@ -4784,239 +4749,6 @@ function App() {
         }
       }
 
-      // ── Maelstrom effect (spiral inward → explosive release) ──
-      if (maelstromRef.current) {
-        const ml = maelstromRef.current;
-        const age = now - ml.born;
-
-        if (ml.phase === "spiral" && age < MAELSTROM_SPIRAL_MS) {
-          const progress = age / MAELSTROM_SPIRAL_MS;
-          const pullStrength = MAELSTROM_PULL * (0.5 + progress * 2);
-          const tangentStrength = MAELSTROM_TANGENT * (1 + progress * 3);
-
-          for (const orb of orbs) {
-            if (orb === dragRef.current) continue;
-            const dx = ml.cx - orb.x;
-            const dy = ml.cy - orb.y;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            // Inward pull
-            orb.vx += (dx / dist) * pullStrength;
-            orb.vy += (dy / dist) * pullStrength;
-            // Tangential spin (perpendicular to radial)
-            orb.vx += (-dy / dist) * tangentStrength;
-            orb.vy += (dx / dist) * tangentStrength;
-            // Damping for tight spiral
-            orb.vx *= 0.94;
-            orb.vy *= 0.94;
-          }
-
-          // Visual: rotating spiral arms
-          const armCount = 3;
-          const maxR = Math.min(W, H) * 0.45 * (1 - progress * 0.7);
-          const rotation = progress * Math.PI * 6;
-          ctx.save();
-          ctx.globalCompositeOperation = "lighter";
-          for (let a = 0; a < armCount; a++) {
-            const baseAngle = (Math.PI * 2 * a) / armCount + rotation;
-            ctx.beginPath();
-            for (let t = 0; t < 1; t += 0.02) {
-              const r = maxR * t;
-              const spiralAngle = baseAngle + t * Math.PI * 2;
-              const px = ml.cx + Math.cos(spiralAngle) * r;
-              const py = ml.cy + Math.sin(spiralAngle) * r;
-              if (t === 0) ctx.moveTo(px, py);
-              else ctx.lineTo(px, py);
-            }
-            const armAlpha = (0.15 + progress * 0.2) * (1 - progress * 0.3);
-            ctx.strokeStyle = `rgba(120, 200, 255, ${armAlpha})`;
-            ctx.lineWidth = 2 + progress * 3;
-            ctx.stroke();
-          }
-
-          // Core glow that intensifies
-          const coreR = 15 + progress * 40;
-          const coreGrad = ctx.createRadialGradient(ml.cx, ml.cy, 0, ml.cx, ml.cy, coreR);
-          coreGrad.addColorStop(0, `rgba(140, 220, 255, ${0.3 + progress * 0.4})`);
-          coreGrad.addColorStop(0.5, `rgba(80, 160, 255, ${0.15 + progress * 0.2})`);
-          coreGrad.addColorStop(1, "transparent");
-          ctx.beginPath();
-          ctx.arc(ml.cx, ml.cy, coreR, 0, Math.PI * 2);
-          ctx.fillStyle = coreGrad;
-          ctx.fill();
-          ctx.restore();
-
-          shakeRef.current = Math.max(shakeRef.current, 2 + progress * 8);
-        } else if (ml.phase === "spiral" && age >= MAELSTROM_SPIRAL_MS) {
-          // Transition: release all orbs outward
-          ml.phase = "release";
-          ml.releaseBorn = now;
-
-          for (const orb of orbs) {
-            if (orb === dragRef.current) continue;
-            const dx = orb.x - ml.cx;
-            const dy = orb.y - ml.cy;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            orb.vx = (dx / dist) * (MAELSTROM_RELEASE_SPEED + Math.random() * 4);
-            orb.vy = (dy / dist) * (MAELSTROM_RELEASE_SPEED + Math.random() * 4);
-          }
-
-          // Flash + shockwave
-          flashesRef.current.push({
-            x: ml.cx, y: ml.cy, color: "#78c8ff",
-            radius: 50, born: now,
-          });
-          wavesRef.current.push({
-            cx: ml.cx, cy: ml.cy, radius: 0,
-            color: "#78c8ff", generation: 0,
-            hitOrbs: new Set(), delay: 0,
-          });
-
-          shakeRef.current = 30;
-          playSupernovaSound();
-        }
-
-        if (ml.phase === "release") {
-          const releaseAge = now - ml.releaseBorn;
-          if (releaseAge < MAELSTROM_RELEASE_MS) {
-            const progress = releaseAge / MAELSTROM_RELEASE_MS;
-            const glowR = 20 + progress * Math.min(W, H) * 0.4;
-            const glowAlpha = (1 - progress) * 0.25;
-            const glowGrad = ctx.createRadialGradient(ml.cx, ml.cy, 0, ml.cx, ml.cy, glowR);
-            glowGrad.addColorStop(0, `rgba(140, 220, 255, ${glowAlpha * 0.8})`);
-            glowGrad.addColorStop(0.3, `rgba(80, 160, 255, ${glowAlpha * 0.4})`);
-            glowGrad.addColorStop(1, "transparent");
-            ctx.beginPath();
-            ctx.arc(ml.cx, ml.cy, glowR, 0, Math.PI * 2);
-            ctx.fillStyle = glowGrad;
-            ctx.fill();
-          } else {
-            maelstromRef.current = null;
-          }
-        }
-      }
-
-      // ── Orbit Lock effect ──
-      if (orbitLockRef.current) {
-        const ol = orbitLockRef.current;
-        const age = now - ol.born;
-        const totalGatherSpin = ORBIT_LOCK_GATHER_MS + ORBIT_LOCK_SPIN_MS;
-
-        if (ol.phase === "gather" || ol.phase === "spin") {
-          const isGathering = ol.phase === "gather" && age < ORBIT_LOCK_GATHER_MS;
-          const spinAge = ol.phase === "spin" ? age - ORBIT_LOCK_GATHER_MS : 0;
-
-          if (ol.phase === "gather" && age >= ORBIT_LOCK_GATHER_MS) {
-            ol.phase = "spin";
-          }
-
-          // Move orbs toward their ring positions / keep them orbiting
-          for (let i = 0; i < ol.assignments.length; i++) {
-            const a = ol.assignments[i];
-            const orb = a.orb;
-            if (!orbs.includes(orb)) continue; // orb was removed
-
-            const ringDir = a.ring % 2 === 0 ? 1 : -1;
-            const spinRate = ORBIT_LOCK_SPIN_SPEED * (1 + a.ring * 0.3) * ringDir;
-            const elapsed = ol.phase === "spin" ? spinAge : 0;
-            const currentAngle = a.angle + spinRate * (elapsed / 1000);
-
-            const targetX = ol.cx + Math.cos(currentAngle) * a.radius;
-            const targetY = ol.cy + Math.sin(currentAngle) * a.radius;
-
-            if (isGathering) {
-              const gatherT = Math.min(age / ORBIT_LOCK_GATHER_MS, 1);
-              const ease = 1 - Math.pow(1 - gatherT, 3); // ease-out cubic
-              orb.x += (targetX - orb.x) * ease * 0.15;
-              orb.y += (targetY - orb.y) * ease * 0.15;
-              orb.vx *= 0.85;
-              orb.vy *= 0.85;
-            } else {
-              // Lock to orbit position
-              orb.x += (targetX - orb.x) * 0.25;
-              orb.y += (targetY - orb.y) * 0.25;
-              orb.vx = 0;
-              orb.vy = 0;
-            }
-          }
-
-          // Visuals: glowing ring outlines
-          const ringAlpha = isGathering
-            ? Math.min(age / ORBIT_LOCK_GATHER_MS, 1) * 0.3
-            : 0.3 - (ol.phase === "spin" ? spinAge / ORBIT_LOCK_SPIN_MS * 0.1 : 0);
-          ctx.save();
-          ctx.globalCompositeOperation = "lighter";
-          for (let r = 0; r < ol.ringCount; r++) {
-            const ringR = ol.baseRadius + r * ORBIT_LOCK_RING_GAP;
-            const ringColor = r % 2 === 0 ? "120, 200, 255" : "240, 147, 251";
-            ctx.beginPath();
-            ctx.arc(ol.cx, ol.cy, ringR, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(${ringColor}, ${ringAlpha})`;
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
-          }
-
-          // Center glow
-          const coreR = 12 + (isGathering ? age / ORBIT_LOCK_GATHER_MS * 8 : 8);
-          const coreGrad = ctx.createRadialGradient(ol.cx, ol.cy, 0, ol.cx, ol.cy, coreR);
-          coreGrad.addColorStop(0, `rgba(200, 220, 255, ${ringAlpha * 1.5})`);
-          coreGrad.addColorStop(1, "transparent");
-          ctx.beginPath();
-          ctx.arc(ol.cx, ol.cy, coreR, 0, Math.PI * 2);
-          ctx.fillStyle = coreGrad;
-          ctx.fill();
-          ctx.restore();
-
-          // Transition to release
-          if (ol.phase === "spin" && age >= totalGatherSpin) {
-            ol.phase = "release";
-            ol.releaseBorn = now;
-
-            // Fling orbs tangentially
-            for (const a of ol.assignments) {
-              const orb = a.orb;
-              if (!orbs.includes(orb)) continue;
-              const ringDir = a.ring % 2 === 0 ? 1 : -1;
-              const spinRate = ORBIT_LOCK_SPIN_SPEED * (1 + a.ring * 0.3) * ringDir;
-              const elapsed = ORBIT_LOCK_SPIN_MS / 1000;
-              const currentAngle = a.angle + spinRate * elapsed;
-              // Tangential velocity
-              const tangentSpeed = spinRate * a.radius / 1000 * 3;
-              orb.vx = -Math.sin(currentAngle) * tangentSpeed;
-              orb.vy = Math.cos(currentAngle) * tangentSpeed;
-            }
-
-            shakeRef.current = Math.max(shakeRef.current, 8);
-            wavesRef.current.push({
-              cx: ol.cx, cy: ol.cy, radius: 0,
-              color: "#f093fb", generation: 0,
-              hitOrbs: new Set(), delay: 0,
-            });
-            playSwoosh();
-          }
-        }
-
-        if (ol.phase === "release") {
-          const releaseAge = now - ol.releaseBorn;
-          if (releaseAge < ORBIT_LOCK_RELEASE_MS) {
-            const progress = releaseAge / ORBIT_LOCK_RELEASE_MS;
-            const fadeAlpha = (1 - progress) * 0.2;
-            ctx.save();
-            ctx.globalCompositeOperation = "lighter";
-            for (let r = 0; r < ol.ringCount; r++) {
-              const ringR = ol.baseRadius + r * ORBIT_LOCK_RING_GAP + progress * 30;
-              ctx.beginPath();
-              ctx.arc(ol.cx, ol.cy, ringR, 0, Math.PI * 2);
-              ctx.strokeStyle = `rgba(200, 180, 255, ${fadeAlpha})`;
-              ctx.lineWidth = 1;
-              ctx.stroke();
-            }
-            ctx.restore();
-          } else {
-            orbitLockRef.current = null;
-          }
-        }
-      }
-
       // ── Pulsar effect (rhythmic pulse waves → detonation) ──
 
       // ── Flick aiming line ──
@@ -5576,40 +5308,6 @@ function App() {
     playBurstSound();
   }, []);
 
-  const handleGalaxy = useCallback(() => {
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const mx = mouseRef.current.x;
-    const my = mouseRef.current.y;
-    const cx = (mx > 0 || my > 0) ? mx : W / 2;
-    const cy = (mx > 0 || my > 0) ? my : H / 2;
-    const count = 12;
-    const now = performance.now();
-    const arms = 2;
-    const spinDir = Math.random() < 0.5 ? 1 : -1;
-
-    for (let i = 0; i < count; i++) {
-      const arm = i % arms;
-      const t = (Math.floor(i / arms) + 1) / (count / arms);
-      const spiralAngle = arm * Math.PI + t * Math.PI * 1.5 * spinDir;
-      const dist = 15 + t * 80;
-      const x = cx + Math.cos(spiralAngle) * dist;
-      const y = cy + Math.sin(spiralAngle) * dist;
-      const orb = createOrb(x, y);
-      orb.radius = 6 + Math.random() * 8;
-      // tangential velocity for orbital motion
-      const tangentAngle = spiralAngle + (Math.PI / 2) * spinDir;
-      const speed = 1.5 + t * 2;
-      orb.vx = Math.cos(tangentAngle) * speed;
-      orb.vy = Math.sin(tangentAngle) * speed;
-      orbsRef.current.push(orb);
-      ripplesRef.current.push({ x, y, color: orb.color, born: now });
-    }
-
-    setOrbCount(orbsRef.current.length);
-    shakeRef.current = 6;
-    playGalaxySound();
-  }, []);
 
   const handleFirework = useCallback(() => {
     const W = window.innerWidth;
@@ -5709,76 +5407,6 @@ function App() {
     });
   }, []);
 
-  const handleVolley = useCallback(() => {
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const count = 12;
-    const edge = Math.floor(Math.random() * 4);
-    for (let i = 0; i < count; i++) {
-      setTimeout(() => {
-        const t = i / (count - 1);
-        const speed = 4 + Math.random() * 3;
-        let x, y, vx, vy;
-        if (edge === 0) { x = -5; y = H * 0.1 + t * H * 0.8; vx = speed; vy = (Math.random() - 0.5) * 2; }
-        else if (edge === 1) { x = W + 5; y = H * 0.1 + t * H * 0.8; vx = -speed; vy = (Math.random() - 0.5) * 2; }
-        else if (edge === 2) { x = W * 0.1 + t * W * 0.8; y = -5; vx = (Math.random() - 0.5) * 2; vy = speed; }
-        else { x = W * 0.1 + t * W * 0.8; y = H + 5; vx = (Math.random() - 0.5) * 2; vy = -speed; }
-        const orb = createOrb(x, y);
-        orb.vx = vx;
-        orb.vy = vy;
-        orbsRef.current.push(orb);
-        ripplesRef.current.push({ x, y, color: orb.color, born: performance.now() });
-        setOrbCount(orbsRef.current.length);
-        shakeRef.current = Math.max(shakeRef.current, 6);
-      }, i * 50);
-    }
-    shakeRef.current = 10;
-    playBoom();
-  }, []);
-
-  const handleCrossfire = useCallback(() => {
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const cx = W / 2;
-    const cy = H / 2;
-    const perEdge = 5;
-    for (let edge = 0; edge < 4; edge++) {
-      for (let i = 0; i < perEdge; i++) {
-        setTimeout(() => {
-          const t = (i + 0.5) / perEdge;
-          const speed = 5 + Math.random() * 3;
-          let x, y;
-          if (edge === 0) { x = -5; y = H * 0.15 + t * H * 0.7; }
-          else if (edge === 1) { x = W + 5; y = H * 0.15 + t * H * 0.7; }
-          else if (edge === 2) { x = W * 0.15 + t * W * 0.7; y = -5; }
-          else { x = W * 0.15 + t * W * 0.7; y = H + 5; }
-          const dx = cx - x, dy = cy - y;
-          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const orb = createOrb(x, y);
-          orb.vx = (dx / dist) * speed + (Math.random() - 0.5) * 1.5;
-          orb.vy = (dy / dist) * speed + (Math.random() - 0.5) * 1.5;
-          orbsRef.current.push(orb);
-          ripplesRef.current.push({ x, y, color: orb.color, born: performance.now() });
-          setOrbCount(orbsRef.current.length);
-        }, i * 40 + edge * 20);
-      }
-    }
-    shakeRef.current = 18;
-    playBoom();
-  }, []);
-
-  const handleTidalPulse = useCallback(() => {
-    if (tidalPulseRef.current) return; // only one at a time
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const cx = W / 2;
-    const cy = H / 2;
-    tidalPulseRef.current = { cx, cy, born: performance.now(), color: randomColor() };
-    // visual ripple at center
-    ripplesRef.current.push({ x: cx, y: cy, color: tidalPulseRef.current.color, born: performance.now() });
-    shakeRef.current = Math.max(shakeRef.current, 12);
-    playSwoosh();
-  }, []);
 
   const handleToggleAudio = useCallback(() => {
     try {
@@ -5958,49 +5586,6 @@ function App() {
     playSupernovaSound();
   }, []);
 
-  const handleMaelstrom = useCallback(() => {
-    if (maelstromRef.current || orbsRef.current.length === 0) return;
-    const mx = mouseRef.current.x;
-    const my = mouseRef.current.y;
-    const cx = (mx > 0 || my > 0) ? mx : window.innerWidth / 2;
-    const cy = (mx > 0 || my > 0) ? my : window.innerHeight / 2;
-    maelstromRef.current = { cx, cy, born: performance.now(), phase: "spiral" };
-    playSwoosh();
-  }, []);
-
-  const handleOrbitLock = useCallback(() => {
-    if (orbitLockRef.current || orbsRef.current.length === 0) return;
-    const orbs = orbsRef.current.filter(o => !o.spark);
-    if (orbs.length === 0) return;
-
-    // Center of mass
-    let cx = 0, cy = 0;
-    for (const orb of orbs) { cx += orb.x; cy += orb.y; }
-    cx /= orbs.length;
-    cy /= orbs.length;
-
-    // Determine ring count based on orb count
-    const ringCount = Math.max(1, Math.min(Math.ceil(orbs.length / 6), 5));
-    const baseRadius = Math.min(window.innerWidth, window.innerHeight) * 0.12;
-
-    // Assign orbs to rings evenly, then assign angle within ring
-    const assignments = [];
-    const shuffled = [...orbs].sort(() => Math.random() - 0.5);
-    for (let i = 0; i < shuffled.length; i++) {
-      const ring = i % ringCount;
-      const orbsInRing = Math.ceil((shuffled.length - ring) / ringCount);
-      const indexInRing = Math.floor(i / ringCount);
-      const angle = (Math.PI * 2 * indexInRing) / orbsInRing;
-      const radius = baseRadius + ring * ORBIT_LOCK_RING_GAP;
-      assignments.push({ orb: shuffled[i], ring, angle, radius });
-    }
-
-    orbitLockRef.current = {
-      cx, cy, born: performance.now(), phase: "gather",
-      assignments, ringCount, baseRadius,
-    };
-    playSwoosh();
-  }, []);
 
   const handleComet = useCallback(() => {
     const W = window.innerWidth;
@@ -6076,90 +5661,15 @@ function App() {
     playBlackHoleSound();
   }, []);
 
-  const handleFission = useCallback(() => {
-    const orbs = orbsRef.current.filter(o => !o.spark);
-    if (orbs.length === 0) return;
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const cx = W / 2, cy = H / 2;
-    // Sort by distance from center (closest first)
-    const sorted = [...orbs].sort((a, b) => {
-      const da = (a.x - cx) ** 2 + (a.y - cy) ** 2;
-      const db = (b.x - cx) ** 2 + (b.y - cy) ** 2;
-      return da - db;
-    });
-    sorted.forEach((orb, i) => {
-      setTimeout(() => {
-        const idx = orbsRef.current.indexOf(orb);
-        if (idx === -1) return;
-        orbsRef.current.splice(idx, 1);
-        // Create 3 smaller orbs
-        for (let j = 0; j < 3; j++) {
-          const angle = (Math.PI * 2 * j) / 3 + Math.random() * 0.5;
-          const speed = 2 + Math.random() * 3;
-          const newOrb = createOrb(orb.x, orb.y);
-          newOrb.radius = Math.max(4, orb.radius * 0.55);
-          newOrb.color = orb.color;
-          newOrb.vx = Math.cos(angle) * speed;
-          newOrb.vy = Math.sin(angle) * speed;
-          orbsRef.current.push(newOrb);
-        }
-        // Burst particles
-        const now = performance.now();
-        for (let k = 0; k < BURST_PARTICLE_COUNT; k++) {
-          const angle = (Math.PI * 2 * k) / BURST_PARTICLE_COUNT;
-          burstsRef.current.push({
-            x: orb.x, y: orb.y,
-            vx: Math.cos(angle) * (1.5 + Math.random() * 2),
-            vy: Math.sin(angle) * (1.5 + Math.random() * 2),
-            color: orb.color,
-            radius: orb.radius * 0.3,
-            born: now,
-          });
-        }
-        ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
-        if (i % 2 === 0) playFirePop();
-        shakeRef.current = Math.max(shakeRef.current, 5);
-        setOrbCount(orbsRef.current.filter(o => !o.spark).length);
-      }, i * 60);
-    });
-  }, []);
-
-  const handleEruption = useCallback(() => {
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const cx = W / 2;
-    const count = 16;
-    for (let i = 0; i < count; i++) {
-      setTimeout(() => {
-        const orb = createOrb(cx + (Math.random() - 0.5) * 60, H - 5);
-        const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.7;
-        const speed = 7 + Math.random() * 7;
-        orb.vx = Math.cos(angle) * speed;
-        orb.vy = Math.sin(angle) * speed;
-        orbsRef.current.push(orb);
-        ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: performance.now() });
-        setOrbCount(orbsRef.current.length);
-        shakeRef.current = Math.max(shakeRef.current, 4);
-      }, i * 35);
-    }
-    shakeRef.current = 10;
-    playBoom();
-  }, []);
 
   const handleRandomEffect = useCallback(() => {
     const orbs = orbsRef.current;
     const alwaysAvailable = [
       [handleBurst, "BURST"], [handleMeteorShower, "METEOR SHOWER"], [handleFirework, "FIREWORK"],
-      [handleEruption, "ERUPTION"], [handleGalaxy, "GALAXY"], [handleVolley, "BARRAGE"],
-      [handleCrossfire, "CROSSFIRE"], [handleTidalPulse, "TIDAL PULSE"],
     ];
     const needsOrbs = [
       [handleWave, "SHOCKWAVE"], [handleLightning, "LIGHTNING"], [handleScatter, "SCATTER"],
       [handleSpin, "SPIN"], [handleGather, "GATHER"], [handleSupernova, "SUPERNOVA"],
-      [handleMaelstrom, "MAELSTROM"],
-      [handleOrbitLock, "ORBIT LOCK"],
-      [handleFission, "FISSION"],
     ];
     const pool = orbs.length > 0 ? [...alwaysAvailable, ...needsOrbs] : alwaysAvailable;
     const [fn, label] = pool[Math.floor(Math.random() * pool.length)];
@@ -6167,7 +5677,7 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     comboFlashRef.current.push({ text: label, x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" });
-  }, [handleBurst, handleMeteorShower, handleFirework, handleEruption, handleGalaxy, handleVolley, handleCrossfire, handleTidalPulse, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleOrbitLock, handleFission]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -6270,14 +5780,6 @@ function App() {
           handleSupernova();
           flashLabel("SUPERNOVA", "#f093fb");
           break;
-        case "u":
-          handleMaelstrom();
-          flashLabel("MAELSTROM", "#78c8ff");
-          break;
-        case "i":
-          handleGalaxy();
-          flashLabel("GALAXY", "#667eea");
-          break;
         case "v":
           handleToggleAudio();
           break;
@@ -6294,33 +5796,9 @@ function App() {
           handleCyclePalette();
           flashLabel(PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), "#f093fb");
           break;
-        case "t":
-          handleVolley();
-          flashLabel("BARRAGE", "#43e97b");
-          break;
-        case "4":
-          handleEruption();
-          flashLabel("ERUPTION", "#43e97b");
-          break;
-        case "9":
-          handleCrossfire();
-          flashLabel("CROSSFIRE", "#feb47b");
-          break;
-        case "0":
-          handleTidalPulse();
-          flashLabel("TIDAL PULSE", "#78c8ff");
-          break;
         case "2":
           handleBlackHole();
           flashLabel("BLACK HOLE", "#a855f7");
-          break;
-        case "5":
-          handleOrbitLock();
-          flashLabel("ORBIT LOCK", "#f093fb");
-          break;
-        case "6":
-          handleFission();
-          flashLabel("FISSION", "#43e97b");
           break;
         case "1":
           handleRandomEffect();
@@ -6335,7 +5813,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleEruption, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleBlackHole, handleOrbitLock, handleFission, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6372,7 +5850,7 @@ function App() {
       />
       <HUD>
         <Title>Automatic Software</Title>
-        <Hint>tap to create &middot; hold to attract &middot; drag to launch &middot; double-tap to burst or remove &middot; right-click to split &middot; rapid taps unlock combos</Hint>
+        <Hint>tap to create &middot; hold to attract &middot; drag to launch &middot; double-tap to orbit or remove &middot; right-click to split &middot; rapid taps unlock combos</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <>
@@ -6544,11 +6022,8 @@ function App() {
         <ModeToggle onClick={handleCyclePalette} $active={paletteIndex !== 0} $color="#f093fb" title="Cycle color palette">
           {PALETTES[paletteIndex].name.toLowerCase()}
         </ModeToggle>
-        <ModeToggle onClick={handleBarrierMode} $active={barrierMode} $color="#4facfe" title="Draw walls (7)">
-          walls
-        </ModeToggle>
-        <ModeToggle onClick={handleAutoPlay} $active={autoPlay} $color="#43e97b" title="Autoplay (ambient mode)">
-          autoplay
+        <ModeToggle onClick={handleOrbitMode} $active={orbitMode} $color="#f093fb" title="Orbit mode">
+          orbit
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
@@ -6593,16 +6068,8 @@ function App() {
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
-              <Shortcut><Key>U</Key><span>Maelstrom (spiral + release)</span></Shortcut>
-              <Shortcut><Key>I</Key><span>Galaxy spiral</span></Shortcut>
-              <Shortcut><Key>T</Key><span>Barrage (volley from edge)</span></Shortcut>
-              <Shortcut><Key>4</Key><span>Eruption (geyser from bottom)</span></Shortcut>
-              <Shortcut><Key>9</Key><span>Crossfire (all edges converge)</span></Shortcut>
-              <Shortcut><Key>0</Key><span>Tidal pulse (inhale → exhale)</span></Shortcut>
               <Shortcut><Key>1</Key><span>Random effect (surprise!)</span></Shortcut>
               <Shortcut><Key>2</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
-              <Shortcut><Key>5</Key><span>Orbit lock (rings + release)</span></Shortcut>
-              <Shortcut><Key>6</Key><span>Fission (split all orbs)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
