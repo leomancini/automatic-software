@@ -177,6 +177,7 @@ function App() {
   const vortexStormRef = useRef(null); // {cx, cy, born, exploded}
   const nebulaRef = useRef([]); // ambient nebula glow points
   const tapSparklesRef = useRef([]); // tiny sparkle particles from taps
+  const tapWebRef = useRef([]); // recent tap positions for constellation web [{x, y, color, born}]
   const harpVibrationsRef = useRef([]); // gravity harp string pluck visuals
   const formationRef = useRef(null); // {targets, born, type}
   const formationIndexRef = useRef(0);
@@ -571,6 +572,10 @@ function App() {
       if (tapSparklesRef.current.length > 200) {
         tapSparklesRef.current = tapSparklesRef.current.slice(-150);
       }
+
+      // ── Tap constellation web ──
+      tapWebRef.current.push({ x: pos.x, y: pos.y, color: rippleColor, born: now });
+      if (tapWebRef.current.length > 30) tapWebRef.current.shift();
 
       // Streak 5+: auto-shockwave from tap point
       if (streak >= 5) {
@@ -1186,6 +1191,60 @@ function App() {
         ctx.arc(mote.x, mote.y, drawSize, 0, Math.PI * 2);
         ctx.fillStyle = mote.color + hexAlpha(Math.min(alpha, 1) * 255);
         ctx.fill();
+      }
+
+      // ── Tap constellation web ──
+      {
+        const TAP_WEB_LIFETIME = 3000;
+        const TAP_WEB_CONNECT_DIST = 280;
+        const tapWeb = tapWebRef.current;
+        // expire old points
+        while (tapWeb.length > 0 && now - tapWeb[0].born > TAP_WEB_LIFETIME) tapWeb.shift();
+        if (tapWeb.length >= 2) {
+          ctx.lineCap = "round";
+          // draw connections between nearby tap points
+          for (let i = 0; i < tapWeb.length; i++) {
+            const a = tapWeb[i];
+            const ageA = (now - a.born) / TAP_WEB_LIFETIME;
+            if (ageA >= 1) continue;
+            let connections = 0;
+            for (let j = i + 1; j < tapWeb.length; j++) {
+              if (connections >= 3) break;
+              const b = tapWeb[j];
+              const dx = b.x - a.x;
+              const dy = b.y - a.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist > TAP_WEB_CONNECT_DIST) continue;
+              const ageB = (now - b.born) / TAP_WEB_LIFETIME;
+              if (ageB >= 1) continue;
+              connections++;
+              const proximity = 1 - dist / TAP_WEB_CONNECT_DIST;
+              const freshness = (1 - ageA) * (1 - ageB);
+              const alpha = proximity * freshness * 0.35;
+              const width = proximity * freshness * 2.5;
+              // gradient line between the two tap colors
+              const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+              grad.addColorStop(0, a.color + hexAlpha(alpha * 255));
+              grad.addColorStop(1, b.color + hexAlpha(alpha * 255));
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.strokeStyle = grad;
+              ctx.lineWidth = Math.max(0.5, width);
+              ctx.stroke();
+            }
+            // glowing node at each tap point
+            const nodeAlpha = (1 - ageA) * 0.4;
+            const nodeR = 4 + (1 - ageA) * 3;
+            const nodeGrad = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, nodeR);
+            nodeGrad.addColorStop(0, a.color + hexAlpha(nodeAlpha * 255));
+            nodeGrad.addColorStop(1, "transparent");
+            ctx.beginPath();
+            ctx.arc(a.x, a.y, nodeR, 0, Math.PI * 2);
+            ctx.fillStyle = nodeGrad;
+            ctx.fill();
+          }
+        }
       }
 
       // expire old gravity paint dots
