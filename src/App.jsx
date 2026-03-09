@@ -5944,6 +5944,7 @@ function App() {
     const orbs = orbsRef.current;
     const alwaysAvailable = [
       [handleBurst, "BURST"], [handleMeteorShower, "METEOR SHOWER"], [handleFirework, "FIREWORK"],
+      [handleRicochet, "RICOCHET"],
     ];
     const needsOrbs = [
       [handleWave, "SHOCKWAVE"], [handleLightning, "LIGHTNING"], [handleScatter, "SCATTER"],
@@ -5957,7 +5958,7 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     comboFlashRef.current.push({ text: label, x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" });
-  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleCascade, handleOrbitLock, handleImplode]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleRicochet, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleCascade, handleOrbitLock, handleImplode]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -6091,6 +6092,10 @@ function App() {
           handleImplode();
           flashLabel("IMPLODE", "#fa709a");
           break;
+        case "4":
+          handleRicochet();
+          flashLabel("RICOCHET", "#feb47b");
+          break;
         case "7":
           handleBarrierMode();
           break;
@@ -6105,7 +6110,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6214,6 +6219,15 @@ function App() {
               <line x1="12" y1="8" x2="18" y2="8" />
               <line x1="12" y1="8" x2="8" y2="12" />
               <line x1="12" y1="8" x2="16" y2="12" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleRicochet} title="Ricochet">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="4 20 10 8 16 16 20 4" />
+              <circle cx="4" cy="20" r="2" fill="currentColor" />
+              <circle cx="10" cy="8" r="2" fill="currentColor" />
+              <circle cx="16" cy="16" r="2" fill="currentColor" />
+              <circle cx="20" cy="4" r="2" fill="currentColor" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleSupernova} title="Supernova">
@@ -6326,9 +6340,6 @@ function App() {
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode">
           paint
         </ModeToggle>
-        <ModeToggle onClick={handleCyclePalette} $active={paletteIndex !== 0} $color="#f093fb" title="Cycle color palette">
-          {PALETTES[paletteIndex].name.toLowerCase()}
-        </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
@@ -6375,6 +6386,7 @@ function App() {
               <Shortcut><Key>1</Key><span>Random effect (surprise!)</span></Shortcut>
               <Shortcut><Key>2</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
               <Shortcut><Key>3</Key><span>Implode (gravity bomb)</span></Shortcut>
+              <Shortcut><Key>4</Key><span>Ricochet (bouncing bolt)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
