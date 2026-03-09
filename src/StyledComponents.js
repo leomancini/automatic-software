@@ -327,6 +327,54 @@ export const Key = styled.span`
   text-align: center;
 `;
 
+export const ModeStrip = styled.div`
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  z-index: 10;
+
+  @media (max-width: 600px) {
+    bottom: 76px;
+    left: 50%;
+    transform: translateX(-50%);
+    justify-content: center;
+  }
+`;
+
+export const ModeToggle = styled.button`
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid ${(p) => p.$active ? `${p.$color}99` : "rgba(102, 126, 234, 0.2)"};
+  background: ${(p) => p.$active ? `${p.$color}22` : "rgba(15, 15, 26, 0.7)"};
+  color: ${(p) => p.$active ? p.$color : "rgba(160, 160, 184, 0.5)"};
+  backdrop-filter: blur(8px);
+
+  &:hover {
+    border-color: ${(p) => p.$color}88;
+    color: ${(p) => p.$color};
+    background: ${(p) => `${p.$color}15`};
+    transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  @media (max-width: 600px) {
+    padding: 5px 12px;
+    font-size: 0.65rem;
+  }
+`;
+
 export const HelpClose = styled.button`
   display: block;
   width: 100%;

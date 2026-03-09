@@ -83,7 +83,7 @@ import {
 import {
   Wrapper, Canvas, HUD, Title, Hint, Count, ModeIndicators, ModePill,
   StreakCounter, NextCombo, ButtonGroup, ButtonRow, ActionButton,
-  HelpButton, MuteButton, SaveFlash,
+  HelpButton, MuteButton, SaveFlash, ModeStrip, ModeToggle,
   HelpOverlay, HelpPanel, HelpTitle, ShortcutList, Shortcut, Key, HelpClose,
 } from './StyledComponents.js';
 
@@ -141,7 +141,6 @@ function App() {
   const [slowMo, setSlowMo] = useState(false);
   const slowMoRef = useRef(false);
   const [showHelp, setShowHelp] = useState(false);
-  const [showModes, setShowModes] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
   const autoplayModeRef = useRef(false);
@@ -6411,14 +6410,6 @@ function App() {
                 <polyline points="21 3 21 9 15 9" />
               </svg>
             </ActionButton>
-            <ActionButton onClick={handleOrbitLock} title="Orbit lock">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3" />
-                <ellipse cx="12" cy="12" rx="9" ry="4" />
-                <ellipse cx="12" cy="12" rx="9" ry="4" transform="rotate(60 12 12)" />
-                <ellipse cx="12" cy="12" rx="9" ry="4" transform="rotate(120 12 12)" />
-              </svg>
-            </ActionButton>
             <ActionButton onClick={() => { handlePlaceWell(); }} title="Place gravity well">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3" />
@@ -6428,24 +6419,6 @@ function App() {
                 <line x1="12" y1="20" x2="12" y2="23" opacity="0.4" />
                 <line x1="1" y1="12" x2="4" y2="12" opacity="0.4" />
                 <line x1="20" y1="12" x2="23" y2="12" opacity="0.4" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleFission} title="Fission">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3" />
-                <line x1="12" y1="12" x2="5" y2="5" />
-                <circle cx="4" cy="4" r="2" fill="currentColor" />
-                <line x1="12" y1="12" x2="19" y2="5" />
-                <circle cx="20" cy="4" r="2" fill="currentColor" />
-                <line x1="12" y1="12" x2="12" y2="21" />
-                <circle cx="12" cy="22" r="2" fill="currentColor" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleBlackHole} title="Black hole">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="4" fill="currentColor" />
-                <ellipse cx="12" cy="12" rx="10" ry="4" opacity="0.6" />
-                <ellipse cx="12" cy="12" rx="7" ry="9" opacity="0.3" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
@@ -6458,6 +6431,20 @@ function App() {
           )}
         </ButtonRow>
         </ButtonGroup>
+      <ModeStrip>
+        <ModeToggle onClick={handleSlowMo} $active={slowMo} $color="#00f2fe" title="Slow motion">
+          slow-mo
+        </ModeToggle>
+        <ModeToggle onClick={handleGravity} $active={gravityOn} $color="#43e97b" title="Toggle gravity">
+          gravity
+        </ModeToggle>
+        <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode">
+          repel
+        </ModeToggle>
+        <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode">
+          paint
+        </ModeToggle>
+      </ModeStrip>
       {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
