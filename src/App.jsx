@@ -5913,6 +5913,10 @@ function App() {
           handleTidalPulse();
           flashLabel("TIDAL PULSE", "#78c8ff");
           break;
+        case "2":
+          handleBlackHole();
+          flashLabel("BLACK HOLE", "#a855f7");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -5920,7 +5924,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleFireworkShow, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleFireworkShow, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6057,17 +6061,11 @@ function App() {
               <line x1="12" y1="12" x2="12" y2="8" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleVolley} title="Barrage">
+          <ActionButton onClick={handleBlackHole} title="Black hole">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="2" y1="4" x2="12" y2="12" />
-              <polyline points="2 8 2 4 6 4" />
-              <line x1="2" y1="12" x2="12" y2="14" />
-              <polyline points="2 16 2 12 6 12" />
-              <line x1="2" y1="20" x2="12" y2="16" />
-              <polyline points="2 24 2 20 6 20" />
-              <circle cx="14" cy="12" r="1.5" fill="currentColor" />
-              <circle cx="14" cy="14.5" r="1.5" fill="currentColor" />
-              <circle cx="14" cy="16" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="12" r="4" fill="currentColor" />
+              <ellipse cx="12" cy="12" rx="10" ry="4" opacity="0.6" />
+              <ellipse cx="12" cy="12" rx="7" ry="9" opacity="0.3" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -6189,6 +6187,7 @@ function App() {
               <Shortcut><Key>4</Key><span>Firework show (multi-launch)</span></Shortcut>
               <Shortcut><Key>9</Key><span>Crossfire (all edges converge)</span></Shortcut>
               <Shortcut><Key>0</Key><span>Tidal pulse (inhale → exhale)</span></Shortcut>
+              <Shortcut><Key>2</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
