@@ -285,6 +285,11 @@ export const VORTEX_STORM_ARM_COUNT = 5;       // visible spiral arms
 export const LIGHT_TRAIL_LENGTH = 24; // positions stored per orb trail
 export const TRAIL_SPEED_MIN = 1.5;   // min speed for visible trail
 
+// ── Velocity stretch ─────────────────────────────────────────────────
+export const VELOCITY_STRETCH_THRESHOLD = 2.5; // min speed before stretch kicks in
+export const VELOCITY_STRETCH_MAX = 0.45;      // max elongation factor
+export const VELOCITY_STRETCH_RAMP = 10;       // speed range over which stretch ramps up
+
 // ── Ambient nebula (responsive background glow) ─────────────────────
 export const NEBULA_COUNT = 5;
 export const NEBULA_BASE_RADIUS = 250;

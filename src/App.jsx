@@ -73,6 +73,7 @@ import {
   FLOCK_MAX_SPEED, FLOCK_CURSOR_FLEE_DIST, FLOCK_CURSOR_FLEE_FORCE,
   CURRENT_STRENGTH, CURRENT_SCALE, CURRENT_SPEED,
   EDGE_GLOW_RANGE, EDGE_GLOW_DEPTH, EDGE_GLOW_ALPHA,
+  VELOCITY_STRETCH_THRESHOLD, VELOCITY_STRETCH_MAX, VELOCITY_STRETCH_RAMP,
 } from './constants.js';
 import {
   PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce,
@@ -3616,6 +3617,8 @@ function App() {
         const r = orb.radius * pulse * spawnScale * (1 + proximityBoost * 0.3);
         if (r < 0.5) continue; // skip nearly-invisible orbs
 
+        const speed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+
         // Mitosis wobble: large orbs near split threshold elongate and pulse
         const mitosisProgress = orb.radius > MITOSIS_WOBBLE_START
           ? Math.min((orb.radius - MITOSIS_WOBBLE_START) / (COLLAPSE_RADIUS - MITOSIS_WOBBLE_START), 1)
@@ -3623,6 +3626,16 @@ function App() {
 
         ctx.save();
         ctx.translate(orb.x, orb.y);
+
+        // velocity stretch: fast orbs elongate along direction of travel
+        if (speed > VELOCITY_STRETCH_THRESHOLD && spawnT >= 1) {
+          const stretchAmt = Math.min((speed - VELOCITY_STRETCH_THRESHOLD) / VELOCITY_STRETCH_RAMP, VELOCITY_STRETCH_MAX);
+          const velAngle = Math.atan2(orb.vy, orb.vx);
+          ctx.rotate(velAngle);
+          ctx.scale(1 + stretchAmt, 1 - stretchAmt * 0.35);
+          ctx.rotate(-velAngle);
+        }
+
         if (mitosisProgress > 0) {
           const wobbleAmt = mitosisProgress * 0.2 * Math.sin(time * 5 + orb.pulsePhase);
           const wobbleAngle = time * 1.5 + orb.pulsePhase * 2;
@@ -3645,7 +3658,6 @@ function App() {
         }
 
         // outer glow (expands + brightens with speed)
-        const speed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
         const heat = Math.min(speed / 8, 1);
         const glowR = r * (3 + heat * 3);
         const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, glowR);
