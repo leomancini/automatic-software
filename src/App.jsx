@@ -6421,8 +6421,6 @@ function App() {
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
           {barrierMode && <ModePill $color="#4facfe">walls</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
-          {meshMode && <ModePill $color="#667eea">mesh</ModePill>}
-          {flockingMode && <ModePill $color="#00f2fe">swarm</ModePill>}
           {longExposure && <ModePill $color="#feb47b">long exposure</ModePill>}
           {autoPlay && <ModePill $color="#43e97b">autoplay</ModePill>}
           {paletteIndex !== 0 && <ModePill $color="#f093fb">{PALETTES[paletteIndex].name.toLowerCase()}</ModePill>}
@@ -6565,11 +6563,8 @@ function App() {
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode">
           paint
         </ModeToggle>
-        <ModeToggle onClick={handleMeshMode} $active={meshMode} $color="#667eea" title="Gravity mesh">
-          mesh
-        </ModeToggle>
-        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#00f2fe" title="Swarm mode (8)">
-          swarm
+        <ModeToggle onClick={handleCyclePalette} $active={paletteIndex !== 0} $color="#f093fb" title="Cycle color palette (Y)">
+          {PALETTES[paletteIndex].name.toLowerCase()}
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
@@ -6628,14 +6623,12 @@ function App() {
               <Shortcut><Key>O</Key><span>Orbit mode</span></Shortcut>
               <Shortcut><Key>N</Key><span>Place / remove gravity well</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
-              <Shortcut><Key>U</Key><span>Gravity mesh</span></Shortcut>
-              <Shortcut><Key>8</Key><span>Swarm mode (flocking)</span></Shortcut>
+              <Shortcut><Key>Y</Key><span>Cycle color palette</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>J</Key><span>Long exposure (trail mode)</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Autoplay (ambient mode)</span></Shortcut>
               <Shortcut><Key>K</Key><span>Save screenshot</span></Shortcut>
-              <Shortcut><Key>Y</Key><span>Cycle color palette</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all orbs</span></Shortcut>
               <Shortcut><Key>rapid taps</Key><span>Streak combos unlock effects at 5×, 12×, 20×, 25×...</span></Shortcut>
