@@ -5075,6 +5075,97 @@ function App() {
     playGalaxySound();
   }, []);
 
+  const handleFractal = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cx = W / 2;
+    const cy = H / 2;
+    const DELAY = 200;
+    const branches = 3;
+    const branchSpread = 0.65;
+
+    // Estimate position after delay ms with friction
+    const estimatePos = (x, y, vx, vy, ms) => {
+      const frames = ms / 16.67;
+      const f = Math.pow(FRICTION, frames);
+      const disp = (1 - f) / (1 - FRICTION);
+      return { x: x + vx * disp, y: y + vy * disp };
+    };
+
+    // Gen 0: 3 orbs from center
+    const gen0 = [];
+    for (let i = 0; i < branches; i++) {
+      const angle = (Math.PI * 2 * i) / branches - Math.PI / 2;
+      gen0.push({ angle, speed: 4 });
+      const orb = createOrb(cx, cy);
+      orb.vx = Math.cos(angle) * 4;
+      orb.vy = Math.sin(angle) * 4;
+      orbsRef.current.push(orb);
+      ripplesRef.current.push({ x: cx, y: cy, color: orb.color, born: performance.now() });
+    }
+    setOrbCount(orbsRef.current.length);
+    shakeRef.current = 6;
+    playBurstSound();
+
+    // Gen 1: each gen 0 → 2 children
+    setTimeout(() => {
+      const now1 = performance.now();
+      const gen1 = [];
+      for (const p of gen0) {
+        const pos = estimatePos(cx, cy, Math.cos(p.angle) * p.speed, Math.sin(p.angle) * p.speed, DELAY);
+        for (let d = -1; d <= 1; d += 2) {
+          const childAngle = p.angle + d * branchSpread;
+          gen1.push({ x: pos.x, y: pos.y, angle: childAngle, speed: 3 });
+          const orb = createOrb(pos.x, pos.y);
+          orb.vx = Math.cos(childAngle) * 3;
+          orb.vy = Math.sin(childAngle) * 3;
+          orb.radius = 7 + Math.random() * 3;
+          orbsRef.current.push(orb);
+          ripplesRef.current.push({ x: pos.x, y: pos.y, color: orb.color, born: now1 });
+          for (let s = 0; s < 3; s++) {
+            const sa = Math.random() * Math.PI * 2;
+            mergeSparksRef.current.push({
+              x: pos.x, y: pos.y,
+              vx: Math.cos(sa) * 2, vy: Math.sin(sa) * 2,
+              color: orb.color, size: 2, born: now1,
+            });
+          }
+        }
+      }
+      setOrbCount(orbsRef.current.length);
+      shakeRef.current = Math.max(shakeRef.current, 8);
+      playSpawn();
+
+      // Gen 2: each gen 1 → 2 grandchildren
+      setTimeout(() => {
+        const now2 = performance.now();
+        for (const p of gen1) {
+          const pos = estimatePos(p.x, p.y, Math.cos(p.angle) * p.speed, Math.sin(p.angle) * p.speed, DELAY);
+          for (let d = -1; d <= 1; d += 2) {
+            const gAngle = p.angle + d * branchSpread * 0.7;
+            const orb = createOrb(pos.x, pos.y);
+            orb.vx = Math.cos(gAngle) * 2.5;
+            orb.vy = Math.sin(gAngle) * 2.5;
+            orb.radius = 5 + Math.random() * 3;
+            orbsRef.current.push(orb);
+            ripplesRef.current.push({ x: pos.x, y: pos.y, color: orb.color, born: now2 });
+            for (let s = 0; s < 3; s++) {
+              const sa = Math.random() * Math.PI * 2;
+              mergeSparksRef.current.push({
+                x: pos.x, y: pos.y,
+                vx: Math.cos(sa) * 2.5, vy: Math.sin(sa) * 2.5,
+                color: orb.color, size: 1.8, born: now2,
+              });
+            }
+          }
+        }
+        setOrbCount(orbsRef.current.length);
+        shakeRef.current = Math.max(shakeRef.current, 12);
+        playBurstSound();
+      }, DELAY);
+    }, DELAY);
+  }, []);
+
   const handleFirework = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -5433,12 +5524,12 @@ function App() {
 
   const handleRandomEffect = useCallback(() => {
     const orbs = orbsRef.current;
-    const alwaysAvailable = [handleBurst, handleMeteorShower, handleFirework, handleHelix];
+    const alwaysAvailable = [handleBurst, handleMeteorShower, handleFirework, handleHelix, handleFractal];
     const needsOrbs = [handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission];
     const alwaysAvailableBig = [...alwaysAvailable, handlePulsar];
     const pool = orbs.length > 0 ? [...alwaysAvailableBig, ...needsOrbs] : alwaysAvailableBig;
     pool[Math.floor(Math.random() * pool.length)]();
-  }, [handleBurst, handleMeteorShower, handleFirework, handleHelix, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission, handlePulsar]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleHelix, handleFractal, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission, handlePulsar]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -5569,6 +5660,10 @@ function App() {
           handleCyclePalette();
           flashLabel(PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), "#f093fb");
           break;
+        case "2":
+          handleFractal();
+          flashLabel("FRACTAL", "#43e97b");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -5576,7 +5671,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleFractal, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -5707,6 +5802,20 @@ function App() {
               <path d="M18 4c-4 0-8 3-8 8s4 8 8 8" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={() => { handleFractal(); comboFlashRef.current.push({ text: "FRACTAL", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#43e97b" }); }} title="Fractal burst (2)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              <line x1="12" y1="12" x2="12" y2="6" />
+              <line x1="12" y1="6" x2="9" y2="3" />
+              <line x1="12" y1="6" x2="15" y2="3" />
+              <line x1="12" y1="12" x2="17" y2="16" />
+              <line x1="17" y1="16" x2="20" y2="15" />
+              <line x1="17" y1="16" x2="19" y2="19" />
+              <line x1="12" y1="12" x2="7" y2="16" />
+              <line x1="7" y1="16" x2="4" y2="15" />
+              <line x1="7" y1="16" x2="5" y2="19" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={() => { handleCyclePalette(); const W = window.innerWidth; const H = window.innerHeight; comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" }); }} title={`Palette: ${PALETTES[paletteIndex].name} (Y)`} $highlight>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
@@ -5823,6 +5932,7 @@ function App() {
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
               <Shortcut><Key>U</Key><span>Maelstrom (spiral + release)</span></Shortcut>
               <Shortcut><Key>I</Key><span>Galaxy spiral</span></Shortcut>
+              <Shortcut><Key>2</Key><span>Fractal burst (branching spawn)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
