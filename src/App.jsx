@@ -67,7 +67,7 @@ import {
   PALETTES,
 } from './constants.js';
 import {
-  ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce,
+  PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce,
   playSwoosh, playBurstSound, playGalaxySound, playCollapse, playMitosis, playStreakTone,
   playWarpSound, playSpray, playLightning, playPortalSound, playMeteorSound,
   playSupernovaSound, playRewindSound, playIgniteSound, playStrikeSound, playFirePop,
@@ -4938,7 +4938,7 @@ function App() {
 
 
   const handleAutoplay = useCallback(() => {
-    setAutoplayMode((prev) => {
+    setAutoPlay((prev) => {
       autoplayModeRef.current = !prev;
       if (!prev) {
         // reset timers when enabling
@@ -5281,7 +5281,7 @@ function App() {
 
   const handleToggleAudio = useCallback(() => {
     setAudioEnabled((prev) => {
-      audioMuted = prev;
+      setAudioMuted(prev);
       return !prev;
     });
   }, []);
@@ -5887,43 +5887,6 @@ function App() {
               <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
               <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={() => { handlePulsar(); comboFlashRef.current.push({ text: "PULSAR", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#b06eff" }); }} title="Pulsar">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="2" fill="currentColor" />
-              <circle cx="12" cy="12" r="6" strokeDasharray="4 2" />
-              <circle cx="12" cy="12" r="10" strokeDasharray="3 3" opacity="0.5" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={() => { handleHelix(); comboFlashRef.current.push({ text: "HELIX", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#43e97b" }); }} title="Helix">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 4c4 0 8 3 8 8s-4 8-8 8" />
-              <path d="M18 4c-4 0-8 3-8 8s4 8 8 8" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={() => { handleFractal(); comboFlashRef.current.push({ text: "FRACTAL", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#43e97b" }); }} title="Fractal burst (2)">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-              <line x1="12" y1="12" x2="12" y2="6" />
-              <line x1="12" y1="6" x2="9" y2="3" />
-              <line x1="12" y1="6" x2="15" y2="3" />
-              <line x1="12" y1="12" x2="17" y2="16" />
-              <line x1="17" y1="16" x2="20" y2="15" />
-              <line x1="17" y1="16" x2="19" y2="19" />
-              <line x1="12" y1="12" x2="7" y2="16" />
-              <line x1="7" y1="16" x2="4" y2="15" />
-              <line x1="7" y1="16" x2="5" y2="19" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={() => { handleCollider(); comboFlashRef.current.push({ text: "COLLIDER", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#4facfe" }); }} title="Collider (3)">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="5" cy="12" r="2.5" fill="currentColor" />
-              <circle cx="19" cy="12" r="2.5" fill="currentColor" />
-              <line x1="7.5" y1="12" x2="11" y2="12" />
-              <line x1="13" y1="12" x2="16.5" y2="12" />
-              <line x1="10" y1="8" x2="14" y2="16" opacity="0.5" />
-              <line x1="14" y1="8" x2="10" y2="16" opacity="0.5" />
             </svg>
           </ActionButton>
           <ActionButton onClick={() => { handleCyclePalette(); const W = window.innerWidth; const H = window.innerHeight; comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" }); }} title={`Palette: ${PALETTES[paletteIndex].name} (Y)`} $highlight>
