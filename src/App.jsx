@@ -6317,39 +6317,8 @@ function App() {
           handleCyclePalette();
           flashLabel(PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), "#f093fb");
           break;
-        case "t":
-          handleCascade();
-          flashLabel("CASCADE", "#f093fb");
-          break;
-        case "2":
-          handleBlackHole();
-          flashLabel("BLACK HOLE", "#a855f7");
-          break;
         case "1":
           handleRandomEffect();
-          break;
-        case "3":
-          handleImplode();
-          flashLabel("IMPLODE", "#fa709a");
-          break;
-        case "4":
-          handleRicochet();
-          flashLabel("RICOCHET", "#feb47b");
-          break;
-        case "5":
-          handleEruption();
-          flashLabel("ERUPTION", "#feb47b");
-          break;
-        case "6":
-          handleGravityPulse();
-          flashLabel("GRAVITY PULSE", "#4facfe");
-          break;
-        case "7":
-          handleBarrierMode();
-          break;
-        case "i":
-          handleOrbitLock();
-          flashLabel("ORBIT LOCK", "#43e97b");
           break;
         case "u":
           handleMeshMode();
@@ -6627,18 +6596,12 @@ function App() {
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
               <Shortcut><Key>1</Key><span>Random effect (surprise!)</span></Shortcut>
-              <Shortcut><Key>2</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
-              <Shortcut><Key>3</Key><span>Implode (gravity bomb)</span></Shortcut>
-              <Shortcut><Key>4</Key><span>Ricochet (bouncing bolt)</span></Shortcut>
-              <Shortcut><Key>5</Key><span>Eruption (volcanic geyser)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
-              <Shortcut><Key>6</Key><span>Gravity pulse</span></Shortcut>
-              <Shortcut><Key>I</Key><span>Orbit lock (ring formation)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>G</Key><span>Cycle gravity (↓ → ↑ ← off)</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
@@ -6656,7 +6619,7 @@ function App() {
               <Shortcut><Key>Y</Key><span>Cycle color palette</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all orbs</span></Shortcut>
-              <Shortcut><Key>7</Key><span>Draw walls mode (tap to remove)</span></Shortcut>
+              <Shortcut><Key>rapid taps</Key><span>Streak combos unlock effects at 5×, 12×, 20×, 25×...</span></Shortcut>
               <Shortcut><Key>?</Key><span>Toggle this help</span></Shortcut>
             </ShortcutList>
             <HelpClose onClick={() => setShowHelp(false)}>Got it</HelpClose>
