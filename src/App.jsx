@@ -6765,6 +6765,10 @@ function App() {
         case "t":
           handleCrescendo();
           break;
+        case "0":
+          handleBlackHole();
+          flashLabel("BLACK HOLE", "#a855f7");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -6897,6 +6901,15 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleBlackHole} title="Black hole">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="4" fill="currentColor" />
+              <circle cx="12" cy="12" r="8" opacity="0.4" />
+              <circle cx="12" cy="12" r="11" opacity="0.15" />
+              <path d="M4 12 C4 6, 12 4, 12 4" opacity="0.5" />
+              <path d="M20 12 C20 18, 12 20, 12 20" opacity="0.5" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleCrescendo} title="Crescendo">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M2 20 L8 14 L14 16 L22 4" />
@@ -6989,17 +7002,11 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleOrbitMode} $active={orbitMode} $color="#764ba2" title="Orbit mode">
-          orbit
-        </ModeToggle>
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode">
           paint
         </ModeToggle>
         <ModeToggle onClick={handleCyclePalette} $active={paletteIndex !== 0} $color="#f093fb" title="Cycle color palette (Y)">
           {PALETTES[paletteIndex].name.toLowerCase()}
-        </ModeToggle>
-        <ModeToggle onClick={handleKaleidoscopeMode} $active={kaleidoscopeMode} $color="#00f2fe" title="Kaleidoscope mirror (I)">
-          mirror
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
@@ -7045,6 +7052,7 @@ function App() {
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
               <Shortcut><Key>T</Key><span>Crescendo (grand finale sequence)</span></Shortcut>
+              <Shortcut><Key>0</Key><span>Black hole (absorbs → explodes)</span></Shortcut>
               <Shortcut><Key>1</Key><span>Random effect (surprise!)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
