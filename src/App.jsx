@@ -72,6 +72,7 @@ import {
   FLOCK_SEPARATION_FORCE, FLOCK_ALIGNMENT_FORCE, FLOCK_COHESION_FORCE,
   FLOCK_MAX_SPEED, FLOCK_CURSOR_FLEE_DIST, FLOCK_CURSOR_FLEE_FORCE,
   CURRENT_STRENGTH, CURRENT_SCALE, CURRENT_SPEED,
+  EDGE_GLOW_RANGE, EDGE_GLOW_DEPTH, EDGE_GLOW_ALPHA,
 } from './constants.js';
 import {
   PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce,
@@ -1054,6 +1055,64 @@ function App() {
           ctx.fillStyle = `rgba(102, 126, 234, ${pulseAlpha})`;
           ctx.fillRect(0, 0, W, H);
         }
+      }
+
+      // ── Reactive edge glow: screen borders light up from nearby orbs ──
+      if (orbs.length > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        for (let ei = 0; ei < orbs.length; ei++) {
+          const orb = orbs[ei];
+          if (orb.spark) continue; // skip tiny spark particles
+          const speed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+          const speedMul = 0.5 + Math.min(speed / 4, 1) * 0.5;
+          const spread = orb.radius * 3 + 40;
+          // Left edge
+          if (orb.x < EDGE_GLOW_RANGE) {
+            const prox = 1 - orb.x / EDGE_GLOW_RANGE;
+            const a = prox * prox * EDGE_GLOW_ALPHA * speedMul;
+            const d = EDGE_GLOW_DEPTH * (0.6 + prox * 0.4);
+            const eg = ctx.createLinearGradient(0, 0, d, 0);
+            eg.addColorStop(0, orb.color + hexAlpha(a * 255));
+            eg.addColorStop(1, "transparent");
+            ctx.fillStyle = eg;
+            ctx.fillRect(0, orb.y - spread, d, spread * 2);
+          }
+          // Right edge
+          if (orb.x > W - EDGE_GLOW_RANGE) {
+            const prox = 1 - (W - orb.x) / EDGE_GLOW_RANGE;
+            const a = prox * prox * EDGE_GLOW_ALPHA * speedMul;
+            const d = EDGE_GLOW_DEPTH * (0.6 + prox * 0.4);
+            const eg = ctx.createLinearGradient(W, 0, W - d, 0);
+            eg.addColorStop(0, orb.color + hexAlpha(a * 255));
+            eg.addColorStop(1, "transparent");
+            ctx.fillStyle = eg;
+            ctx.fillRect(W - d, orb.y - spread, d, spread * 2);
+          }
+          // Top edge
+          if (orb.y < EDGE_GLOW_RANGE) {
+            const prox = 1 - orb.y / EDGE_GLOW_RANGE;
+            const a = prox * prox * EDGE_GLOW_ALPHA * speedMul;
+            const d = EDGE_GLOW_DEPTH * (0.6 + prox * 0.4);
+            const eg = ctx.createLinearGradient(0, 0, 0, d);
+            eg.addColorStop(0, orb.color + hexAlpha(a * 255));
+            eg.addColorStop(1, "transparent");
+            ctx.fillStyle = eg;
+            ctx.fillRect(orb.x - spread, 0, spread * 2, d);
+          }
+          // Bottom edge
+          if (orb.y > H - EDGE_GLOW_RANGE) {
+            const prox = 1 - (H - orb.y) / EDGE_GLOW_RANGE;
+            const a = prox * prox * EDGE_GLOW_ALPHA * speedMul;
+            const d = EDGE_GLOW_DEPTH * (0.6 + prox * 0.4);
+            const eg = ctx.createLinearGradient(0, H, 0, H - d);
+            eg.addColorStop(0, orb.color + hexAlpha(a * 255));
+            eg.addColorStop(1, "transparent");
+            ctx.fillStyle = eg;
+            ctx.fillRect(orb.x - spread, H - d, spread * 2, d);
+          }
+        }
+        ctx.restore();
       }
 
       // ── Ambient nebula update + render ──

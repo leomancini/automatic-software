@@ -420,3 +420,8 @@ export const FLOCK_COHESION_FORCE = 0.012;   // steer toward average neighbor po
 export const FLOCK_MAX_SPEED = 4.5;          // speed cap to keep swarm cohesive
 export const FLOCK_CURSOR_FLEE_DIST = 150;   // orbs flee cursor within this range
 export const FLOCK_CURSOR_FLEE_FORCE = 0.8;  // how hard they flee
+
+// ── Reactive edge glow ──
+export const EDGE_GLOW_RANGE = 150;    // px from edge to detect orbs
+export const EDGE_GLOW_DEPTH = 60;     // how far glow extends inward from edge
+export const EDGE_GLOW_ALPHA = 0.035;  // per-frame alpha (accumulates via background persistence)
