@@ -397,3 +397,10 @@ export const ORBIT_LOCK_SPIN_MS = 3000;     // time orbiting in rings
 export const ORBIT_LOCK_RELEASE_MS = 400;   // visual fade after release
 export const ORBIT_LOCK_RING_GAP = 55;      // spacing between concentric rings
 export const ORBIT_LOCK_SPIN_SPEED = 1.8;   // radians per second base spin speed
+
+// ── Gravity Mesh (spacetime fabric visualization) ──
+export const MESH_SPACING = 55;              // px between grid lines
+export const MESH_INFLUENCE_RANGE = 180;     // px — orbs warp grid within this range
+export const MESH_MAX_DISPLACEMENT = 22;     // max px a grid point can shift
+export const MESH_BASE_ALPHA = 0.08;         // base line opacity
+export const MESH_WARP_ALPHA = 0.35;         // max opacity when warped

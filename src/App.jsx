@@ -67,6 +67,7 @@ import {
   PALETTES,
   IMPLODE_PULL_MS, IMPLODE_PULL_FORCE, IMPLODE_BURST_SPEED,
   ORBIT_LOCK_GATHER_MS, ORBIT_LOCK_SPIN_MS, ORBIT_LOCK_RELEASE_MS, ORBIT_LOCK_RING_GAP, ORBIT_LOCK_SPIN_SPEED,
+  MESH_SPACING, MESH_INFLUENCE_RANGE, MESH_MAX_DISPLACEMENT, MESH_BASE_ALPHA, MESH_WARP_ALPHA,
 } from './constants.js';
 import {
   PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce,
@@ -153,6 +154,8 @@ function App() {
   const attractModeRef = useRef(false);
   const [gravityPaintMode, setGravityPaintMode] = useState(false);
   const gravityPaintModeRef = useRef(false);
+  const [meshMode, setMeshMode] = useState(false);
+  const meshModeRef = useRef(false);
   // constellation lines are always-on ambient visual (no toggle needed)
   const gravityDotsRef = useRef([]);
   const dominoRef = useRef(null); // {queue, index, nextTime, respawnCount, phase}
@@ -3320,6 +3323,82 @@ function App() {
         }
       }
 
+      // ── Gravity mesh (spacetime fabric) ──
+      if (meshModeRef.current && orbs.length > 0) {
+        const cols = Math.ceil(W / MESH_SPACING) + 1;
+        const rows = Math.ceil(H / MESH_SPACING) + 1;
+        const influSq = MESH_INFLUENCE_RANGE * MESH_INFLUENCE_RANGE;
+        ctx.lineWidth = 1;
+        // draw horizontal lines
+        for (let row = 0; row < rows; row++) {
+          const baseY = row * MESH_SPACING;
+          ctx.beginPath();
+          let maxWarp = 0;
+          let warpColor = null;
+          for (let col = 0; col <= cols; col++) {
+            const baseX = col * MESH_SPACING;
+            let dx = 0, dy = 0;
+            for (const orb of orbs) {
+              const ox = orb.x - baseX;
+              const oy = orb.y - baseY;
+              const distSq = ox * ox + oy * oy;
+              if (distSq < influSq && distSq > 1) {
+                const dist = Math.sqrt(distSq);
+                const strength = orb.radius * 1.5 * (1 - dist / MESH_INFLUENCE_RANGE);
+                const disp = Math.min(strength, MESH_MAX_DISPLACEMENT);
+                dx += (ox / dist) * disp;
+                dy += (oy / dist) * disp;
+                if (disp > maxWarp) { maxWarp = disp; warpColor = orb.color; }
+              }
+            }
+            const px = baseX + dx;
+            const py = baseY + dy;
+            if (col === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          const warpT = Math.min(maxWarp / MESH_MAX_DISPLACEMENT, 1);
+          const alpha = MESH_BASE_ALPHA + warpT * (MESH_WARP_ALPHA - MESH_BASE_ALPHA);
+          ctx.strokeStyle = warpColor
+            ? hexAlpha(warpColor, alpha)
+            : `rgba(102, 126, 234, ${alpha})`;
+          ctx.stroke();
+        }
+        // draw vertical lines
+        for (let col = 0; col < cols; col++) {
+          const baseX = col * MESH_SPACING;
+          ctx.beginPath();
+          let maxWarp = 0;
+          let warpColor = null;
+          for (let row = 0; row <= rows; row++) {
+            const baseY = row * MESH_SPACING;
+            let dx = 0, dy = 0;
+            for (const orb of orbs) {
+              const ox = orb.x - baseX;
+              const oy = orb.y - baseY;
+              const distSq = ox * ox + oy * oy;
+              if (distSq < influSq && distSq > 1) {
+                const dist = Math.sqrt(distSq);
+                const strength = orb.radius * 1.5 * (1 - dist / MESH_INFLUENCE_RANGE);
+                const disp = Math.min(strength, MESH_MAX_DISPLACEMENT);
+                dx += (ox / dist) * disp;
+                dy += (oy / dist) * disp;
+                if (disp > maxWarp) { maxWarp = disp; warpColor = orb.color; }
+              }
+            }
+            const px = baseX + dx;
+            const py = baseY + dy;
+            if (row === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          const warpT = Math.min(maxWarp / MESH_MAX_DISPLACEMENT, 1);
+          const alpha = MESH_BASE_ALPHA + warpT * (MESH_WARP_ALPHA - MESH_BASE_ALPHA);
+          ctx.strokeStyle = warpColor
+            ? hexAlpha(warpColor, alpha)
+            : `rgba(102, 126, 234, ${alpha})`;
+          ctx.stroke();
+        }
+      }
+
       // draw orbs
       for (const orb of orbs) {
         const pulse = 1 + 0.12 * Math.sin(time * 1.5 + orb.pulsePhase);
@@ -5222,6 +5301,13 @@ function App() {
   }, []);
 
 
+  const handleMeshMode = useCallback(() => {
+    setMeshMode((prev) => {
+      meshModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleSparklerMode = useCallback(() => {
     setSparklerMode((prev) => {
       sparklerModeRef.current = !prev;
@@ -6168,6 +6254,9 @@ function App() {
           handleOrbitLock();
           flashLabel("ORBIT LOCK", "#43e97b");
           break;
+        case "u":
+          handleMeshMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -6175,7 +6264,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6244,6 +6333,7 @@ function App() {
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
           {barrierMode && <ModePill $color="#4facfe">walls</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
+          {meshMode && <ModePill $color="#667eea">mesh</ModePill>}
           {longExposure && <ModePill $color="#feb47b">long exposure</ModePill>}
           {autoPlay && <ModePill $color="#43e97b">autoplay</ModePill>}
           {paletteIndex !== 0 && <ModePill $color="#f093fb">{PALETTES[paletteIndex].name.toLowerCase()}</ModePill>}
@@ -6413,6 +6503,9 @@ function App() {
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode">
           paint
         </ModeToggle>
+        <ModeToggle onClick={handleMeshMode} $active={meshMode} $color="#667eea" title="Gravity mesh">
+          mesh
+        </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
@@ -6476,6 +6569,7 @@ function App() {
               <Shortcut><Key>O</Key><span>Orbit mode</span></Shortcut>
               <Shortcut><Key>N</Key><span>Place / remove gravity well</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
+              <Shortcut><Key>U</Key><span>Gravity mesh</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>J</Key><span>Long exposure (trail mode)</span></Shortcut>
