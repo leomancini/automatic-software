@@ -2203,6 +2203,13 @@ function App() {
               const hi = Math.min(Math.abs(orb.vx) / 5, 1);
               wallHitsRef.current.push({ x: 0, y: orb.y, color: orb.color, born: now, intensity: hi });
               playBounce(hi);
+              // wall bounce sparks — spray rightward from left wall
+              const sparkN = Math.ceil(2 + hi * 6);
+              for (let ws = 0; ws < sparkN; ws++) {
+                const a = (Math.random() - 0.5) * 1.2;
+                const sp = 1.5 + Math.random() * 3 * hi;
+                burstsRef.current.push({ x: orb.radius, y: orb.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, color: orb.color, radius: 0.8 + Math.random() * 1.2, born: now });
+              }
             }
             orb.x = orb.radius;
             orb.vx *= -0.6;
@@ -2212,6 +2219,13 @@ function App() {
               const hi = Math.min(Math.abs(orb.vx) / 5, 1);
               wallHitsRef.current.push({ x: W, y: orb.y, color: orb.color, born: now, intensity: hi });
               playBounce(hi);
+              // wall bounce sparks — spray leftward from right wall
+              const sparkN = Math.ceil(2 + hi * 6);
+              for (let ws = 0; ws < sparkN; ws++) {
+                const a = Math.PI + (Math.random() - 0.5) * 1.2;
+                const sp = 1.5 + Math.random() * 3 * hi;
+                burstsRef.current.push({ x: W - orb.radius, y: orb.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, color: orb.color, radius: 0.8 + Math.random() * 1.2, born: now });
+              }
             }
             orb.x = W - orb.radius;
             orb.vx *= -0.6;
@@ -2221,6 +2235,13 @@ function App() {
               const hi = Math.min(Math.abs(orb.vy) / 5, 1);
               wallHitsRef.current.push({ x: orb.x, y: 0, color: orb.color, born: now, intensity: hi });
               playBounce(hi);
+              // wall bounce sparks — spray downward from top wall
+              const sparkN = Math.ceil(2 + hi * 6);
+              for (let ws = 0; ws < sparkN; ws++) {
+                const a = Math.PI / 2 + (Math.random() - 0.5) * 1.2;
+                const sp = 1.5 + Math.random() * 3 * hi;
+                burstsRef.current.push({ x: orb.x, y: orb.radius, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, color: orb.color, radius: 0.8 + Math.random() * 1.2, born: now });
+              }
             }
             orb.y = orb.radius;
             orb.vy *= -0.6;
@@ -2230,6 +2251,13 @@ function App() {
               const hi = Math.min(Math.abs(orb.vy) / 5, 1);
               wallHitsRef.current.push({ x: orb.x, y: H, color: orb.color, born: now, intensity: hi });
               playBounce(hi);
+              // wall bounce sparks — spray upward from bottom wall
+              const sparkN = Math.ceil(2 + hi * 6);
+              for (let ws = 0; ws < sparkN; ws++) {
+                const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
+                const sp = 1.5 + Math.random() * 3 * hi;
+                burstsRef.current.push({ x: orb.x, y: H - orb.radius, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, color: orb.color, radius: 0.8 + Math.random() * 1.2, born: now });
+              }
             }
             orb.y = H - orb.radius;
             orb.vy *= -0.6;
@@ -2259,6 +2287,14 @@ function App() {
                 const bhi = Math.min(bSpeed / 5, 1);
                 wallHitsRef.current.push({ x: cx, y: cy, color: bar.color, born: now, intensity: bhi });
                 playBounce(bhi);
+                // barrier bounce sparks — spray along reflection normal
+                const sparkN = Math.ceil(2 + bhi * 6);
+                const baseA = Math.atan2(bny, bnx);
+                for (let ws = 0; ws < sparkN; ws++) {
+                  const a = baseA + (Math.random() - 0.5) * 1.2;
+                  const sp = 1.5 + Math.random() * 3 * bhi;
+                  burstsRef.current.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, color: orb.color, radius: 0.8 + Math.random() * 1.2, born: now });
+                }
               }
             }
           }
