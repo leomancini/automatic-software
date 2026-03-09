@@ -194,6 +194,7 @@ function App() {
   const tiltVecRef = useRef({ x: 0, y: 1 }); // normalized gravity direction
   const hasTiltSensorRef = useRef(false);
   const blackHoleRef = useRef(null); // {x, y, born, absorbed, mass, diskDots}
+  const tidalPulseRef = useRef(null); // {cx, cy, born, color} — inhale-exhale gravity pulse
   const autoplayTimersRef = useRef({ lastSpawn: 0, lastEffect: 0 });
   const [colorCycle, setColorCycle] = useState(false);
   const colorCycleRef = useRef(false);
@@ -2589,6 +2590,81 @@ function App() {
         }
         if (pendingCascades.length > 0) {
           shakeRef.current = Math.max(shakeRef.current, 6 * pendingCascades.length);
+        }
+      }
+
+      // ── Tidal Pulse: inhale-exhale gravitational oscillation ──────────
+      if (tidalPulseRef.current) {
+        const tp = tidalPulseRef.current;
+        const age = now - tp.born;
+        const TIDAL_DURATION = 1800;
+        if (age > TIDAL_DURATION) {
+          tidalPulseRef.current = null;
+        } else {
+          const cx = tp.cx;
+          const cy = tp.cy;
+          // Phase: 0→600ms inhale (pull in), 600→1200ms exhale (push out), 1200→1800ms gentle inhale
+          const phase = age / TIDAL_DURATION; // 0→1
+          let forceMul;
+          if (age < 600) {
+            // inhale: pull inward, peaks at 300ms
+            const t = age / 600;
+            forceMul = -Math.sin(t * Math.PI) * 0.35;
+          } else if (age < 1200) {
+            // exhale: push outward, peaks at 900ms
+            const t = (age - 600) / 600;
+            forceMul = Math.sin(t * Math.PI) * 0.55;
+          } else {
+            // gentle final inhale, fading
+            const t = (age - 1200) / 600;
+            forceMul = -Math.sin(t * Math.PI) * 0.15;
+          }
+          for (const orb of orbs) {
+            if (orb === dragRef.current) continue;
+            const dx = orb.x - cx;
+            const dy = orb.y - cy;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const force = forceMul * (3 + Math.min(dist * 0.008, 2));
+            orb.vx += (dx / dist) * force;
+            orb.vy += (dy / dist) * force;
+          }
+          // Visual: pulsing rings
+          const ringCount = 3;
+          for (let ri = 0; ri < ringCount; ri++) {
+            const ringPhase = (phase * 2 + ri * 0.33) % 1;
+            const maxR = Math.sqrt(W * W + H * H) * 0.5;
+            let ringRadius, ringAlpha;
+            if (age < 600) {
+              // contracting rings during inhale
+              ringRadius = maxR * (1 - ringPhase) * 0.8;
+              ringAlpha = (1 - phase * 1.5) * 0.3 * Math.sin(ringPhase * Math.PI);
+            } else if (age < 1200) {
+              // expanding rings during exhale
+              ringRadius = maxR * ringPhase * 0.9;
+              ringAlpha = (1 - phase) * 0.4 * Math.sin(ringPhase * Math.PI);
+            } else {
+              // gentle contracting rings
+              ringRadius = maxR * (1 - ringPhase) * 0.4;
+              ringAlpha = (1 - phase) * 0.2 * Math.sin(ringPhase * Math.PI);
+            }
+            if (ringAlpha > 0.01 && ringRadius > 5) {
+              ctx.beginPath();
+              ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2);
+              ctx.strokeStyle = tp.color + hexAlpha(Math.min(ringAlpha, 1) * 255);
+              ctx.lineWidth = 2 + (1 - phase) * 3;
+              ctx.stroke();
+            }
+          }
+          // Central glow
+          const glowAlpha = (1 - phase) * 0.3;
+          const glowR = 40 + Math.abs(forceMul) * 120;
+          const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
+          grd.addColorStop(0, tp.color + hexAlpha(glowAlpha * 255));
+          grd.addColorStop(1, tp.color + "00");
+          ctx.beginPath();
+          ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
+          ctx.fillStyle = grd;
+          ctx.fill();
         }
       }
 
@@ -5289,6 +5365,19 @@ function App() {
     playBoom();
   }, []);
 
+  const handleTidalPulse = useCallback(() => {
+    if (tidalPulseRef.current) return; // only one at a time
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cx = W / 2;
+    const cy = H / 2;
+    tidalPulseRef.current = { cx, cy, born: performance.now(), color: randomColor() };
+    // visual ripple at center
+    ripplesRef.current.push({ x: cx, y: cy, color: tidalPulseRef.current.color, born: performance.now() });
+    shakeRef.current = Math.max(shakeRef.current, 12);
+    playSwoosh();
+  }, []);
+
   const handleToggleAudio = useCallback(() => {
     try {
       setAudioEnabled((prev) => {
@@ -5696,6 +5785,10 @@ function App() {
           handleCrossfire();
           flashLabel("CROSSFIRE", "#feb47b");
           break;
+        case "0":
+          handleTidalPulse();
+          flashLabel("TIDAL PULSE", "#78c8ff");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -5703,7 +5796,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleFireworkShow, handleVolley, handleCrossfire, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleFireworkShow, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -5823,13 +5916,13 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleCrossfire} title="Crossfire">
+          <ActionButton onClick={handleTidalPulse} title="Tidal pulse">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="3" x2="10" y2="10" />
-              <line x1="21" y1="3" x2="14" y2="10" />
-              <line x1="3" y1="21" x2="10" y2="14" />
-              <line x1="21" y1="21" x2="14" y2="14" />
               <circle cx="12" cy="12" r="2" fill="currentColor" />
+              <path d="M12 5a7 7 0 0 1 0 14" opacity="0.8" />
+              <path d="M12 5a7 7 0 0 0 0 14" opacity="0.8" />
+              <path d="M12 2a10 10 0 0 1 0 20" opacity="0.4" />
+              <path d="M12 2a10 10 0 0 0 0 20" opacity="0.4" />
             </svg>
           </ActionButton>
           <ActionButton onClick={() => { handleCyclePalette(); const W = window.innerWidth; const H = window.innerHeight; comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" }); }} title={`Palette: ${PALETTES[paletteIndex].name} (Y)`} $highlight>
@@ -5944,6 +6037,7 @@ function App() {
               <Shortcut><Key>T</Key><span>Barrage (volley from edge)</span></Shortcut>
               <Shortcut><Key>4</Key><span>Firework show (multi-launch)</span></Shortcut>
               <Shortcut><Key>9</Key><span>Crossfire (all edges converge)</span></Shortcut>
+              <Shortcut><Key>0</Key><span>Tidal pulse (inhale → exhale)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
