@@ -64,6 +64,7 @@ import {
   FLOCK_ALIGNMENT_FORCE, FLOCK_COHESION_FORCE, FLOCK_MAX_SPEED,
   LIGHTNING_SEGMENTS,
   PALETTES,
+  ORBIT_LOCK_GATHER_MS, ORBIT_LOCK_SPIN_MS, ORBIT_LOCK_RELEASE_MS, ORBIT_LOCK_RING_GAP, ORBIT_LOCK_SPIN_SPEED,
 } from './constants.js';
 import {
   PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce,
@@ -205,6 +206,7 @@ function App() {
   const [barrierMode, setBarrierMode] = useState(false);
   const barrierModeRef = useRef(false);
   const barrierDrawRef = useRef(null); // {x1, y1, x2, y2} while actively drawing
+  const orbitLockRef = useRef(null); // {born, phase, cx, cy, maxRing, spinBorn, releaseBorn}
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -4751,6 +4753,107 @@ function App() {
 
       // ── Pulsar effect (rhythmic pulse waves → detonation) ──
 
+      // ── Orbit Lock effect ──
+      if (orbitLockRef.current) {
+        const ol = orbitLockRef.current;
+        const olAge = now - ol.born;
+
+        if (ol.phase === "gather") {
+          const progress = Math.min(olAge / ORBIT_LOCK_GATHER_MS, 1);
+          for (const orb of orbs) {
+            if (orb._olRing === undefined) continue;
+            const tx = ol.cx + Math.cos(orb._olAngle) * orb._olRadius;
+            const ty = ol.cy + Math.sin(orb._olAngle) * orb._olRadius;
+            const spring = 0.08 + progress * 0.12;
+            orb.vx += (tx - orb.x) * spring;
+            orb.vy += (ty - orb.y) * spring;
+            orb.vx *= 0.75;
+            orb.vy *= 0.75;
+          }
+          if (olAge >= ORBIT_LOCK_GATHER_MS) {
+            ol.phase = "spin";
+            ol.spinBorn = now;
+          }
+        }
+
+        if (ol.phase === "spin") {
+          const spinAge = now - ol.spinBorn;
+          for (const orb of orbs) {
+            if (orb._olRing === undefined) continue;
+            const dir = orb._olRing % 2 === 0 ? 1 : -1;
+            orb._olAngle += ORBIT_LOCK_SPIN_SPEED * dir * (1 / 60);
+            const tx = ol.cx + Math.cos(orb._olAngle) * orb._olRadius;
+            const ty = ol.cy + Math.sin(orb._olAngle) * orb._olRadius;
+            orb.vx = (tx - orb.x) * 0.3;
+            orb.vy = (ty - orb.y) * 0.3;
+          }
+          if (spinAge >= ORBIT_LOCK_SPIN_MS) {
+            ol.phase = "release";
+            ol.releaseBorn = now;
+            shakeRef.current = 25;
+            for (const orb of orbs) {
+              if (orb._olRing === undefined) continue;
+              const dx = orb.x - ol.cx;
+              const dy = orb.y - ol.cy;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+              orb.vx = (dx / dist) * 8;
+              orb.vy = (dy / dist) * 8;
+              delete orb._olRing;
+              delete orb._olAngle;
+              delete orb._olRadius;
+            }
+            wavesRef.current.push({
+              cx: ol.cx, cy: ol.cy, radius: 0,
+              color: "#43e97b", generation: 0,
+              hitOrbs: new Set(), delay: 0,
+            });
+            playBoom();
+          }
+        }
+
+        // Ring guides (gather + spin)
+        if (ol.phase === "gather" || ol.phase === "spin") {
+          const guideAlpha = ol.phase === "gather"
+            ? Math.min(olAge / ORBIT_LOCK_GATHER_MS, 1) * 0.2
+            : 0.2;
+          ctx.setLineDash([4, 8]);
+          for (let r = 0; r <= ol.maxRing; r++) {
+            const rr = (r + 1) * ORBIT_LOCK_RING_GAP;
+            ctx.beginPath();
+            ctx.arc(ol.cx, ol.cy, rr, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(67, 233, 123, ${guideAlpha})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+          ctx.setLineDash([]);
+          const coreGrad = ctx.createRadialGradient(ol.cx, ol.cy, 0, ol.cx, ol.cy, 15);
+          coreGrad.addColorStop(0, `rgba(67, 233, 123, ${guideAlpha * 1.5})`);
+          coreGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(ol.cx, ol.cy, 15, 0, Math.PI * 2);
+          ctx.fillStyle = coreGrad;
+          ctx.fill();
+        }
+
+        // Fading rings (release)
+        if (ol.phase === "release") {
+          const rAge = now - ol.releaseBorn;
+          const rProg = rAge / ORBIT_LOCK_RELEASE_MS;
+          const rAlpha = (1 - rProg) * 0.35;
+          for (let r = 0; r <= ol.maxRing; r++) {
+            const rr = (r + 1) * ORBIT_LOCK_RING_GAP * (1 + rProg * 0.3);
+            ctx.beginPath();
+            ctx.arc(ol.cx, ol.cy, rr, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(67, 233, 123, ${rAlpha})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+          if (rAge >= ORBIT_LOCK_RELEASE_MS) {
+            orbitLockRef.current = null;
+          }
+        }
+      }
+
       // ── Flick aiming line ──
       if (slingshotRef.current && mouseDownRef.current) {
         const sling = slingshotRef.current;
@@ -5619,6 +5722,32 @@ function App() {
     playSupernovaSound();
   }, []);
 
+  const handleOrbitLock = useCallback(() => {
+    if (orbitLockRef.current) return;
+    const orbs = orbsRef.current;
+    if (orbs.length < 3) return;
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    let idx = 0, ring = 0, maxRing = 0;
+    while (idx < orbs.length) {
+      const capacity = 6 + ring * 6;
+      const count = Math.min(capacity, orbs.length - idx);
+      for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count;
+        orbs[idx]._olRing = ring;
+        orbs[idx]._olAngle = angle;
+        orbs[idx]._olRadius = (ring + 1) * ORBIT_LOCK_RING_GAP;
+        idx++;
+      }
+      maxRing = ring;
+      ring++;
+    }
+    orbitLockRef.current = {
+      born: performance.now(), phase: "gather",
+      cx, cy, maxRing, spinBorn: null, releaseBorn: null,
+    };
+    playGalaxySound();
+  }, []);
 
   const handleComet = useCallback(() => {
     const W = window.innerWidth;
@@ -5703,7 +5832,7 @@ function App() {
     const needsOrbs = [
       [handleWave, "SHOCKWAVE"], [handleLightning, "LIGHTNING"], [handleScatter, "SCATTER"],
       [handleSpin, "SPIN"], [handleGather, "GATHER"], [handleSupernova, "SUPERNOVA"],
-      [handleCascade, "CASCADE"],
+      [handleCascade, "CASCADE"], [handleOrbitLock, "ORBIT LOCK"],
     ];
     const pool = orbs.length > 0 ? [...alwaysAvailable, ...needsOrbs] : alwaysAvailable;
     const [fn, label] = pool[Math.floor(Math.random() * pool.length)];
@@ -5711,7 +5840,7 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     comboFlashRef.current.push({ text: label, x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" });
-  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleCascade]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleCascade, handleOrbitLock]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -5844,6 +5973,10 @@ function App() {
         case "7":
           handleBarrierMode();
           break;
+        case "i":
+          handleOrbitLock();
+          flashLabel("ORBIT LOCK", "#43e97b");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -5851,7 +5984,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6043,6 +6176,14 @@ function App() {
                 <line x1="13.5" y1="8.5" x2="16.5" y2="15.5" />
               </svg>
             </ActionButton>
+            <ActionButton onClick={handleOrbitLock} title="Orbit lock">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="2" fill="currentColor" />
+                <ellipse cx="12" cy="12" rx="7" ry="3" opacity="0.7" />
+                <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)" opacity="0.5" />
+                <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-60 12 12)" opacity="0.3" />
+              </svg>
+            </ActionButton>
             <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -6118,6 +6259,7 @@ function App() {
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>T</Key><span>Cascade (split all orbs)</span></Shortcut>
+              <Shortcut><Key>I</Key><span>Orbit lock (ring formation)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>G</Key><span>Cycle gravity (↓ → ↑ ← off)</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
