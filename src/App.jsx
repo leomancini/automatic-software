@@ -4,7 +4,7 @@ import {
   MERGE_DIST_FACTOR, MERGE_FLASH_DURATION, STAR_COUNT, SHOOTING_STAR_CHANCE,
   SHOOTING_STAR_DURATION, MOTE_COUNT, MOTE_SPEED, MOTE_ORB_PUSH_RANGE,
   MOTE_ORB_PUSH_FORCE, MOTE_FRICTION, MOTE_DISTURBED_GLOW, SPLIT_COUNT,
-  LONG_PRESS_MS, FRICTION, REPEL_DIST, REPEL_FORCE, ATTRACT_DIST, ATTRACT_FORCE,
+  LONG_PRESS_MS, FRICTION, REPEL_DIST, REPEL_FORCE, ATTRACT_DIST, ATTRACT_FORCE, COLOR_AFFINITY_DIST, COLOR_AFFINITY_FORCE,
   GRAVITY, WAVE_SPEED, WAVE_FORCE, WAVE_WIDTH, WAVE_MAX_RADIUS_FACTOR,
   WALL_HIT_DURATION, WALL_HIT_SPEED_THRESHOLD, WELL_RANGE, WELL_GRAVITY, WELL_CRITICAL_MASS, WELL_CRITICAL_MS, WELL_CRITICAL_SCATTER,
   TRAIL_SPEED_THRESHOLD, TRAIL_LIFETIME, TRAIL_MAX, TRAIL_SPAWN_RATE,
@@ -2004,21 +2004,37 @@ function App() {
         }
       }
 
+      // precompute hue for color affinity
+      for (const orb of orbs) {
+        orb._hue = hexToHsl(orb.color)[0];
+      }
+
       // update physics
       for (const orb of orbs) {
         if (orb === dragRef.current) continue;
         if (frozenRef.current) continue;
 
-        // soft repulsion between orbs
+        // soft repulsion between orbs + color affinity
         for (const other of orbs) {
           if (other === orb) continue;
           const dx = orb.x - other.x;
           const dy = orb.y - other.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
+          const hueDiff = Math.abs(orb._hue - other._hue);
+          const hueCloseness = Math.min(hueDiff, 360 - hueDiff);
+          const isSimilar = hueCloseness < 60;
           if (dist < REPEL_DIST && dist > 0) {
-            const force = (REPEL_FORCE * (REPEL_DIST - dist)) / REPEL_DIST;
+            // similar colors repel less, clustering tighter
+            const colorFactor = isSimilar ? 0.4 + 0.6 * (hueCloseness / 60) : 1.0;
+            const force = (REPEL_FORCE * (REPEL_DIST - dist)) / REPEL_DIST * colorFactor;
             orb.vx += (dx / dist) * force;
             orb.vy += (dy / dist) * force;
+          } else if (dist < COLOR_AFFINITY_DIST && isSimilar) {
+            // gentle attraction between similar-colored orbs at medium range
+            const t = (dist - REPEL_DIST) / (COLOR_AFFINITY_DIST - REPEL_DIST);
+            const affinity = COLOR_AFFINITY_FORCE * (1 - hueCloseness / 60) * (1 - t);
+            orb.vx -= (dx / dist) * affinity;
+            orb.vy -= (dy / dist) * affinity;
           }
         }
 

@@ -440,6 +440,10 @@ export const LENS_BH_STRENGTH = 25;       // displacement at peak
 export const LENS_HOLD_RANGE = 180;       // lens range around hold-to-attract
 export const LENS_HOLD_STRENGTH = 16;     // displacement at peak
 
+// ── Color affinity (similar colors attract) ──
+export const COLOR_AFFINITY_DIST = 120;   // range for color-based attraction
+export const COLOR_AFFINITY_FORCE = 0.06; // gentle pull between similar hues
+
 // ── Ambient drift (idle auto-spawn) ──
 export const IDLE_DRIFT_DELAY = 3000;    // ms of empty canvas before drift starts
 export const IDLE_DRIFT_INTERVAL = 900;  // ms between idle orb spawns
