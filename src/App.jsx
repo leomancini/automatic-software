@@ -6325,11 +6325,13 @@ function App() {
                 <line x1="20" y1="12" x2="23" y2="12" opacity="0.4" />
               </svg>
             </ActionButton>
-            <ActionButton onClick={handleBlackHole} title="Black hole" $highlight>
+            <ActionButton onClick={handleCascade} title="Cascade">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="4" fill="currentColor" />
-                <ellipse cx="12" cy="12" rx="10" ry="4" opacity="0.5" />
-                <ellipse cx="12" cy="12" rx="7" ry="2.5" opacity="0.3" />
+                <circle cx="12" cy="6" r="3" />
+                <circle cx="6" cy="18" r="2.5" />
+                <circle cx="18" cy="18" r="2.5" />
+                <line x1="10" y1="8.5" x2="7.5" y2="15.5" />
+                <line x1="14" y1="8.5" x2="16.5" y2="15.5" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
@@ -6352,8 +6354,8 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleAttractMode} $active={attractMode} $color="#f093fb" title="Attract mode">
-          attract
+        <ModeToggle onClick={handleAutoPlay} $active={autoPlay} $color="#43e97b" title="Autoplay">
+          autoplay
         </ModeToggle>
         <ModeToggle onClick={handleOrbitMode} $active={orbitMode} $color="#764ba2" title="Orbit mode">
           orbit
