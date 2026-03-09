@@ -5166,6 +5166,72 @@ function App() {
     }, DELAY);
   }, []);
 
+  const handleCollider = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cy = H / 2;
+    const now = performance.now();
+    const count = 5;
+    const spread = Math.min(H * 0.3, 120);
+
+    // Left group — moving right
+    for (let i = 0; i < count; i++) {
+      const y = cy + (i - (count - 1) / 2) * (spread / count);
+      const orb = createOrb(40, y);
+      orb.vx = 6 + Math.random() * 2;
+      orb.vy = (Math.random() - 0.5) * 0.5;
+      orb.radius = 10 + Math.random() * 4;
+      orbsRef.current.push(orb);
+      ripplesRef.current.push({ x: 40, y, color: orb.color, born: now });
+    }
+
+    // Right group — moving left
+    for (let i = 0; i < count; i++) {
+      const y = cy + (i - (count - 1) / 2) * (spread / count);
+      const orb = createOrb(W - 40, y);
+      orb.vx = -(6 + Math.random() * 2);
+      orb.vy = (Math.random() - 0.5) * 0.5;
+      orb.radius = 10 + Math.random() * 4;
+      orbsRef.current.push(orb);
+      ripplesRef.current.push({ x: W - 40, y, color: orb.color, born: now });
+    }
+
+    setOrbCount(orbsRef.current.length);
+
+    // Schedule collision shockwave when groups meet in the middle
+    const travelDist = (W / 2) - 40;
+    const avgSpeed = 7;
+    const meetMs = Math.round((travelDist / avgSpeed) * 16.67);
+
+    setTimeout(() => {
+      const cx = W / 2;
+      const midY = H / 2;
+      const burstNow = performance.now();
+      wavesRef.current.push({
+        cx, cy: midY, radius: 0, color: "#ffffff",
+        generation: 0, hitOrbs: new Set(), delay: 0,
+      });
+      for (let i = 0; i < 20; i++) {
+        const angle = (Math.PI * 2 * i) / 20;
+        const speed = 3 + Math.random() * 5;
+        burstsRef.current.push({
+          x: cx, y: midY,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          color: randomColor(),
+          radius: 2 + Math.random() * 3,
+          born: burstNow,
+        });
+      }
+      ripplesRef.current.push({ x: cx, y: midY, color: "#ffffff", born: burstNow });
+      shakeRef.current = Math.max(shakeRef.current, 20);
+      playBoom();
+    }, meetMs);
+
+    shakeRef.current = 6;
+    playSwoosh();
+  }, []);
+
   const handleFirework = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -5524,12 +5590,12 @@ function App() {
 
   const handleRandomEffect = useCallback(() => {
     const orbs = orbsRef.current;
-    const alwaysAvailable = [handleBurst, handleMeteorShower, handleFirework, handleHelix, handleFractal];
+    const alwaysAvailable = [handleBurst, handleMeteorShower, handleFirework, handleHelix, handleFractal, handleCollider];
     const needsOrbs = [handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission];
     const alwaysAvailableBig = [...alwaysAvailable, handlePulsar];
     const pool = orbs.length > 0 ? [...alwaysAvailableBig, ...needsOrbs] : alwaysAvailableBig;
     pool[Math.floor(Math.random() * pool.length)]();
-  }, [handleBurst, handleMeteorShower, handleFirework, handleHelix, handleFractal, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission, handlePulsar]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleHelix, handleFractal, handleCollider, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission, handlePulsar]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -5664,6 +5730,10 @@ function App() {
           handleFractal();
           flashLabel("FRACTAL", "#43e97b");
           break;
+        case "3":
+          handleCollider();
+          flashLabel("COLLIDER", "#4facfe");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -5671,7 +5741,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleFractal, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleFractal, handleCollider, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -5816,6 +5886,16 @@ function App() {
               <line x1="7" y1="16" x2="5" y2="19" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={() => { handleCollider(); comboFlashRef.current.push({ text: "COLLIDER", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#4facfe" }); }} title="Collider (3)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="5" cy="12" r="2.5" fill="currentColor" />
+              <circle cx="19" cy="12" r="2.5" fill="currentColor" />
+              <line x1="7.5" y1="12" x2="11" y2="12" />
+              <line x1="13" y1="12" x2="16.5" y2="12" />
+              <line x1="10" y1="8" x2="14" y2="16" opacity="0.5" />
+              <line x1="14" y1="8" x2="10" y2="16" opacity="0.5" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={() => { handleCyclePalette(); const W = window.innerWidth; const H = window.innerHeight; comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" }); }} title={`Palette: ${PALETTES[paletteIndex].name} (Y)`} $highlight>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
@@ -5933,6 +6013,7 @@ function App() {
               <Shortcut><Key>U</Key><span>Maelstrom (spiral + release)</span></Shortcut>
               <Shortcut><Key>I</Key><span>Galaxy spiral</span></Shortcut>
               <Shortcut><Key>2</Key><span>Fractal burst (branching spawn)</span></Shortcut>
+              <Shortcut><Key>3</Key><span>Collider (opposing streams)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
