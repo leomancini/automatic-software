@@ -187,6 +187,7 @@ export const STREAK_METEOR = 20;         // meteor shower
 export const STREAK_SUPERNOVA = 25;      // supernova at tap point
 export const STREAK_CASCADE = 30;        // cosmic cascade — every orb splits
 export const STREAK_STARFALL = 35;       // starfall — all orbs rain down as meteors
+export const STREAK_SUPERMASSIVE = 40;   // supermassive — simultaneous firework bursts + shockwaves + scatter
 export const COMBO_FLASH_DURATION = 1400; // ms for floating reward text
 
 // ── Orbital strike ─────────────────────────────────────────────────

@@ -33,6 +33,7 @@ import {
   TORNADO_FLING_SPEED, TORNADO_DEBRIS_MAX,
   STREAK_WINDOW, STREAK_DECAY_DELAY, STREAK_FIREWORK, STREAK_LIGHTNING,
   STREAK_METEOR, STREAK_SUPERNOVA, STREAK_CASCADE, COMBO_FLASH_DURATION,
+  STREAK_SUPERMASSIVE,
   STRIKE_BEAM_MS, STRIKE_FADE_MS, STRIKE_ORB_COUNT, STRIKE_ORB_SPEED, STRIKE_BEAM_WIDTH,
   IGNITE_SPREAD_DIST, IGNITE_BURN_MS, IGNITE_SPARK_COUNT, IGNITE_SPARK_SPEED,
   IGNITE_SPREAD_CHANCE, EMBER_LIFETIME,
@@ -757,6 +758,53 @@ function App() {
         playMeteorSound();
         playBoom();
         comboFlashRef.current.push({ text: "STARFALL!", x: pos.x, y: pos.y - 40, born: now, color: "#fbbf24" });
+      }
+
+      if (streak === STREAK_SUPERMASSIVE) {
+        // SUPERMASSIVE: simultaneous firework bursts across the screen
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        const burstPoints = [
+          { x: W * 0.2, y: H * 0.3 },
+          { x: W * 0.8, y: H * 0.25 },
+          { x: pos.x, y: pos.y },
+          { x: W * 0.3, y: H * 0.7 },
+          { x: W * 0.7, y: H * 0.65 },
+        ];
+        for (const bp of burstPoints) {
+          const fwCount = 8;
+          for (let i = 0; i < fwCount; i++) {
+            const angle = (Math.PI * 2 * i) / fwCount + Math.random() * 0.4;
+            const orb = createOrb(bp.x, bp.y);
+            orb.radius = 4 + Math.random() * 5;
+            orb.vx = Math.cos(angle) * (5 + Math.random() * 4);
+            orb.vy = Math.sin(angle) * (5 + Math.random() * 4);
+            orbsRef.current.push(orb);
+          }
+          ripplesRef.current.push({ x: bp.x, y: bp.y, color: randomColor(), born: now });
+          meteorTrailsRef.current.push({
+            x: bp.x, y: bp.y - 40,
+            dx: (Math.random() - 0.5) * 30, dy: -60 - Math.random() * 40,
+            color: randomColor(), born: now,
+          });
+        }
+        // Scatter all existing orbs outward from tap point
+        for (const o of orbsRef.current) {
+          const dx = o.x - pos.x;
+          const dy = o.y - pos.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          o.vx += (dx / dist) * 12;
+          o.vy += (dy / dist) * 12;
+        }
+        // Triple shockwave
+        wavesRef.current.push({ cx: pos.x, cy: pos.y, radius: 0, color: "#fff", generation: 0, hitOrbs: new Set(), delay: 0 });
+        wavesRef.current.push({ cx: pos.x, cy: pos.y, radius: 0, color: "#f093fb", generation: 0, hitOrbs: new Set(), delay: 4 });
+        wavesRef.current.push({ cx: pos.x, cy: pos.y, radius: 0, color: "#4facfe", generation: 0, hitOrbs: new Set(), delay: 8 });
+        shakeRef.current = 50;
+        playBoom();
+        playSupernovaSound();
+        playBurstSound();
+        comboFlashRef.current.push({ text: "SUPERMASSIVE!", x: pos.x, y: pos.y - 40, born: now, color: "#fff" });
       }
 
       // ── Tap pulse wave — concentric ripples from every tap ──
@@ -5861,6 +5909,7 @@ function App() {
                streakDisplay < 25 ? `${STREAK_SUPERNOVA}x supernova` :
                streakDisplay < 30 ? `${STREAK_CASCADE}x cascade` :
                streakDisplay < 35 ? `${STREAK_STARFALL}x starfall` :
+               streakDisplay < 40 ? `${STREAK_SUPERMASSIVE}x supermassive` :
                "MAX COMBO"}
             </NextCombo>
           </>
