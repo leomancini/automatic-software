@@ -7071,10 +7071,10 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleSpiral} title="Spiral">
+          <ActionButton onClick={handleBlackHole} title="Black hole">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 12a2 2 0 0 1 2-2 4 4 0 0 1 4 4 6 6 0 0 1-6 6 8 8 0 0 1-8-8 10 10 0 0 1 10-10" />
-              <circle cx="12" cy="12" r="1" fill="currentColor" />
+              <circle cx="12" cy="12" r="3.5" fill="currentColor" />
+              <ellipse cx="12" cy="12" rx="10" ry="4" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleEruption} title="Eruption">
