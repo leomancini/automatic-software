@@ -5962,6 +5962,55 @@ function App() {
     playBlackHoleSound();
   }, []);
 
+  const handleFission = useCallback(() => {
+    const orbs = orbsRef.current.filter(o => !o.spark);
+    if (orbs.length === 0) return;
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cx = W / 2, cy = H / 2;
+    // Sort by distance from center (closest first)
+    const sorted = [...orbs].sort((a, b) => {
+      const da = (a.x - cx) ** 2 + (a.y - cy) ** 2;
+      const db = (b.x - cx) ** 2 + (b.y - cy) ** 2;
+      return da - db;
+    });
+    sorted.forEach((orb, i) => {
+      setTimeout(() => {
+        const idx = orbsRef.current.indexOf(orb);
+        if (idx === -1) return;
+        orbsRef.current.splice(idx, 1);
+        // Create 3 smaller orbs
+        for (let j = 0; j < 3; j++) {
+          const angle = (Math.PI * 2 * j) / 3 + Math.random() * 0.5;
+          const speed = 2 + Math.random() * 3;
+          const newOrb = createOrb(orb.x, orb.y);
+          newOrb.radius = Math.max(4, orb.radius * 0.55);
+          newOrb.color = orb.color;
+          newOrb.vx = Math.cos(angle) * speed;
+          newOrb.vy = Math.sin(angle) * speed;
+          orbsRef.current.push(newOrb);
+        }
+        // Burst particles
+        const now = performance.now();
+        for (let k = 0; k < BURST_PARTICLE_COUNT; k++) {
+          const angle = (Math.PI * 2 * k) / BURST_PARTICLE_COUNT;
+          burstsRef.current.push({
+            x: orb.x, y: orb.y,
+            vx: Math.cos(angle) * (1.5 + Math.random() * 2),
+            vy: Math.sin(angle) * (1.5 + Math.random() * 2),
+            color: orb.color,
+            radius: orb.radius * 0.3,
+            born: now,
+          });
+        }
+        ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+        if (i % 2 === 0) playFirePop();
+        shakeRef.current = Math.max(shakeRef.current, 5);
+        setOrbCount(orbsRef.current.filter(o => !o.spark).length);
+      }, i * 60);
+    });
+  }, []);
+
   const handleRandomEffect = useCallback(() => {
     const orbs = orbsRef.current;
     const alwaysAvailable = [
@@ -5974,6 +6023,7 @@ function App() {
       [handleSpin, "SPIN"], [handleGather, "GATHER"], [handleSupernova, "SUPERNOVA"],
       [handleMaelstrom, "MAELSTROM"],
       [handleOrbitLock, "ORBIT LOCK"],
+      [handleFission, "FISSION"],
     ];
     const pool = orbs.length > 0 ? [...alwaysAvailable, ...needsOrbs] : alwaysAvailable;
     const [fn, label] = pool[Math.floor(Math.random() * pool.length)];
@@ -5981,7 +6031,7 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     comboFlashRef.current.push({ text: label, x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" });
-  }, [handleBurst, handleMeteorShower, handleFirework, handleRicochet, handleGalaxy, handleVolley, handleCrossfire, handleTidalPulse, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleOrbitLock]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleRicochet, handleGalaxy, handleVolley, handleCrossfire, handleTidalPulse, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleOrbitLock, handleFission]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -6132,6 +6182,10 @@ function App() {
           handleOrbitLock();
           flashLabel("ORBIT LOCK", "#f093fb");
           break;
+        case "6":
+          handleFission();
+          flashLabel("FISSION", "#43e97b");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -6139,7 +6193,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRicochet, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleBlackHole, handleOrbitLock, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRicochet, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleBlackHole, handleOrbitLock, handleFission, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6344,6 +6398,17 @@ function App() {
                 <line x1="20" y1="12" x2="23" y2="12" opacity="0.4" />
               </svg>
             </ActionButton>
+            <ActionButton onClick={handleFission} title="Fission">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <line x1="12" y1="12" x2="5" y2="5" />
+                <circle cx="4" cy="4" r="2" fill="currentColor" />
+                <line x1="12" y1="12" x2="19" y2="5" />
+                <circle cx="20" cy="4" r="2" fill="currentColor" />
+                <line x1="12" y1="12" x2="12" y2="21" />
+                <circle cx="12" cy="22" r="2" fill="currentColor" />
+              </svg>
+            </ActionButton>
             <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -6404,6 +6469,7 @@ function App() {
               <Shortcut><Key>0</Key><span>Tidal pulse (inhale → exhale)</span></Shortcut>
               <Shortcut><Key>2</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
               <Shortcut><Key>5</Key><span>Orbit lock (rings + release)</span></Shortcut>
+              <Shortcut><Key>6</Key><span>Fission (split all orbs)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
