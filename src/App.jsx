@@ -4807,6 +4807,7 @@ function App() {
     const H = window.innerHeight;
     const cx = W / 2;
     const cy = H / 2;
+    const now = performance.now();
     for (const orb of orbsRef.current) {
       const dx = orb.x - cx;
       const dy = orb.y - cy;
@@ -4815,7 +4816,18 @@ function App() {
       orb.vx += (dx / dist) * strength;
       orb.vy += (dy / dist) * strength;
     }
-    shakeRef.current = 12;
+    // explosion ripple from center
+    wavesRef.current.push({
+      cx,
+      cy,
+      radius: 0,
+      color: randomColor(),
+      generation: 0,
+      hitOrbs: new Set(),
+      delay: 0,
+    });
+    shakeRef.current = 16;
+    playBoom();
   }, []);
 
   const handleGather = useCallback(() => {
@@ -4933,18 +4945,28 @@ function App() {
     const H = window.innerHeight;
     const cx = W / 2;
     const cy = H / 2;
+    const dir = Math.random() > 0.5 ? 1 : -1;
     for (const orb of orbsRef.current) {
       const dx = orb.x - cx;
       const dy = orb.y - cy;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1;
       const strength = 3 + Math.random() * 2;
       // tangential velocity (perpendicular to radial direction)
-      orb.vx += (-dy / dist) * strength;
-      orb.vy += (dx / dist) * strength;
+      orb.vx += (-dy / dist) * strength * dir;
+      orb.vy += (dx / dist) * strength * dir;
       // slight inward pull to keep the vortex tight
       orb.vx -= (dx / dist) * 0.5;
       orb.vy -= (dy / dist) * 0.5;
     }
+    // visible vortex spiral
+    vortexesRef.current.push({
+      cx,
+      cy,
+      born: performance.now(),
+      color: randomColor(),
+      direction: dir,
+    });
+    shakeRef.current = Math.max(shakeRef.current, 10);
     playSwoosh();
   }, []);
 
