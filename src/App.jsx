@@ -207,6 +207,10 @@ function App() {
   const kaleidoscopeModeRef = useRef(false);
   const [wrapMode, setWrapMode] = useState(false);
   const wrapModeRef = useRef(false);
+  const barriersRef = useRef([]); // user-drawn bounce walls [{x1, y1, x2, y2, color}]
+  const [barrierMode, setBarrierMode] = useState(false);
+  const barrierModeRef = useRef(false);
+  const barrierDrawRef = useRef(null); // {x1, y1, x2, y2} while actively drawing
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -273,6 +277,8 @@ function App() {
             longPressRef.current = null;
           }, LONG_PRESS_MS);
         }
+      } else if (barrierModeRef.current) {
+        barrierDrawRef.current = { x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y };
       } else {
         sprayActiveRef.current = false;
         sprayStartRef.current = { x: pos.x, y: pos.y };
@@ -306,6 +312,9 @@ function App() {
         history.push({ x: pos.x, y: pos.y, t: performance.now() });
         // keep only last 5 samples
         if (history.length > 5) history.shift();
+      } else if (barrierDrawRef.current) {
+        barrierDrawRef.current.x2 = pos.x;
+        barrierDrawRef.current.y2 = pos.y;
       } else if (mouseDownRef.current) {
         if (sparklerModeRef.current) {
           // Sparkler mode: continuously spawn tiny sparks at cursor
@@ -402,6 +411,38 @@ function App() {
       if (holdChargeTimerRef.current) {
         clearTimeout(holdChargeTimerRef.current);
         holdChargeTimerRef.current = null;
+      }
+      // ── Barrier drawing finalization ──
+      if (barrierDrawRef.current) {
+        const bd = barrierDrawRef.current;
+        barrierDrawRef.current = null;
+        const bdx = bd.x2 - bd.x1;
+        const bdy = bd.y2 - bd.y1;
+        const bLen = Math.sqrt(bdx * bdx + bdy * bdy);
+        if (bLen > 30) {
+          // Save barrier
+          barriersRef.current.push({ x1: bd.x1, y1: bd.y1, x2: bd.x2, y2: bd.y2, color: randomColor() });
+          playBounce(0.4);
+        } else {
+          // Short tap in barrier mode — remove nearest barrier if close enough
+          const tapX = bd.x1, tapY = bd.y1;
+          let bestIdx = -1, bestDist = 25;
+          for (let bi = 0; bi < barriersRef.current.length; bi++) {
+            const bar = barriersRef.current[bi];
+            const bex = bar.x2 - bar.x1, bey = bar.y2 - bar.y1;
+            const bLen2 = bex * bex + bey * bey;
+            if (bLen2 < 1) continue;
+            let bt = ((tapX - bar.x1) * bex + (tapY - bar.y1) * bey) / bLen2;
+            bt = Math.max(0, Math.min(1, bt));
+            const cx = bar.x1 + bt * bex, cy = bar.y1 + bt * bey;
+            const d = Math.sqrt((tapX - cx) * (tapX - cx) + (tapY - cy) * (tapY - cy));
+            if (d < bestDist) { bestDist = d; bestIdx = bi; }
+          }
+          if (bestIdx >= 0) {
+            barriersRef.current.splice(bestIdx, 1);
+          }
+        }
+        return;
       }
       // Hold-to-attract release — burst orbs outward
       if (holdChargeRef.current) {
@@ -2121,6 +2162,34 @@ function App() {
           }
         }
 
+        // bounce off user-drawn barriers
+        for (const bar of barriersRef.current) {
+          const bex = bar.x2 - bar.x1, bey = bar.y2 - bar.y1;
+          const bLen2 = bex * bex + bey * bey;
+          if (bLen2 < 1) continue;
+          let bt = ((orb.x - bar.x1) * bex + (orb.y - bar.y1) * bey) / bLen2;
+          bt = Math.max(0, Math.min(1, bt));
+          const cx = bar.x1 + bt * bex, cy = bar.y1 + bt * bey;
+          const bdx = orb.x - cx, bdy = orb.y - cy;
+          const bDist = Math.sqrt(bdx * bdx + bdy * bdy);
+          if (bDist < orb.radius && bDist > 0) {
+            const bnx = bdx / bDist, bny = bdy / bDist;
+            const bDot = orb.vx * bnx + orb.vy * bny;
+            if (bDot < 0) {
+              orb.vx -= 2 * bDot * bnx * 0.7;
+              orb.vy -= 2 * bDot * bny * 0.7;
+              orb.x = cx + bnx * (orb.radius + 0.5);
+              orb.y = cy + bny * (orb.radius + 0.5);
+              const bSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+              if (bSpeed > WALL_HIT_SPEED_THRESHOLD) {
+                const bhi = Math.min(bSpeed / 5, 1);
+                wallHitsRef.current.push({ x: cx, y: cy, color: bar.color, born: now, intensity: bhi });
+                playBounce(bhi);
+              }
+            }
+          }
+        }
+
         // portal teleportation
         const portals = portalsRef.current;
         if (portals.length === 2) {
@@ -3698,6 +3767,44 @@ function App() {
         ctx.fill();
       }
 
+      // draw user-drawn barriers
+      for (const bar of barriersRef.current) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(bar.x1, bar.y1);
+        ctx.lineTo(bar.x2, bar.y2);
+        ctx.strokeStyle = bar.color;
+        ctx.lineWidth = 3;
+        ctx.shadowColor = bar.color;
+        ctx.shadowBlur = 12;
+        ctx.stroke();
+        // subtle inner glow line
+        ctx.beginPath();
+        ctx.moveTo(bar.x1, bar.y1);
+        ctx.lineTo(bar.x2, bar.y2);
+        ctx.strokeStyle = "rgba(255,255,255,0.35)";
+        ctx.lineWidth = 1;
+        ctx.shadowBlur = 0;
+        ctx.stroke();
+        ctx.restore();
+      }
+      // draw barrier being drawn
+      if (barrierDrawRef.current) {
+        const bd = barrierDrawRef.current;
+        const bdx = bd.x2 - bd.x1, bdy = bd.y2 - bd.y1;
+        const bLen = Math.sqrt(bdx * bdx + bdy * bdy);
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(bd.x1, bd.y1);
+        ctx.lineTo(bd.x2, bd.y2);
+        ctx.strokeStyle = bLen > 30 ? "rgba(255,255,255,0.6)" : "rgba(255,100,100,0.4)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 6]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
       // draw gravity wells
       for (const well of wellsRef.current) {
         const wellAge = (now - well.born) / 1000;
@@ -5196,6 +5303,13 @@ function App() {
     });
   }, []);
 
+  const handleBarrierMode = useCallback(() => {
+    setBarrierMode((prev) => {
+      barrierModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handlePaintMode = useCallback(() => {
     setPaintMode((prev) => {
       paintModeRef.current = !prev;
@@ -5247,6 +5361,7 @@ function App() {
     }
     orbsRef.current = [];
     trailsRef.current = [];
+    barriersRef.current = [];
     blackHoleRef.current = null;
     setOrbCount(0);
     shakeRef.current = 20;
@@ -6210,6 +6325,9 @@ function App() {
         case "1":
           handleRandomEffect();
           break;
+        case "7":
+          handleBarrierMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -6217,7 +6335,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleEruption, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleBlackHole, handleOrbitLock, handleFission, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleEruption, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleBlackHole, handleOrbitLock, handleFission, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6282,6 +6400,7 @@ function App() {
           {repelMode && <ModePill $color="#fa709a">repel</ModePill>}
           {attractMode && <ModePill $color="#f093fb">magnet</ModePill>}
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
+          {barrierMode && <ModePill $color="#4facfe">walls</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {longExposure && <ModePill $color="#feb47b">long exposure</ModePill>}
           {autoPlay && <ModePill $color="#43e97b">autoplay</ModePill>}
@@ -6425,6 +6544,9 @@ function App() {
         <ModeToggle onClick={handleCyclePalette} $active={paletteIndex !== 0} $color="#f093fb" title="Cycle color palette">
           {PALETTES[paletteIndex].name.toLowerCase()}
         </ModeToggle>
+        <ModeToggle onClick={handleBarrierMode} $active={barrierMode} $color="#4facfe" title="Draw walls (7)">
+          walls
+        </ModeToggle>
         <ModeToggle onClick={handleAutoPlay} $active={autoPlay} $color="#43e97b" title="Autoplay (ambient mode)">
           autoplay
         </ModeToggle>
@@ -6502,6 +6624,7 @@ function App() {
               <Shortcut><Key>Y</Key><span>Cycle color palette</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all orbs</span></Shortcut>
+              <Shortcut><Key>7</Key><span>Draw walls mode (tap to remove)</span></Shortcut>
               <Shortcut><Key>?</Key><span>Toggle this help</span></Shortcut>
             </ShortcutList>
             <HelpClose onClick={() => setShowHelp(false)}>Got it</HelpClose>
