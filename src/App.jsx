@@ -186,6 +186,7 @@ function App() {
   const sprayActiveRef = useRef(false);
   const sprayStartRef = useRef({ x: 0, y: 0 });
   const lastSprayPosRef = useRef({ x: 0, y: 0 });
+  const crescendoRef = useRef(false); // prevent overlapping crescendos
   // showMoreButtons state removed — rarely-used effects culled from UI (still accessible via keyboard)
   const bigBangRef = useRef(null); // {born, detonated, detonateTime}
   const slingshotRef = useRef(null); // {startX, startY} when flick-aiming
@@ -6448,6 +6449,56 @@ function App() {
     playSupernovaSound();
   }, []);
 
+  const handleCrescendo = useCallback(() => {
+    if (crescendoRef.current) return;
+    crescendoRef.current = true;
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cx = W / 2;
+    const cy = H / 2;
+
+    // Stage labels that flash during the sequence
+    const stageFlash = (text, color, delay) => {
+      setTimeout(() => {
+        comboFlashRef.current.push({ text, x: cx, y: cy, born: performance.now(), color });
+      }, delay);
+    };
+
+    // 1. Burst (t=0)
+    stageFlash("CRESCENDO", "#fbbf24", 0);
+    handleBurst();
+
+    // 2. Shockwave (t=600)
+    setTimeout(() => {
+      wavesRef.current.push({
+        cx, cy, radius: 0, color: randomColor(),
+        generation: 0, hitOrbs: new Set(), delay: 0,
+      });
+      shakeRef.current = Math.max(shakeRef.current, 16);
+      playBoom();
+    }, 600);
+
+    // 3. Firework (t=1200)
+    setTimeout(() => handleFirework(), 1200);
+
+    // 4. Spin vortex (t=1800)
+    setTimeout(() => handleSpin(), 1800);
+
+    // 5. Chain lightning (t=2400)
+    setTimeout(() => handleLightning(), 2400);
+
+    // 6. Meteor shower (t=3000)
+    setTimeout(() => handleMeteorShower(), 3000);
+
+    // 7. Supernova grand finale (t=3800)
+    setTimeout(() => {
+      handleSupernova();
+      stageFlash("FINALE!", "#fff", 0);
+      crescendoRef.current = false;
+    }, 3800);
+
+  }, [handleBurst, handleFirework, handleSpin, handleLightning, handleMeteorShower, handleSupernova]);
+
   const handleImplode = useCallback(() => {
     if (implodeRef.current) return;
     if (orbsRef.current.length < 2) return;
@@ -6711,6 +6762,9 @@ function App() {
         case "i":
           handleKaleidoscopeMode();
           break;
+        case "t":
+          handleCrescendo();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -6718,7 +6772,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, handleCrescendo, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6841,6 +6895,17 @@ function App() {
               <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
               <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleCrescendo} title="Crescendo">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 20 L8 14 L14 16 L22 4" />
+              <polyline points="16 4 22 4 22 10" />
+              <circle cx="22" cy="4" r="2" fill="currentColor" />
+              <line x1="6" y1="2" x2="6" y2="6" />
+              <line x1="4" y1="4" x2="8" y2="4" />
+              <line x1="18" y1="14" x2="18" y2="18" />
+              <line x1="16" y1="16" x2="20" y2="16" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -6979,6 +7044,7 @@ function App() {
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
+              <Shortcut><Key>T</Key><span>Crescendo (grand finale sequence)</span></Shortcut>
               <Shortcut><Key>1</Key><span>Random effect (surprise!)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
