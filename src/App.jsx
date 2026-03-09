@@ -16,6 +16,7 @@ import {
   METEOR_COUNT, METEOR_STAGGER, METEOR_TRAIL_DURATION,
   PORTAL_RADIUS, PORTAL_TELEPORT_DIST, PORTAL_COOLDOWN,
   SUPERNOVA_IMPLODE_MS, SUPERNOVA_RING_COUNT, SUPERNOVA_RING_SPEED, SUPERNOVA_PULL_STRENGTH,
+  MAELSTROM_SPIRAL_MS, MAELSTROM_RELEASE_MS, MAELSTROM_PULL, MAELSTROM_TANGENT, MAELSTROM_RELEASE_SPEED,
   COMET_SPEED, COMET_TRAIL_INTERVAL, COMET_ORB_COUNT, COMET_HEAD_RADIUS, COMET_TAIL_POINTS,
   WARP_CHARGE_MS, WARP_JUMP_MS, WARP_SETTLE_MS, WARP_PULL, WARP_SCATTER_SPEED,
   TAP_WAVE_DURATION, TAP_WAVE_MAX_RADIUS, TAP_WAVE_PUSH, TAP_WAVE_RINGS,
@@ -108,6 +109,7 @@ function App() {
   const meteorTrailsRef = useRef([]);
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
   const supernovaRef = useRef(null); // active supernova {cx, cy, born, phase}
+  const maelstromRef = useRef(null); // active maelstrom {cx, cy, born, phase}
   const shatterAllRef = useRef(null); // active shatter-all {born, phase, frozenOrbs}
   const embersRef = useRef([]); // fire ember particles
   const mergeSparksRef = useRef([]); // collision spark particles
@@ -4291,6 +4293,117 @@ function App() {
         }
       }
 
+      // ── Maelstrom effect (spiral inward → explosive release) ──
+      if (maelstromRef.current) {
+        const ml = maelstromRef.current;
+        const age = now - ml.born;
+
+        if (ml.phase === "spiral" && age < MAELSTROM_SPIRAL_MS) {
+          const progress = age / MAELSTROM_SPIRAL_MS;
+          const pullStrength = MAELSTROM_PULL * (0.5 + progress * 2);
+          const tangentStrength = MAELSTROM_TANGENT * (1 + progress * 3);
+
+          for (const orb of orbs) {
+            if (orb === dragRef.current) continue;
+            const dx = ml.cx - orb.x;
+            const dy = ml.cy - orb.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            // Inward pull
+            orb.vx += (dx / dist) * pullStrength;
+            orb.vy += (dy / dist) * pullStrength;
+            // Tangential spin (perpendicular to radial)
+            orb.vx += (-dy / dist) * tangentStrength;
+            orb.vy += (dx / dist) * tangentStrength;
+            // Damping for tight spiral
+            orb.vx *= 0.94;
+            orb.vy *= 0.94;
+          }
+
+          // Visual: rotating spiral arms
+          const armCount = 3;
+          const maxR = Math.min(W, H) * 0.45 * (1 - progress * 0.7);
+          const rotation = progress * Math.PI * 6;
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+          for (let a = 0; a < armCount; a++) {
+            const baseAngle = (Math.PI * 2 * a) / armCount + rotation;
+            ctx.beginPath();
+            for (let t = 0; t < 1; t += 0.02) {
+              const r = maxR * t;
+              const spiralAngle = baseAngle + t * Math.PI * 2;
+              const px = ml.cx + Math.cos(spiralAngle) * r;
+              const py = ml.cy + Math.sin(spiralAngle) * r;
+              if (t === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            const armAlpha = (0.15 + progress * 0.2) * (1 - progress * 0.3);
+            ctx.strokeStyle = `rgba(120, 200, 255, ${armAlpha})`;
+            ctx.lineWidth = 2 + progress * 3;
+            ctx.stroke();
+          }
+
+          // Core glow that intensifies
+          const coreR = 15 + progress * 40;
+          const coreGrad = ctx.createRadialGradient(ml.cx, ml.cy, 0, ml.cx, ml.cy, coreR);
+          coreGrad.addColorStop(0, `rgba(140, 220, 255, ${0.3 + progress * 0.4})`);
+          coreGrad.addColorStop(0.5, `rgba(80, 160, 255, ${0.15 + progress * 0.2})`);
+          coreGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(ml.cx, ml.cy, coreR, 0, Math.PI * 2);
+          ctx.fillStyle = coreGrad;
+          ctx.fill();
+          ctx.restore();
+
+          shakeRef.current = Math.max(shakeRef.current, 2 + progress * 8);
+        } else if (ml.phase === "spiral" && age >= MAELSTROM_SPIRAL_MS) {
+          // Transition: release all orbs outward
+          ml.phase = "release";
+          ml.releaseBorn = now;
+
+          for (const orb of orbs) {
+            if (orb === dragRef.current) continue;
+            const dx = orb.x - ml.cx;
+            const dy = orb.y - ml.cy;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            orb.vx = (dx / dist) * (MAELSTROM_RELEASE_SPEED + Math.random() * 4);
+            orb.vy = (dy / dist) * (MAELSTROM_RELEASE_SPEED + Math.random() * 4);
+          }
+
+          // Flash + shockwave
+          flashesRef.current.push({
+            x: ml.cx, y: ml.cy, color: "#78c8ff",
+            radius: 50, born: now,
+          });
+          wavesRef.current.push({
+            cx: ml.cx, cy: ml.cy, radius: 0,
+            color: "#78c8ff", generation: 0,
+            hitOrbs: new Set(), delay: 0,
+          });
+
+          shakeRef.current = 30;
+          playSupernovaSound();
+        }
+
+        if (ml.phase === "release") {
+          const releaseAge = now - ml.releaseBorn;
+          if (releaseAge < MAELSTROM_RELEASE_MS) {
+            const progress = releaseAge / MAELSTROM_RELEASE_MS;
+            const glowR = 20 + progress * Math.min(W, H) * 0.4;
+            const glowAlpha = (1 - progress) * 0.25;
+            const glowGrad = ctx.createRadialGradient(ml.cx, ml.cy, 0, ml.cx, ml.cy, glowR);
+            glowGrad.addColorStop(0, `rgba(140, 220, 255, ${glowAlpha * 0.8})`);
+            glowGrad.addColorStop(0.3, `rgba(80, 160, 255, ${glowAlpha * 0.4})`);
+            glowGrad.addColorStop(1, "transparent");
+            ctx.beginPath();
+            ctx.arc(ml.cx, ml.cy, glowR, 0, Math.PI * 2);
+            ctx.fillStyle = glowGrad;
+            ctx.fill();
+          } else {
+            maelstromRef.current = null;
+          }
+        }
+      }
+
       // ── Flick aiming line ──
       if (slingshotRef.current && mouseDownRef.current) {
         const sling = slingshotRef.current;
@@ -4999,6 +5112,16 @@ function App() {
     playSupernovaSound();
   }, []);
 
+  const handleMaelstrom = useCallback(() => {
+    if (maelstromRef.current || orbsRef.current.length === 0) return;
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    const cx = (mx > 0 || my > 0) ? mx : window.innerWidth / 2;
+    const cy = (mx > 0 || my > 0) ? my : window.innerHeight / 2;
+    maelstromRef.current = { cx, cy, born: performance.now(), phase: "spiral" };
+    playSwoosh();
+  }, []);
+
   const handleComet = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -5085,10 +5208,10 @@ function App() {
   const handleRandomEffect = useCallback(() => {
     const orbs = orbsRef.current;
     const alwaysAvailable = [handleBurst, handleMeteorShower, handleFirework];
-    const needsOrbs = [handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova];
+    const needsOrbs = [handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom];
     const pool = orbs.length > 0 ? [...alwaysAvailable, ...needsOrbs] : alwaysAvailable;
     pool[Math.floor(Math.random() * pool.length)]();
-  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -5191,6 +5314,10 @@ function App() {
           handleSupernova();
           flashLabel("SUPERNOVA", "#f093fb");
           break;
+        case "u":
+          handleMaelstrom();
+          flashLabel("MAELSTROM", "#78c8ff");
+          break;
         case "i":
           handleGalaxy();
           flashLabel("GALAXY", "#667eea");
@@ -5222,7 +5349,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -5386,6 +5513,15 @@ function App() {
                 <polyline points="21 3 21 9 15 9" />
               </svg>
             </ActionButton>
+            <ActionButton onClick={handleMaelstrom} title="Maelstrom">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3a9 9 0 0 1 6.36 2.64" />
+                <path d="M12 7a5 5 0 0 1 3.54 1.46" />
+                <circle cx="12" cy="12" r="1" fill="currentColor" />
+                <path d="M12 17a5 5 0 0 1-3.54-1.46" />
+                <path d="M12 21a9 9 0 0 1-6.36-2.64" />
+              </svg>
+            </ActionButton>
             <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -5438,6 +5574,7 @@ function App() {
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
+              <Shortcut><Key>U</Key><span>Maelstrom (spiral + release)</span></Shortcut>
               <Shortcut><Key>I</Key><span>Galaxy spiral</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>

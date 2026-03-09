@@ -92,6 +92,12 @@ export const SUPERNOVA_RING_COUNT = 16; // orbs spawned in explosion ring
 export const SUPERNOVA_RING_SPEED = 8; // outward velocity of ring orbs
 export const SUPERNOVA_PULL_STRENGTH = 12; // how hard orbs pull inward
 
+// ── Maelstrom ────────────────────────────────────────────────────
+export const MAELSTROM_SPIRAL_MS = 1400;   // ms for inward spiral phase
+export const MAELSTROM_RELEASE_MS = 600;   // ms for explosive release visual
+export const MAELSTROM_PULL = 0.09;        // inward radial force per frame
+export const MAELSTROM_TANGENT = 0.14;     // tangential spin force per frame
+export const MAELSTROM_RELEASE_SPEED = 10; // outward burst velocity on release
 
 // ── Comet ─────────────────────────────────────────────────────────
 export const COMET_SPEED = 7;            // px per frame
