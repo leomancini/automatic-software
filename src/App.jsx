@@ -50,6 +50,7 @@ import {
   VORTEX_STORM_SPIRAL_MS, VORTEX_STORM_HOLD_MS, VORTEX_STORM_EXPLODE_MS,
   VORTEX_STORM_SPIRAL_FORCE, VORTEX_STORM_TANGENT_FORCE, VORTEX_STORM_EXPLODE_SPEED,
   VORTEX_STORM_ARM_COUNT,
+  STREAK_STARFALL,
   LIGHT_TRAIL_LENGTH, TRAIL_SPEED_MIN,
   NEBULA_COUNT, NEBULA_BASE_RADIUS, NEBULA_DRIFT, NEBULA_ORB_PULL, NEBULA_ALPHA, NEBULA_COLORS_RGB,
   TILT_GRAVITY_FORCE, TILT_SMOOTHING,
@@ -731,6 +732,30 @@ function App() {
         playBoom();
         comboFlashRef.current.push({ text: "COSMIC CASCADE!", x: pos.x, y: pos.y - 40, born: now, color: "#fbbf24" });
         setOrbCount(orbsRef.current.length);
+      }
+
+      if (streak === STREAK_STARFALL && orbsRef.current.length > 0) {
+        // Starfall: all orbs rain down like meteors
+        const W = window.innerWidth;
+        for (const o of orbsRef.current) {
+          if (o === dragRef.current) continue;
+          // Massive downward velocity with slight horizontal scatter
+          o.vy = 14 + Math.random() * 6;
+          o.vx = (Math.random() - 0.5) * 4;
+          // Meteor entry trail for each orb
+          meteorTrailsRef.current.push({
+            x: o.x + (Math.random() - 0.5) * 20, y: o.y - 30 - Math.random() * 40,
+            dx: o.vx * 20, dy: o.vy * 20,
+            color: o.color, born: now,
+          });
+        }
+        // Triple shockwave from tap point
+        wavesRef.current.push({ cx: pos.x, cy: pos.y, radius: 0, color: "#fbbf24", generation: 0, hitOrbs: new Set(), delay: 0 });
+        wavesRef.current.push({ cx: pos.x, cy: pos.y, radius: 0, color: "#fa709a", generation: 0, hitOrbs: new Set(), delay: 3 });
+        shakeRef.current = Math.max(shakeRef.current, 25);
+        playMeteorSound();
+        playBoom();
+        comboFlashRef.current.push({ text: "STARFALL!", x: pos.x, y: pos.y - 40, born: now, color: "#fbbf24" });
       }
 
       // ── Tap pulse wave — concentric ripples from every tap ──
@@ -5708,6 +5733,7 @@ function App() {
                streakDisplay < 20 ? `${STREAK_METEOR}x meteors` :
                streakDisplay < 25 ? `${STREAK_SUPERNOVA}x supernova` :
                streakDisplay < 30 ? `${STREAK_CASCADE}x cascade` :
+               streakDisplay < 35 ? `${STREAK_STARFALL}x starfall` :
                "MAX COMBO"}
             </NextCombo>
           </>
