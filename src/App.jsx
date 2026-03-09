@@ -71,6 +71,7 @@ import {
   FLOCK_SEPARATION_DIST, FLOCK_ALIGNMENT_DIST, FLOCK_COHESION_DIST,
   FLOCK_SEPARATION_FORCE, FLOCK_ALIGNMENT_FORCE, FLOCK_COHESION_FORCE,
   FLOCK_MAX_SPEED, FLOCK_CURSOR_FLEE_DIST, FLOCK_CURSOR_FLEE_FORCE,
+  CURRENT_STRENGTH, CURRENT_SCALE, CURRENT_SPEED,
 } from './constants.js';
 import {
   PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce,
@@ -1463,6 +1464,12 @@ function App() {
             mote.disturbance = Math.min(mote.disturbance + proximity * 0.3, 1);
           }
         }
+        // cosmic currents push motes too (makes flow visible)
+        {
+          const ct = now * CURRENT_SPEED;
+          mote.vx += Math.sin(mote.y * CURRENT_SCALE + ct) * Math.cos(mote.x * CURRENT_SCALE * 0.7 + ct * 0.6) * CURRENT_STRENGTH * 0.5;
+          mote.vy += Math.cos(mote.x * CURRENT_SCALE + ct * 0.8) * Math.sin(mote.y * CURRENT_SCALE * 0.7 + ct * 0.3) * CURRENT_STRENGTH * 0.5;
+        }
         // apply velocity + friction
         mote.vx *= MOTE_FRICTION;
         mote.vy *= MOTE_FRICTION;
@@ -2136,6 +2143,15 @@ function App() {
             orb.vx += (tdx / tDist) * push;
             orb.vy += (tdy / tDist) * push;
           }
+        }
+
+        // cosmic currents — gentle ambient flow field (layered sine waves)
+        {
+          const ct = now * CURRENT_SPEED;
+          const fx = Math.sin(orb.y * CURRENT_SCALE + ct) * Math.cos(orb.x * CURRENT_SCALE * 0.7 + ct * 0.6);
+          const fy = Math.cos(orb.x * CURRENT_SCALE + ct * 0.8) * Math.sin(orb.y * CURRENT_SCALE * 0.7 + ct * 0.3);
+          orb.vx += fx * CURRENT_STRENGTH;
+          orb.vy += fy * CURRENT_STRENGTH;
         }
 
         orb.vx *= FRICTION;

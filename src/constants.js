@@ -405,6 +405,11 @@ export const MESH_MAX_DISPLACEMENT = 22;     // max px a grid point can shift
 export const MESH_BASE_ALPHA = 0.08;         // base line opacity
 export const MESH_WARP_ALPHA = 0.35;         // max opacity when warped
 
+// ── Cosmic currents (ambient flow field) ──────────────────────────
+export const CURRENT_STRENGTH = 0.02;   // gentle force (compare to GRAVITY 0.12)
+export const CURRENT_SCALE = 0.004;     // spatial frequency (~250px wavelength)
+export const CURRENT_SPEED = 0.0004;    // temporal evolution speed
+
 // ── Flocking / Swarm mode (boids) ─────────────────────────────────
 export const FLOCK_SEPARATION_DIST = 45;     // min distance before separation force
 export const FLOCK_ALIGNMENT_DIST = 120;     // range for velocity alignment
