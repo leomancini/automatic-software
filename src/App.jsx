@@ -5318,6 +5318,23 @@ function App() {
         ctx.restore();
       }
 
+      // ── Kaleidoscope mirror (post-process) ──
+      if (kaleidoscopeModeRef.current) {
+        ctx.save();
+        ctx.globalAlpha = 0.45;
+        ctx.globalCompositeOperation = 'lighter';
+        // horizontal mirror
+        ctx.setTransform(-1, 0, 0, 1, W, 0);
+        ctx.drawImage(canvas, 0, 0);
+        // vertical mirror
+        ctx.setTransform(1, 0, 0, -1, 0, H);
+        ctx.drawImage(canvas, 0, 0);
+        // diagonal mirror (both axes)
+        ctx.setTransform(-1, 0, 0, -1, W, H);
+        ctx.drawImage(canvas, 0, 0);
+        ctx.restore();
+      }
+
       } catch (err) {
         console.error("draw error:", err);
       }
@@ -6415,6 +6432,9 @@ function App() {
         case "8":
           handleFlockingMode();
           break;
+        case "i":
+          handleKaleidoscopeMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -6422,7 +6442,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6493,6 +6513,7 @@ function App() {
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {longExposure && <ModePill $color="#feb47b">long exposure</ModePill>}
           {autoPlay && <ModePill $color="#43e97b">autoplay</ModePill>}
+          {kaleidoscopeMode && <ModePill $color="#00f2fe">kaleidoscope</ModePill>}
           {paletteIndex !== 0 && <ModePill $color="#f093fb">{PALETTES[paletteIndex].name.toLowerCase()}</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -6636,6 +6657,9 @@ function App() {
         <ModeToggle onClick={handleCyclePalette} $active={paletteIndex !== 0} $color="#f093fb" title="Cycle color palette (Y)">
           {PALETTES[paletteIndex].name.toLowerCase()}
         </ModeToggle>
+        <ModeToggle onClick={handleKaleidoscopeMode} $active={kaleidoscopeMode} $color="#00f2fe" title="Kaleidoscope mirror (I)">
+          mirror
+        </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
@@ -6696,6 +6720,7 @@ function App() {
               <Shortcut><Key>Y</Key><span>Cycle color palette</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
+              <Shortcut><Key>I</Key><span>Kaleidoscope mirror</span></Shortcut>
               <Shortcut><Key>J</Key><span>Long exposure (trail mode)</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Autoplay (ambient mode)</span></Shortcut>
               <Shortcut><Key>K</Key><span>Save screenshot</span></Shortcut>
