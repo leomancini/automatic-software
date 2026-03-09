@@ -5642,11 +5642,23 @@ function App() {
 
   const handleRandomEffect = useCallback(() => {
     const orbs = orbsRef.current;
-    const alwaysAvailable = [handleBurst, handleMeteorShower, handleFirework, handleFireworkShow, handleGalaxy, handleVolley];
-    const needsOrbs = [handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom];
+    const alwaysAvailable = [
+      [handleBurst, "BURST"], [handleMeteorShower, "METEOR SHOWER"], [handleFirework, "FIREWORK"],
+      [handleFireworkShow, "FIREWORK SHOW"], [handleGalaxy, "GALAXY"], [handleVolley, "BARRAGE"],
+      [handleCrossfire, "CROSSFIRE"], [handleTidalPulse, "TIDAL PULSE"],
+    ];
+    const needsOrbs = [
+      [handleWave, "SHOCKWAVE"], [handleLightning, "LIGHTNING"], [handleScatter, "SCATTER"],
+      [handleSpin, "SPIN"], [handleGather, "GATHER"], [handleSupernova, "SUPERNOVA"],
+      [handleMaelstrom, "MAELSTROM"],
+    ];
     const pool = orbs.length > 0 ? [...alwaysAvailable, ...needsOrbs] : alwaysAvailable;
-    pool[Math.floor(Math.random() * pool.length)]();
-  }, [handleBurst, handleMeteorShower, handleFirework, handleFireworkShow, handleGalaxy, handleVolley, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom]);
+    const [fn, label] = pool[Math.floor(Math.random() * pool.length)];
+    fn();
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    comboFlashRef.current.push({ text: label, x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" });
+  }, [handleBurst, handleMeteorShower, handleFirework, handleFireworkShow, handleGalaxy, handleVolley, handleCrossfire, handleTidalPulse, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -5925,9 +5937,14 @@ function App() {
               <path d="M12 2a10 10 0 0 0 0 20" opacity="0.4" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={() => { handleCyclePalette(); const W = window.innerWidth; const H = window.innerHeight; comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" }); }} title={`Palette: ${PALETTES[paletteIndex].name} (Y)`} $highlight>
+          <ActionButton onClick={() => { handleRandomEffect(); }} title="Random effect">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+              <rect x="3" y="3" width="18" height="18" rx="3" />
+              <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+              <circle cx="16" cy="8" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              <circle cx="8" cy="16" r="1.5" fill="currentColor" />
+              <circle cx="16" cy="16" r="1.5" fill="currentColor" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
