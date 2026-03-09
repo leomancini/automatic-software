@@ -6290,23 +6290,6 @@ function App() {
                 <line x1="20" y1="12" x2="23" y2="12" opacity="0.4" />
               </svg>
             </ActionButton>
-            <ActionButton onClick={handleCascade} title="Cascade">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="6" r="3" />
-                <circle cx="6" cy="18" r="2.5" />
-                <circle cx="18" cy="18" r="2.5" />
-                <line x1="10.5" y1="8.5" x2="7.5" y2="15.5" />
-                <line x1="13.5" y1="8.5" x2="16.5" y2="15.5" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleOrbitLock} title="Orbit lock">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="2" fill="currentColor" />
-                <ellipse cx="12" cy="12" rx="7" ry="3" opacity="0.7" />
-                <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)" opacity="0.5" />
-                <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-60 12 12)" opacity="0.3" />
-              </svg>
-            </ActionButton>
             <ActionButton onClick={handleImplode} title="Implode" $highlight>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="2.5" fill="currentColor" />
@@ -6339,6 +6322,9 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode">
           repel
+        </ModeToggle>
+        <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode">
+          paint
         </ModeToggle>
         <ModeToggle onClick={handleCyclePalette} $active={paletteIndex !== 0} $color="#f093fb" title="Cycle color palette">
           {PALETTES[paletteIndex].name.toLowerCase()}
