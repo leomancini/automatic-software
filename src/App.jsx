@@ -171,6 +171,8 @@ function App() {
   const meshModeRef = useRef(false);
   const [flockingMode, setFlockingMode] = useState(false);
   const flockingModeRef = useRef(false);
+  const [trailsMode, setTrailsMode] = useState(false);
+  const trailsModeRef = useRef(false);
   // constellation lines are always-on ambient visual (no toggle needed)
   const gravityDotsRef = useRef([]);
   const dominoRef = useRef(null); // {queue, index, nextTime, respawnCount, phase}
@@ -2335,6 +2337,13 @@ function App() {
         orb.x += orb.vx * speed_factor;
         orb.y += orb.vy * speed_factor;
 
+        // trails mode: record position history
+        if (trailsModeRef.current) {
+          if (!orb.trail) orb.trail = [];
+          orb.trail.push(orb.x, orb.y);
+          if (orb.trail.length > 80) orb.trail.splice(0, 2); // keep last 40 positions
+        }
+
         // gravity harp: detect string crossings
         {
           const prevY = orb.y - orb.vy * speed_factor;
@@ -3762,6 +3771,35 @@ function App() {
             : `rgba(102, 126, 234, ${alpha})`;
           ctx.stroke();
         }
+      }
+
+      // draw trails
+      if (trailsModeRef.current) {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        for (const orb of orbs) {
+          const t = orb.trail;
+          if (!t || t.length < 4) continue;
+          const pts = t.length / 2;
+          ctx.beginPath();
+          ctx.moveTo(t[0], t[1]);
+          for (let ti = 2; ti < t.length; ti += 2) {
+            ctx.lineTo(t[ti], t[ti + 1]);
+          }
+          ctx.lineWidth = Math.max(1, orb.radius * 0.4);
+          ctx.strokeStyle = orb.color + "55";
+          ctx.stroke();
+          // bright head segment
+          if (pts >= 2) {
+            ctx.beginPath();
+            ctx.moveTo(t[t.length - 4], t[t.length - 3]);
+            ctx.lineTo(t[t.length - 2], t[t.length - 1]);
+            ctx.lineWidth = Math.max(1.5, orb.radius * 0.6);
+            ctx.strokeStyle = orb.color + "aa";
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
       }
 
       // draw orbs
@@ -5805,6 +5843,17 @@ function App() {
     });
   }, []);
 
+  const handleTrailsMode = useCallback(() => {
+    setTrailsMode((prev) => {
+      trailsModeRef.current = !prev;
+      if (prev) {
+        // turning off — clear stored trails
+        for (const orb of orbsRef.current) orb.trail = null;
+      }
+      return !prev;
+    });
+  }, []);
+
   const handleSparklerMode = useCallback(() => {
     setSparklerMode((prev) => {
       sparklerModeRef.current = !prev;
@@ -6774,6 +6823,9 @@ function App() {
           handleBlackHole();
           flashLabel("BLACK HOLE", "#a855f7");
           break;
+        case "3":
+          handleTrailsMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -6781,7 +6833,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, handleTrailsMode, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6852,6 +6904,7 @@ function App() {
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {longExposure && <ModePill $color="#feb47b">long exposure</ModePill>}
           {autoPlay && <ModePill $color="#43e97b">autoplay</ModePill>}
+          {trailsMode && <ModePill $color="#667eea">trails</ModePill>}
           {kaleidoscopeMode && <ModePill $color="#00f2fe">kaleidoscope</ModePill>}
           {paletteIndex !== 0 && <ModePill $color="#f093fb">{PALETTES[paletteIndex].name.toLowerCase()}</ModePill>}
         </ModeIndicators>
@@ -7012,8 +7065,8 @@ function App() {
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode">
           paint
         </ModeToggle>
-        <ModeToggle onClick={handleCyclePalette} $active={paletteIndex !== 0} $color="#f093fb" title="Cycle color palette (Y)">
-          {PALETTES[paletteIndex].name.toLowerCase()}
+        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#667eea" title="Trails mode (3)">
+          trails
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
@@ -7078,6 +7131,7 @@ function App() {
               <Shortcut><Key>Y</Key><span>Cycle color palette</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
+              <Shortcut><Key>3</Key><span>Trails mode (orb paths)</span></Shortcut>
               <Shortcut><Key>I</Key><span>Kaleidoscope mirror</span></Shortcut>
               <Shortcut><Key>J</Key><span>Long exposure (trail mode)</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Autoplay (ambient mode)</span></Shortcut>
