@@ -337,6 +337,12 @@ export const FLOCK_ALIGNMENT_FORCE = 0.03;     // match velocity force
 export const FLOCK_COHESION_FORCE = 0.02;      // pull toward center force
 export const FLOCK_MAX_SPEED = 4;              // speed cap
 
+// ── Pulsar ─────────────────────────────────────────────────────────
+export const PULSAR_PULSE_COUNT = 6;           // total pulses before detonation
+export const PULSAR_PULSE_INTERVAL = 450;      // ms between pulses (speeds up)
+export const PULSAR_DETONATION_COUNT = 14;     // orbs spawned in final explosion
+export const PULSAR_DETONATION_SPEED = 9;      // explosion orb velocity
+
 // ── Color palettes ──────────────────────────────────────────────────
 export const PALETTES = [
   {

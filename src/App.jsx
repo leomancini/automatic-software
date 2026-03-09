@@ -63,6 +63,7 @@ import {
   FLOCK_SEPARATION_DIST, FLOCK_NEIGHBOR_DIST, FLOCK_SEPARATION_FORCE,
   FLOCK_ALIGNMENT_FORCE, FLOCK_COHESION_FORCE, FLOCK_MAX_SPEED,
   LIGHTNING_SEGMENTS,
+  PULSAR_PULSE_COUNT, PULSAR_PULSE_INTERVAL, PULSAR_DETONATION_COUNT, PULSAR_DETONATION_SPEED,
   PALETTES,
 } from './constants.js';
 import {
@@ -194,6 +195,7 @@ function App() {
   const rewindRef = useRef(null); // {index} when rewinding
   const rewindBufferRef = useRef([]); // circular buffer of orb snapshots
   const blackHoleRef = useRef(null); // {x, y, born, absorbed, mass, diskDots}
+  const pulsarRef = useRef(null); // {cx, cy, born, pulseCount, phase, detonateBorn}
   const autoplayTimersRef = useRef({ lastSpawn: 0, lastEffect: 0 });
   const [colorCycle, setColorCycle] = useState(false);
   const colorCycleRef = useRef(false);
@@ -4412,6 +4414,122 @@ function App() {
         }
       }
 
+      // ── Pulsar effect (rhythmic pulse waves → detonation) ──
+      if (pulsarRef.current) {
+        const ps = pulsarRef.current;
+        const age = now - ps.born;
+
+        if (ps.phase === "pulse") {
+          // Each pulse comes faster: interval shrinks as count increases
+          const interval = PULSAR_PULSE_INTERVAL * (1 - ps.pulseCount * 0.08);
+          let elapsed = 0;
+          for (let p = 0; p < ps.pulseCount; p++) {
+            elapsed += PULSAR_PULSE_INTERVAL * (1 - p * 0.08);
+          }
+
+          if (age >= elapsed && ps.pulseCount < PULSAR_PULSE_COUNT) {
+            ps.pulseCount++;
+            // Fire a shockwave from pulsar center
+            const hue = 270 + ps.pulseCount * 12;
+            wavesRef.current.push({
+              cx: ps.cx, cy: ps.cy, radius: 0,
+              color: `hsl(${hue}, 80%, 70%)`,
+              generation: 0, hitOrbs: new Set(), delay: 0,
+            });
+            shakeRef.current = Math.max(shakeRef.current, 3 + ps.pulseCount * 3);
+            // Ascending tone
+            playTone(220 + ps.pulseCount * 90, 0.2, "sine", 0.1 + ps.pulseCount * 0.02);
+            // Aurora flare with each pulse
+            auroraFlareRef.current = Math.min(auroraFlareRef.current + 0.15, 1);
+          }
+
+          // After all pulses, brief charge then detonate
+          if (ps.pulseCount >= PULSAR_PULSE_COUNT) {
+            let totalElapsed = 0;
+            for (let p = 0; p < PULSAR_PULSE_COUNT; p++) {
+              totalElapsed += PULSAR_PULSE_INTERVAL * (1 - p * 0.08);
+            }
+            if (age > totalElapsed + 350) {
+              ps.phase = "detonate";
+              ps.detonateBorn = now;
+            }
+          }
+
+          // Visual: pulsing core with growing intensity
+          const intensity = ps.pulseCount / PULSAR_PULSE_COUNT;
+          const pulse = Math.sin(age * 0.015) * 0.5 + 0.5;
+          const coreR = 10 + pulse * 12 + intensity * 30;
+
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+
+          const coreGrad = ctx.createRadialGradient(ps.cx, ps.cy, 0, ps.cx, ps.cy, coreR);
+          coreGrad.addColorStop(0, `rgba(255, 255, 255, ${0.4 + intensity * 0.5})`);
+          coreGrad.addColorStop(0.25, `rgba(180, 120, 255, ${0.3 + intensity * 0.3})`);
+          coreGrad.addColorStop(0.6, `rgba(100, 60, 220, ${0.12 + intensity * 0.15})`);
+          coreGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(ps.cx, ps.cy, coreR, 0, Math.PI * 2);
+          ctx.fillStyle = coreGrad;
+          ctx.fill();
+
+          // Orbiting particles around core
+          const pCount = 5 + Math.floor(intensity * 4);
+          for (let i = 0; i < pCount; i++) {
+            const pAngle = (Math.PI * 2 * i) / pCount + age * 0.004 * (1 + intensity * 2);
+            const pDist = coreR * 0.8 + Math.sin(age * 0.007 + i * 1.5) * 6;
+            const px = ps.cx + Math.cos(pAngle) * pDist;
+            const py = ps.cy + Math.sin(pAngle) * pDist;
+            ctx.beginPath();
+            ctx.arc(px, py, 1.5 + intensity * 2, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(200, 160, 255, ${0.4 + pulse * 0.4})`;
+            ctx.fill();
+          }
+
+          ctx.restore();
+
+        } else if (ps.phase === "detonate") {
+          const detAge = now - ps.detonateBorn;
+          if (detAge < 80) {
+            // Brief bright charge-up flash
+            const flashR = 20 + (detAge / 80) * 100;
+            const fg = ctx.createRadialGradient(ps.cx, ps.cy, 0, ps.cx, ps.cy, flashR);
+            fg.addColorStop(0, `rgba(255, 255, 255, 0.9)`);
+            fg.addColorStop(0.4, `rgba(180, 120, 255, 0.4)`);
+            fg.addColorStop(1, "transparent");
+            ctx.beginPath();
+            ctx.arc(ps.cx, ps.cy, flashR, 0, Math.PI * 2);
+            ctx.fillStyle = fg;
+            ctx.fill();
+          } else {
+            // Spawn explosion ring of orbs
+            for (let i = 0; i < PULSAR_DETONATION_COUNT; i++) {
+              const angle = (Math.PI * 2 * i) / PULSAR_DETONATION_COUNT + (Math.random() - 0.5) * 0.3;
+              const orb = createOrb(ps.cx, ps.cy);
+              orb.radius = 7 + Math.random() * 9;
+              orb.vx = Math.cos(angle) * (PULSAR_DETONATION_SPEED + Math.random() * 3);
+              orb.vy = Math.sin(angle) * (PULSAR_DETONATION_SPEED + Math.random() * 3);
+              orbsRef.current.push(orb);
+            }
+            // Massive flash + shockwave
+            flashesRef.current.push({
+              x: ps.cx, y: ps.cy, color: "#b06eff",
+              radius: 70, born: now,
+            });
+            wavesRef.current.push({
+              cx: ps.cx, cy: ps.cy, radius: 0,
+              color: "#b06eff", generation: 0,
+              hitOrbs: new Set(), delay: 0,
+            });
+            shakeRef.current = 45;
+            auroraFlareRef.current = Math.min(auroraFlareRef.current + 0.7, 1);
+            setOrbCount(orbsRef.current.length);
+            playBoom();
+            pulsarRef.current = null;
+          }
+        }
+      }
+
       // ── Flick aiming line ──
       if (slingshotRef.current && mouseDownRef.current) {
         const sling = slingshotRef.current;
@@ -5130,6 +5248,22 @@ function App() {
     playSwoosh();
   }, []);
 
+  const handlePulsar = useCallback(() => {
+    if (pulsarRef.current) return; // already in progress
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    const cx = (mx > 0 || my > 0) ? mx : window.innerWidth / 2;
+    const cy = (mx > 0 || my > 0) ? my : window.innerHeight / 2;
+    pulsarRef.current = {
+      cx, cy,
+      born: performance.now(),
+      pulseCount: 0,
+      phase: "pulse",
+      detonateBorn: 0,
+    };
+    playTone(180, 0.4, "sine", 0.12);
+  }, []);
+
   const handleFission = useCallback(() => {
     const orbs = orbsRef.current;
     if (orbs.length === 0) return;
@@ -5269,9 +5403,10 @@ function App() {
     const orbs = orbsRef.current;
     const alwaysAvailable = [handleBurst, handleMeteorShower, handleFirework];
     const needsOrbs = [handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission];
-    const pool = orbs.length > 0 ? [...alwaysAvailable, ...needsOrbs] : alwaysAvailable;
+    const alwaysAvailableBig = [...alwaysAvailable, handlePulsar];
+    const pool = orbs.length > 0 ? [...alwaysAvailableBig, ...needsOrbs] : alwaysAvailableBig;
     pool[Math.floor(Math.random() * pool.length)]();
-  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission, handlePulsar]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -5525,6 +5660,13 @@ function App() {
               <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
               <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={() => { handlePulsar(); comboFlashRef.current.push({ text: "PULSAR", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#b06eff" }); }} title="Pulsar">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
+              <circle cx="12" cy="12" r="6" strokeDasharray="4 2" />
+              <circle cx="12" cy="12" r="10" strokeDasharray="3 3" opacity="0.5" />
             </svg>
           </ActionButton>
           <ActionButton onClick={() => { handleCyclePalette(); const W = window.innerWidth; const H = window.innerHeight; comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" }); }} title={`Palette: ${PALETTES[paletteIndex].name} (Y)`} $highlight>
