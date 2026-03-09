@@ -335,13 +335,14 @@ export const BLACK_HOLE_RING_COUNT = 12;       // orbs in explosion ring
 export const BLACK_HOLE_RING_SPEED = 6;        // outward velocity
 export const BLACK_HOLE_DISK_DOTS = 40;        // accretion disk particles
 
-// ── Flock mode (boid behavior) ──────────────────────────────────────
-export const FLOCK_SEPARATION_DIST = 30;       // min distance between orbs
-export const FLOCK_NEIGHBOR_DIST = 100;        // awareness range
-export const FLOCK_SEPARATION_FORCE = 0.05;    // push away force
-export const FLOCK_ALIGNMENT_FORCE = 0.03;     // match velocity force
-export const FLOCK_COHESION_FORCE = 0.02;      // pull toward center force
-export const FLOCK_MAX_SPEED = 4;              // speed cap
+// ── Gravity Pulse effect ────────────────────────────────────────────
+export const GPULSE_BEATS = 4;                 // number of pull-push cycles
+export const GPULSE_INTERVAL = 300;            // ms between beats
+export const GPULSE_PULL_MS = 150;             // pull phase duration within each beat
+export const GPULSE_PULL_BASE = 2;             // starting pull strength
+export const GPULSE_PULL_GROWTH = 1.5;         // strength multiplier per beat
+export const GPULSE_PUSH_BASE = 3;             // starting push strength
+export const GPULSE_PUSH_GROWTH = 1.3;         // push multiplier per beat
 
 // ── Pulsar ─────────────────────────────────────────────────────────
 export const PULSAR_PULSE_COUNT = 6;           // total pulses before detonation

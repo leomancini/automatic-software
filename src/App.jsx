@@ -61,8 +61,8 @@ import {
   BLACK_HOLE_RANGE, BLACK_HOLE_GRAVITY, BLACK_HOLE_EVENT_HORIZON,
   BLACK_HOLE_ABSORB_TO_EXPLODE, BLACK_HOLE_RING_COUNT, BLACK_HOLE_RING_SPEED, BLACK_HOLE_DISK_DOTS,
   ERUPTION_COUNT, ERUPTION_SPEED_MIN, ERUPTION_SPEED_MAX, ERUPTION_SPREAD, ERUPTION_EMBER_COUNT,
-  FLOCK_SEPARATION_DIST, FLOCK_NEIGHBOR_DIST, FLOCK_SEPARATION_FORCE,
-  FLOCK_ALIGNMENT_FORCE, FLOCK_COHESION_FORCE, FLOCK_MAX_SPEED,
+  GPULSE_BEATS, GPULSE_INTERVAL, GPULSE_PULL_MS,
+  GPULSE_PULL_BASE, GPULSE_PULL_GROWTH, GPULSE_PUSH_BASE, GPULSE_PUSH_GROWTH,
   LIGHTNING_SEGMENTS,
   PALETTES,
   IMPLODE_PULL_MS, IMPLODE_PULL_FORCE, IMPLODE_BURST_SPEED,
@@ -199,8 +199,6 @@ function App() {
   const autoplayTimersRef = useRef({ lastSpawn: 0, lastEffect: 0 });
   const [colorCycle, setColorCycle] = useState(false);
   const colorCycleRef = useRef(false);
-  const [flockMode, setFlockMode] = useState(false);
-  const flockModeRef = useRef(false);
   const [kaleidoscopeMode, setKaleidoscopeMode] = useState(false);
   const kaleidoscopeModeRef = useRef(false);
   const [wrapMode, setWrapMode] = useState(false);
@@ -1891,51 +1889,6 @@ function App() {
           }
         }
 
-        // flock mode: boid-like swarm behavior
-        if (flockModeRef.current) {
-          let sepX = 0, sepY = 0;
-          let alignVx = 0, alignVy = 0, alignCount = 0;
-          let cohX = 0, cohY = 0, cohCount = 0;
-          for (const other of orbs) {
-            if (other === orb) continue;
-            const fdx = other.x - orb.x;
-            const fdy = other.y - orb.y;
-            const fDist = Math.sqrt(fdx * fdx + fdy * fdy);
-            if (fDist < FLOCK_SEPARATION_DIST && fDist > 0) {
-              sepX -= (fdx / fDist) * (1 - fDist / FLOCK_SEPARATION_DIST);
-              sepY -= (fdy / fDist) * (1 - fDist / FLOCK_SEPARATION_DIST);
-            }
-            if (fDist < FLOCK_NEIGHBOR_DIST && fDist > 0) {
-              alignVx += other.vx;
-              alignVy += other.vy;
-              alignCount++;
-              cohX += other.x;
-              cohY += other.y;
-              cohCount++;
-            }
-          }
-          orb.vx += sepX * FLOCK_SEPARATION_FORCE;
-          orb.vy += sepY * FLOCK_SEPARATION_FORCE;
-          if (alignCount > 0) {
-            orb.vx += (alignVx / alignCount - orb.vx) * FLOCK_ALIGNMENT_FORCE;
-            orb.vy += (alignVy / alignCount - orb.vy) * FLOCK_ALIGNMENT_FORCE;
-          }
-          if (cohCount > 0) {
-            orb.vx += (cohX / cohCount - orb.x) * FLOCK_COHESION_FORCE;
-            orb.vy += (cohY / cohCount - orb.y) * FLOCK_COHESION_FORCE;
-          }
-          // cap speed for coherent flocking
-          const fSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
-          if (fSpeed > FLOCK_MAX_SPEED) {
-            orb.vx = (orb.vx / fSpeed) * FLOCK_MAX_SPEED;
-            orb.vy = (orb.vy / fSpeed) * FLOCK_MAX_SPEED;
-          }
-          // give stationary orbs a nudge so the flock moves
-          if (fSpeed < 0.5) {
-            orb.vx += (Math.random() - 0.5) * 0.8;
-            orb.vy += (Math.random() - 0.5) * 0.8;
-          }
-        }
 
         // magnetic polarity: opposite polarities attract, same repel
         if (magnetModeRef.current) {
@@ -5423,11 +5376,51 @@ function App() {
     });
   }, []);
 
-  const handleFlockMode = useCallback(() => {
-    setFlockMode((prev) => {
-      flockModeRef.current = !prev;
-      return !prev;
-    });
+  const handleGravityPulse = useCallback(() => {
+    if (orbsRef.current.length < 2) return;
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cx = W / 2;
+    const cy = H / 2;
+    for (let i = 0; i < GPULSE_BEATS; i++) {
+      const pullStr = GPULSE_PULL_BASE * Math.pow(GPULSE_PULL_GROWTH, i);
+      const pushStr = GPULSE_PUSH_BASE * Math.pow(GPULSE_PUSH_GROWTH, i);
+      // Pull phase
+      setTimeout(() => {
+        const now = performance.now();
+        for (const orb of orbsRef.current) {
+          const dx = cx - orb.x;
+          const dy = cy - orb.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          orb.vx += (dx / dist) * pullStr;
+          orb.vy += (dy / dist) * pullStr;
+        }
+        ripplesRef.current.push({ x: cx, y: cy, color: "#4facfe", born: now });
+        shakeRef.current = 4 + i * 3;
+        playSwoosh();
+      }, i * GPULSE_INTERVAL);
+      // Push phase
+      setTimeout(() => {
+        const now = performance.now();
+        for (const orb of orbsRef.current) {
+          const dx = orb.x - cx;
+          const dy = orb.y - cy;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          orb.vx += (dx / dist) * pushStr;
+          orb.vy += (dy / dist) * pushStr;
+        }
+        ripplesRef.current.push({ x: cx, y: cy, color: "#f093fb", born: now });
+        if (i === GPULSE_BEATS - 1) {
+          // Final beat: big shockwave
+          wavesRef.current.push({
+            cx, cy, radius: 0, color: "#f093fb",
+            generation: 0, hitOrbs: new Set(), delay: 0,
+          });
+          shakeRef.current = 20;
+          playBoom();
+        }
+      }, i * GPULSE_INTERVAL + GPULSE_PULL_MS);
+    }
   }, []);
 
   const handleKaleidoscopeMode = useCallback(() => {
@@ -6014,6 +6007,7 @@ function App() {
       [handleSpin, "SPIN"], [handleGather, "GATHER"], [handleSupernova, "SUPERNOVA"],
       [handleCascade, "CASCADE"], [handleOrbitLock, "ORBIT LOCK"],
       [handleImplode, "IMPLODE"], [handleBlackHole, "BLACK HOLE"],
+      [handleGravityPulse, "GRAVITY PULSE"],
     ];
     const pool = orbs.length > 0 ? [...alwaysAvailable, ...needsOrbs] : alwaysAvailable;
     const [fn, label] = pool[Math.floor(Math.random() * pool.length)];
@@ -6021,7 +6015,7 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     comboFlashRef.current.push({ text: label, x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" });
-  }, [handleBurst, handleMeteorShower, handleFirework, handleRicochet, handleEruption, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleCascade, handleOrbitLock, handleImplode]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleRicochet, handleEruption, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleCascade, handleOrbitLock, handleImplode, handleGravityPulse]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -6163,8 +6157,9 @@ function App() {
           handleEruption();
           flashLabel("ERUPTION", "#feb47b");
           break;
-        case "u":
-          handleFlockMode();
+        case "6":
+          handleGravityPulse();
+          flashLabel("GRAVITY PULSE", "#4facfe");
           break;
         case "7":
           handleBarrierMode();
@@ -6180,7 +6175,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleFlockMode, handleEruption, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6250,7 +6245,6 @@ function App() {
           {barrierMode && <ModePill $color="#4facfe">walls</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {longExposure && <ModePill $color="#feb47b">long exposure</ModePill>}
-          {flockMode && <ModePill $color="#43e97b">flock</ModePill>}
           {autoPlay && <ModePill $color="#43e97b">autoplay</ModePill>}
           {paletteIndex !== 0 && <ModePill $color="#f093fb">{PALETTES[paletteIndex].name.toLowerCase()}</ModePill>}
         </ModeIndicators>
@@ -6337,6 +6331,19 @@ function App() {
                 <circle cx="12" cy="12" r="11" opacity="0.3" />
               </svg>
             </ActionButton>
+            <ActionButton onClick={handleGravityPulse} title="Gravity pulse">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="2" fill="currentColor" />
+                <path d="M12 5 C8 5 5 8 5 12" opacity="0.8" />
+                <path d="M12 5 C16 5 19 8 19 12" opacity="0.8" />
+                <path d="M12 19 C8 19 5 16 5 12" opacity="0.5" />
+                <path d="M12 19 C16 19 19 16 19 12" opacity="0.5" />
+                <line x1="12" y1="2" x2="12" y2="5" />
+                <line x1="12" y1="19" x2="12" y2="22" />
+                <line x1="2" y1="12" x2="5" y2="12" />
+                <line x1="19" y1="12" x2="22" y2="12" />
+              </svg>
+            </ActionButton>
             <ActionButton onClick={handleLightning} title="Chain lightning">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -6400,9 +6407,6 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleFlockMode} $active={flockMode} $color="#43e97b" title="Flock mode">
-          flock
-        </ModeToggle>
         <ModeToggle onClick={handleOrbitMode} $active={orbitMode} $color="#764ba2" title="Orbit mode">
           orbit
         </ModeToggle>
@@ -6463,7 +6467,7 @@ function App() {
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
-              <Shortcut><Key>U</Key><span>Flock mode (murmuration)</span></Shortcut>
+              <Shortcut><Key>6</Key><span>Gravity pulse</span></Shortcut>
               <Shortcut><Key>I</Key><span>Orbit lock (ring formation)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>G</Key><span>Cycle gravity (↓ → ↑ ← off)</span></Shortcut>
