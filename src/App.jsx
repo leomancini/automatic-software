@@ -6444,6 +6444,9 @@ function App() {
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode">
           paint
         </ModeToggle>
+        <ModeToggle onClick={handleCyclePalette} $active={paletteIndex !== 0} $color="#f093fb" title="Cycle color palette">
+          {PALETTES[paletteIndex].name.toLowerCase()}
+        </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
@@ -6490,7 +6493,7 @@ function App() {
               <Shortcut><Key>U</Key><span>Maelstrom (spiral + release)</span></Shortcut>
               <Shortcut><Key>I</Key><span>Galaxy spiral</span></Shortcut>
               <Shortcut><Key>T</Key><span>Barrage (volley from edge)</span></Shortcut>
-              <Shortcut><Key>4</Key><span>Ricochet (bouncing burst)</span></Shortcut>
+              <Shortcut><Key>4</Key><span>Eruption (geyser from bottom)</span></Shortcut>
               <Shortcut><Key>9</Key><span>Crossfire (all edges converge)</span></Shortcut>
               <Shortcut><Key>0</Key><span>Tidal pulse (inhale → exhale)</span></Shortcut>
               <Shortcut><Key>1</Key><span>Random effect (surprise!)</span></Shortcut>
