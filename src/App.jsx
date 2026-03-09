@@ -123,6 +123,7 @@ function App() {
   const fountainsRef = useRef([]); // persistent orb spawners [{x, y, color, born, lastSpawn}]
   const cometsRef = useRef([]); // active comets [{x, y, vx, vy, color, born, lastSpawn, spawned, trail}]
   const auroraActivityRef = useRef(0); // smoothed aurora intensity (0-1)
+  const auroraFlareRef = useRef(0); // slow-decay energy from explosions (0-1)
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -1016,7 +1017,14 @@ function App() {
         const targetActivity = orbFactor * 0.5 + speedFactor * 0.5;
         auroraActivityRef.current += (targetActivity - auroraActivityRef.current) * AURORA_SMOOTHING;
         const activity = auroraActivityRef.current;
-        const alpha = AURORA_BASE_ALPHA + activity * AURORA_ACTIVITY_BOOST;
+
+        // Aurora flare: explosions and big effects light up the sky
+        auroraFlareRef.current = Math.max(
+          auroraFlareRef.current * 0.97, // slow decay (~2s)
+          Math.min(shakeRef.current / 12, 1) // feed from screen shake
+        );
+        const flare = auroraFlareRef.current;
+        const alpha = AURORA_BASE_ALPHA + activity * AURORA_ACTIVITY_BOOST + flare * 0.08;
 
         ctx.save();
         ctx.globalCompositeOperation = "screen";
@@ -1026,7 +1034,7 @@ function App() {
           // Each band has a unique vertical position, wave speed, and frequency
           const bandOffset = band / AURORA_BAND_COUNT;
           const baseY = H * (0.08 + bandOffset * 0.22);
-          const amplitude = H * (0.03 + activity * 0.025);
+          const amplitude = H * (0.03 + activity * 0.025 + flare * 0.04);
           const freq1 = 0.0018 + band * 0.0005;
           const freq2 = 0.0042 + band * 0.0003;
           const speed1 = 0.18 + band * 0.07;
