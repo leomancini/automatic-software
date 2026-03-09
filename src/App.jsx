@@ -79,7 +79,7 @@ import {
 import {
   Wrapper, Canvas, HUD, Title, Hint, Count, ModeIndicators, ModePill,
   StreakCounter, NextCombo, ButtonGroup, ButtonRow, ActionButton,
-  HelpButton, MuteButton, ExposureButton, SaveButton, SaveFlash,
+  HelpButton, MuteButton, SaveFlash,
   HelpOverlay, HelpPanel, HelpTitle, ShortcutList, Shortcut, Key, HelpClose,
 } from './StyledComponents.js';
 
@@ -5340,13 +5340,6 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleGalaxy} title="Galaxy spiral">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="2" fill="currentColor" />
-              <path d="M12 12c2-4 7-5 8-1s-3 6-7 5" />
-              <path d="M12 12c-2 4-7 5-8 1s3-6 7-5" />
-            </svg>
-          </ActionButton>
           <ActionButton onClick={() => { handleCyclePalette(); const W = window.innerWidth; const H = window.innerHeight; comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" }); }} title={`Palette: ${PALETTES[paletteIndex].name} (Y)`} $highlight>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
@@ -5403,21 +5396,6 @@ function App() {
           )}
         </ButtonRow>
         </ButtonGroup>
-      <ExposureButton onClick={handleLongExposure} title="Long exposure (J)" $active={longExposure}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 2a10 10 0 0 1 0 20" fill="currentColor" opacity="0.3" />
-          <circle cx="12" cy="12" r="4" />
-        </svg>
-      </ExposureButton>
-      <SaveButton onClick={handleSaveCanvas} title="Save screenshot (K)">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-          <circle cx="12" cy="13" r="4" />
-          <line x1="8" y1="3" x2="8" y2="7" />
-          <line x1="16" y1="3" x2="16" y2="7" />
-        </svg>
-      </SaveButton>
       {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
