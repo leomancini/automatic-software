@@ -6011,11 +6011,33 @@ function App() {
     });
   }, []);
 
+  const handleEruption = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cx = W / 2;
+    const count = 16;
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => {
+        const orb = createOrb(cx + (Math.random() - 0.5) * 60, H - 5);
+        const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.7;
+        const speed = 7 + Math.random() * 7;
+        orb.vx = Math.cos(angle) * speed;
+        orb.vy = Math.sin(angle) * speed;
+        orbsRef.current.push(orb);
+        ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: performance.now() });
+        setOrbCount(orbsRef.current.length);
+        shakeRef.current = Math.max(shakeRef.current, 4);
+      }, i * 35);
+    }
+    shakeRef.current = 10;
+    playBoom();
+  }, []);
+
   const handleRandomEffect = useCallback(() => {
     const orbs = orbsRef.current;
     const alwaysAvailable = [
       [handleBurst, "BURST"], [handleMeteorShower, "METEOR SHOWER"], [handleFirework, "FIREWORK"],
-      [handleRicochet, "RICOCHET"], [handleGalaxy, "GALAXY"], [handleVolley, "BARRAGE"],
+      [handleEruption, "ERUPTION"], [handleGalaxy, "GALAXY"], [handleVolley, "BARRAGE"],
       [handleCrossfire, "CROSSFIRE"], [handleTidalPulse, "TIDAL PULSE"],
     ];
     const needsOrbs = [
@@ -6031,7 +6053,7 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     comboFlashRef.current.push({ text: label, x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" });
-  }, [handleBurst, handleMeteorShower, handleFirework, handleRicochet, handleGalaxy, handleVolley, handleCrossfire, handleTidalPulse, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleOrbitLock, handleFission]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleEruption, handleGalaxy, handleVolley, handleCrossfire, handleTidalPulse, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleOrbitLock, handleFission]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -6163,8 +6185,8 @@ function App() {
           flashLabel("BARRAGE", "#43e97b");
           break;
         case "4":
-          handleRicochet();
-          flashLabel("RICOCHET", "#fa709a");
+          handleEruption();
+          flashLabel("ERUPTION", "#43e97b");
           break;
         case "9":
           handleCrossfire();
@@ -6196,7 +6218,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRicochet, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleBlackHole, handleOrbitLock, handleFission, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleEruption, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleBlackHole, handleOrbitLock, handleFission, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6317,12 +6339,16 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleRicochet} title="Ricochet">
+          <ActionButton onClick={handleEruption} title="Eruption">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="2 20 8 8 16 18 22 4" />
-              <circle cx="22" cy="4" r="2" fill="currentColor" />
-              <circle cx="8" cy="8" r="1.5" fill="currentColor" opacity="0.6" />
-              <circle cx="16" cy="18" r="1.5" fill="currentColor" opacity="0.6" />
+              <line x1="12" y1="22" x2="12" y2="10" />
+              <line x1="8" y1="22" x2="6" y2="12" />
+              <line x1="16" y1="22" x2="18" y2="12" />
+              <circle cx="12" cy="8" r="1.5" fill="currentColor" />
+              <circle cx="6" cy="10" r="1.5" fill="currentColor" />
+              <circle cx="18" cy="10" r="1.5" fill="currentColor" />
+              <circle cx="9" cy="5" r="1" fill="currentColor" opacity="0.6" />
+              <circle cx="15" cy="6" r="1" fill="currentColor" opacity="0.6" />
             </svg>
           </ActionButton>
           <ActionButton onClick={() => { handleRandomEffect(); }} title="Random effect">
