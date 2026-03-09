@@ -5823,6 +5823,15 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleCrossfire} title="Crossfire">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="3" x2="10" y2="10" />
+              <line x1="21" y1="3" x2="14" y2="10" />
+              <line x1="3" y1="21" x2="10" y2="14" />
+              <line x1="21" y1="21" x2="14" y2="14" />
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={() => { handleCyclePalette(); const W = window.innerWidth; const H = window.innerHeight; comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" }); }} title={`Palette: ${PALETTES[paletteIndex].name} (Y)`} $highlight>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
