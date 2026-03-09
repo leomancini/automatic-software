@@ -88,7 +88,7 @@ import {
   playWarpSound, playSpray, playLightning, playPortalSound, playMeteorSound,
   playSupernovaSound, playIgniteSound, playStrikeSound, playFirePop,
   playStormSound, playTsunamiSound, playColorWaveSound, playShatterAllSound,
-  playBlackHoleSound, playBlackHoleAbsorbSound, playCometSound,
+  playBlackHoleSound, playBlackHoleAbsorbSound, playCometSound, playHeartbeat,
 } from './audio.js';
 import {
   getFormationTargets, generateBolt, randomColor, hexToHsl, hexAlpha, hslToHex,
@@ -1950,26 +1950,30 @@ function App() {
         }
       }
 
-      // ── Pulse mode heartbeat ──
-      if (pulseModeRef.current && !frozenRef.current && now - pulseTimerRef.current >= PULSE_INTERVAL) {
-        pulseTimerRef.current = now;
-        const pcx = W / 2;
-        const pcy = H / 2;
-        // emit a shockwave from center
-        wavesRef.current.push({
-          cx: pcx,
-          cy: pcy,
-          radius: 0,
-          color: COLORS[Math.floor((now / 300) % COLORS.length)],
-          generation: 0,
-          hitOrbs: new Set(),
-          delay: 0,
-        });
-        shakeRef.current = Math.max(shakeRef.current, 8);
-        // subtle center glow flash
-        flashesRef.current.push({
-          x: pcx, y: pcy, color: '#667eea', radius: 40, born: now,
-        });
+      // ── Heartbeat mode — adaptive rhythmic pulse ──
+      if (pulseModeRef.current && !frozenRef.current) {
+        // Adaptive tempo: faster with more orbs (1800ms → 900ms)
+        const orbFactor = Math.min(orbs.length / 40, 1);
+        const interval = PULSE_INTERVAL * (1 - orbFactor * 0.5);
+        if (now - pulseTimerRef.current >= interval) {
+          pulseTimerRef.current = now;
+          const pcx = W / 2;
+          const pcy = H / 2;
+          wavesRef.current.push({
+            cx: pcx,
+            cy: pcy,
+            radius: 0,
+            color: COLORS[Math.floor((now / 300) % COLORS.length)],
+            generation: 0,
+            hitOrbs: new Set(),
+            delay: 0,
+          });
+          shakeRef.current = Math.max(shakeRef.current, 4);
+          flashesRef.current.push({
+            x: pcx, y: pcy, color: '#667eea', radius: 40 + orbs.length * 0.5, born: now,
+          });
+          playHeartbeat();
+        }
       }
 
       // formation snap — spring force toward targets
@@ -6843,6 +6847,9 @@ function App() {
         case "4":
           handleShowtime();
           break;
+        case "9":
+          handlePulseMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -6850,7 +6857,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, handleTrailsMode, handleShowtime, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, handleTrailsMode, handleShowtime, handlePulseMode, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6922,6 +6929,7 @@ function App() {
           {longExposure && <ModePill $color="#feb47b">long exposure</ModePill>}
           {autoPlay && <ModePill $color="#43e97b">autoplay</ModePill>}
           {trailsMode && <ModePill $color="#667eea">trails</ModePill>}
+          {pulseMode && <ModePill $color="#f093fb">heartbeat</ModePill>}
           {kaleidoscopeMode && <ModePill $color="#00f2fe">kaleidoscope</ModePill>}
           {paletteIndex !== 0 && <ModePill $color="#f093fb">{PALETTES[paletteIndex].name.toLowerCase()}</ModePill>}
         </ModeIndicators>
@@ -7070,17 +7078,14 @@ function App() {
         <ModeToggle onClick={handleGravity} $active={gravityOn} $color="#43e97b" title="Toggle gravity">
           gravity
         </ModeToggle>
-        <ModeToggle onClick={handleAttractMode} $active={attractMode} $color="#f093fb" title="Attract mode">
-          attract
-        </ModeToggle>
-        <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode">
-          repel
-        </ModeToggle>
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode">
           paint
         </ModeToggle>
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#667eea" title="Trails mode (3)">
           trails
+        </ModeToggle>
+        <ModeToggle onClick={handlePulseMode} $active={pulseMode} $color="#f093fb" title="Heartbeat mode (9)">
+          heartbeat
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
@@ -7147,6 +7152,7 @@ function App() {
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>3</Key><span>Trails mode (orb paths)</span></Shortcut>
               <Shortcut><Key>4</Key><span>Showtime (grand finale chain)</span></Shortcut>
+              <Shortcut><Key>9</Key><span>Heartbeat (rhythmic pulse)</span></Shortcut>
               <Shortcut><Key>I</Key><span>Kaleidoscope mirror</span></Shortcut>
               <Shortcut><Key>J</Key><span>Long exposure (trail mode)</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Autoplay (ambient mode)</span></Shortcut>

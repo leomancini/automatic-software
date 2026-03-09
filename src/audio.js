@@ -632,3 +632,19 @@ export function playBlackHoleAbsorbSound() {
   osc.start(t);
   osc.stop(t + 0.25);
 }
+
+export function playHeartbeat() {
+  if (!ensureAudio() || audioMuted) return;
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(55, t);
+  osc.frequency.exponentialRampToValueAtTime(30, t + 0.3);
+  g.gain.setValueAtTime(0.1, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+  osc.connect(g);
+  g.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + 0.4);
+}
