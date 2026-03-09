@@ -6179,6 +6179,45 @@ function App() {
     playBurstSound();
   }, []);
 
+  const handleSpiral = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cx = W / 2;
+    const cy = H / 2;
+    const now = performance.now();
+    const arms = 3;
+    const orbsPerArm = 8;
+    const maxRadius = Math.min(W, H) * 0.32;
+
+    for (let arm = 0; arm < arms; arm++) {
+      const armOffset = (arm / arms) * Math.PI * 2;
+      for (let i = 0; i < orbsPerArm; i++) {
+        const t = (i + 1) / orbsPerArm;
+        const angle = armOffset + t * Math.PI * 2.5;
+        const radius = t * maxRadius;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+        const speed = 1.2 + t * 2.8;
+        const tangent = angle + Math.PI * 0.45;
+        const vx = Math.cos(tangent) * speed + Math.cos(angle) * 0.6;
+        const vy = Math.sin(tangent) * speed + Math.sin(angle) * 0.6;
+        const delay = (arm * orbsPerArm + i) * 22;
+        setTimeout(() => {
+          const orb = createOrb(x, y);
+          orb.vx = vx;
+          orb.vy = vy;
+          orbsRef.current.push(orb);
+          setOrbCount(orbsRef.current.length);
+        }, delay);
+      }
+    }
+
+    ripplesRef.current.push({ x: cx, y: cy, color: randomColor(), born: now });
+    wavesRef.current.push({ x: cx, y: cy, radius: 0, born: now, color: randomColor() });
+    shakeRef.current = 10;
+    playGalaxySound();
+  }, []);
+
 
   const handleFirework = useCallback(() => {
     const W = window.innerWidth;
@@ -6819,7 +6858,8 @@ function App() {
           flashLabel(PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), "#f093fb");
           break;
         case "1":
-          handleRandomEffect();
+          handleSpiral();
+          flashLabel("SPIRAL", "#667eea");
           break;
         case "u":
           handleMeshMode();
@@ -6857,7 +6897,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, handleTrailsMode, handleShowtime, handlePulseMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleSpiral, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, handleTrailsMode, handleShowtime, handlePulseMode, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6984,14 +7024,10 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleRandomEffect} title="Surprise">
+          <ActionButton onClick={handleSpiral} title="Spiral">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="3" />
-              <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
-              <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" />
-              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-              <circle cx="8.5" cy="15.5" r="1.5" fill="currentColor" />
-              <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor" />
+              <path d="M12 12a2 2 0 0 1 2-2 4 4 0 0 1 4 4 6 6 0 0 1-6 6 8 8 0 0 1-8-8 10 10 0 0 1 10-10" />
+              <circle cx="12" cy="12" r="1" fill="currentColor" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleShowtime} title="Showtime">
@@ -7133,7 +7169,7 @@ function App() {
               <Shortcut><Key>T</Key><span>Attract mode (cursor pulls orbs)</span></Shortcut>
               <Shortcut><Key>0</Key><span>Black hole (absorbs → explodes)</span></Shortcut>
               <Shortcut><Key>2</Key><span>Eruption (volcanic geyser)</span></Shortcut>
-              <Shortcut><Key>1</Key><span>Random effect (surprise!)</span></Shortcut>
+              <Shortcut><Key>1</Key><span>Spiral galaxy spawn</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
