@@ -7005,6 +7005,13 @@ function App() {
               <circle cx="16" cy="14" r="1.5" fill="currentColor" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleWave} title="Shockwave">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <circle cx="12" cy="12" r="7" opacity="0.6" />
+              <circle cx="12" cy="12" r="11" opacity="0.3" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleFirework} title="Firework">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="22" x2="12" y2="12" />
@@ -7030,18 +7037,9 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleBlackHole} title="Black hole">
+          <ActionButton onClick={handleShowtime} title="Showtime (4)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3.5" fill="currentColor" />
-              <ellipse cx="12" cy="12" rx="10" ry="4" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleComet} title="Comet">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="18" cy="6" r="3" fill="currentColor" />
-              <path d="M15 9L3 21" />
-              <path d="M13 7L2 18" />
-              <path d="M16 10L5 21" />
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -7053,13 +7051,6 @@ function App() {
                 <polyline points="21 16 21 21 16 21" />
                 <line x1="15" y1="15" x2="21" y2="21" />
                 <line x1="4" y1="4" x2="9" y2="9" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleWave} title="Shockwave">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3" />
-                <circle cx="12" cy="12" r="7" opacity="0.6" />
-                <circle cx="12" cy="12" r="11" opacity="0.3" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleLightning} title="Chain lightning">
