@@ -446,6 +446,12 @@ export const LENS_BH_STRENGTH = 25;       // displacement at peak
 export const LENS_HOLD_RANGE = 180;       // lens range around hold-to-attract
 export const LENS_HOLD_STRENGTH = 16;     // displacement at peak
 
+// ── Ambient drift (idle auto-spawn) ──
+export const IDLE_DRIFT_DELAY = 3000;    // ms of empty canvas before drift starts
+export const IDLE_DRIFT_INTERVAL = 900;  // ms between idle orb spawns
+export const IDLE_DRIFT_MAX = 15;        // max orbs spawned by drift
+export const IDLE_DRIFT_SPEED = 0.6;     // base inward velocity
+
 // ── Reactive edge glow ──
 export const EDGE_GLOW_RANGE = 150;    // px from edge to detect orbs
 export const EDGE_GLOW_DEPTH = 60;     // how far glow extends inward from edge

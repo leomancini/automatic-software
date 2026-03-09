@@ -75,6 +75,7 @@ import {
   FLOCK_MAX_SPEED, FLOCK_CURSOR_FLEE_DIST, FLOCK_CURSOR_FLEE_FORCE,
   CURRENT_STRENGTH, CURRENT_SCALE, CURRENT_SPEED,
   EDGE_GLOW_RANGE, EDGE_GLOW_DEPTH, EDGE_GLOW_ALPHA,
+  IDLE_DRIFT_DELAY, IDLE_DRIFT_INTERVAL, IDLE_DRIFT_MAX, IDLE_DRIFT_SPEED,
   VELOCITY_STRETCH_THRESHOLD, VELOCITY_STRETCH_MAX, VELOCITY_STRETCH_RAMP,
   LENS_ORB_MIN_RADIUS, LENS_ORB_RANGE_FACTOR, LENS_ORB_STRENGTH,
   LENS_WELL_RANGE, LENS_WELL_STRENGTH,
@@ -186,7 +187,6 @@ function App() {
   const sprayActiveRef = useRef(false);
   const sprayStartRef = useRef({ x: 0, y: 0 });
   const lastSprayPosRef = useRef({ x: 0, y: 0 });
-  const crescendoRef = useRef(false); // prevent overlapping crescendos
   // showMoreButtons state removed — rarely-used effects culled from UI (still accessible via keyboard)
   const bigBangRef = useRef(null); // {born, detonated, detonateTime}
   const slingshotRef = useRef(null); // {startX, startY} when flick-aiming
@@ -228,6 +228,9 @@ function App() {
   const barrierDrawRef = useRef(null); // {x1, y1, x2, y2} while actively drawing
   const orbitLockRef = useRef(null); // {born, phase, cx, cy, maxRing, spinBorn, releaseBorn}
   const cursorAuraRef = useRef({ alpha: 0, nearCount: 0 }); // cursor glow state
+  const idleDriftActiveRef = useRef(false); // ambient drift spawning flag
+  const idleEmptySinceRef = useRef(0);      // timestamp when orbs first hit 0
+  const lastIdleDriftSpawnRef = useRef(0);  // last idle drift spawn time
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -282,6 +285,9 @@ function App() {
       const pos = getPos(e);
       mouseDownRef.current = true;
       slingshotRef.current = null;
+      // Stop ambient drift when user interacts
+      idleDriftActiveRef.current = false;
+      idleEmptySinceRef.current = 0;
       const hit = findOrb(pos.x, pos.y);
       if (hit) {
         dragRef.current = hit;
@@ -1838,6 +1844,50 @@ function App() {
           ];
           effects[Math.floor(Math.random() * effects.length)]();
           ap.lastEffect = now + (Math.random() - 0.5) * 1000; // vary timing
+        }
+      }
+
+      // ── Ambient drift: spawn orbs from edges when canvas is empty ──
+      {
+        const orbLen = orbsRef.current.length;
+        if (orbLen === 0 || (idleDriftActiveRef.current && orbLen < IDLE_DRIFT_MAX)) {
+          if (orbLen === 0 && !idleDriftActiveRef.current) {
+            if (idleEmptySinceRef.current === 0) {
+              idleEmptySinceRef.current = now;
+            } else if (now - idleEmptySinceRef.current > IDLE_DRIFT_DELAY && !mouseDownRef.current) {
+              idleDriftActiveRef.current = true;
+            }
+          }
+          if (idleDriftActiveRef.current && now - lastIdleDriftSpawnRef.current > IDLE_DRIFT_INTERVAL) {
+            const edge = Math.floor(Math.random() * 4);
+            let sx, sy, svx, svy;
+            const margin = 10;
+            switch (edge) {
+              case 0: // top
+                sx = W * 0.1 + Math.random() * W * 0.8; sy = -margin;
+                svx = (Math.random() - 0.5) * 0.4; svy = IDLE_DRIFT_SPEED + Math.random() * 0.3; break;
+              case 1: // right
+                sx = W + margin; sy = H * 0.1 + Math.random() * H * 0.8;
+                svx = -(IDLE_DRIFT_SPEED + Math.random() * 0.3); svy = (Math.random() - 0.5) * 0.4; break;
+              case 2: // bottom
+                sx = W * 0.1 + Math.random() * W * 0.8; sy = H + margin;
+                svx = (Math.random() - 0.5) * 0.4; svy = -(IDLE_DRIFT_SPEED + Math.random() * 0.3); break;
+              default: // left
+                sx = -margin; sy = H * 0.1 + Math.random() * H * 0.8;
+                svx = IDLE_DRIFT_SPEED + Math.random() * 0.3; svy = (Math.random() - 0.5) * 0.4; break;
+            }
+            const driftOrb = createOrb(sx, sy);
+            driftOrb.vx = svx;
+            driftOrb.vy = svy;
+            driftOrb.radius = 5 + Math.random() * 6;
+            orbsRef.current.push(driftOrb);
+            ripplesRef.current.push({ x: sx, y: sy, color: driftOrb.color, born: now });
+            lastIdleDriftSpawnRef.current = now;
+            setOrbCount(orbsRef.current.length);
+          }
+        } else {
+          idleDriftActiveRef.current = false;
+          idleEmptySinceRef.current = 0;
         }
       }
 
@@ -6449,55 +6499,6 @@ function App() {
     playSupernovaSound();
   }, []);
 
-  const handleCrescendo = useCallback(() => {
-    if (crescendoRef.current) return;
-    crescendoRef.current = true;
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const cx = W / 2;
-    const cy = H / 2;
-
-    // Stage labels that flash during the sequence
-    const stageFlash = (text, color, delay) => {
-      setTimeout(() => {
-        comboFlashRef.current.push({ text, x: cx, y: cy, born: performance.now(), color });
-      }, delay);
-    };
-
-    // 1. Burst (t=0)
-    stageFlash("CRESCENDO", "#fbbf24", 0);
-    handleBurst();
-
-    // 2. Shockwave (t=600)
-    setTimeout(() => {
-      wavesRef.current.push({
-        cx, cy, radius: 0, color: randomColor(),
-        generation: 0, hitOrbs: new Set(), delay: 0,
-      });
-      shakeRef.current = Math.max(shakeRef.current, 16);
-      playBoom();
-    }, 600);
-
-    // 3. Firework (t=1200)
-    setTimeout(() => handleFirework(), 1200);
-
-    // 4. Spin vortex (t=1800)
-    setTimeout(() => handleSpin(), 1800);
-
-    // 5. Chain lightning (t=2400)
-    setTimeout(() => handleLightning(), 2400);
-
-    // 6. Meteor shower (t=3000)
-    setTimeout(() => handleMeteorShower(), 3000);
-
-    // 7. Supernova grand finale (t=3800)
-    setTimeout(() => {
-      handleSupernova();
-      stageFlash("FINALE!", "#fff", 0);
-      crescendoRef.current = false;
-    }, 3800);
-
-  }, [handleBurst, handleFirework, handleSpin, handleLightning, handleMeteorShower, handleSupernova]);
 
   const handleImplode = useCallback(() => {
     if (implodeRef.current) return;
@@ -6763,7 +6764,7 @@ function App() {
           handleKaleidoscopeMode();
           break;
         case "t":
-          handleCrescendo();
+          handleAttractMode();
           break;
         case "0":
           handleBlackHole();
@@ -6776,7 +6777,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, handleCrescendo, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6910,17 +6911,6 @@ function App() {
               <path d="M20 12 C20 18, 12 20, 12 20" opacity="0.5" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleCrescendo} title="Crescendo">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 20 L8 14 L14 16 L22 4" />
-              <polyline points="16 4 22 4 22 10" />
-              <circle cx="22" cy="4" r="2" fill="currentColor" />
-              <line x1="6" y1="2" x2="6" y2="6" />
-              <line x1="4" y1="4" x2="8" y2="4" />
-              <line x1="18" y1="14" x2="18" y2="18" />
-              <line x1="16" y1="16" x2="20" y2="16" />
-            </svg>
-          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handleShuffle} title="Shuffle colors">
@@ -6999,6 +6989,9 @@ function App() {
         <ModeToggle onClick={handleGravity} $active={gravityOn} $color="#43e97b" title="Toggle gravity">
           gravity
         </ModeToggle>
+        <ModeToggle onClick={handleAttractMode} $active={attractMode} $color="#f093fb" title="Attract mode">
+          attract
+        </ModeToggle>
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode">
           repel
         </ModeToggle>
@@ -7051,7 +7044,7 @@ function App() {
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
-              <Shortcut><Key>T</Key><span>Crescendo (grand finale sequence)</span></Shortcut>
+              <Shortcut><Key>T</Key><span>Attract mode (cursor pulls orbs)</span></Shortcut>
               <Shortcut><Key>0</Key><span>Black hole (absorbs → explodes)</span></Shortcut>
               <Shortcut><Key>1</Key><span>Random effect (surprise!)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
