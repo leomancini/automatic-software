@@ -4925,6 +4925,37 @@ function App() {
     playBoom();
   }, []);
 
+  const handleCrossfire = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cx = W / 2;
+    const cy = H / 2;
+    const perEdge = 5;
+    for (let edge = 0; edge < 4; edge++) {
+      for (let i = 0; i < perEdge; i++) {
+        setTimeout(() => {
+          const t = (i + 0.5) / perEdge;
+          const speed = 5 + Math.random() * 3;
+          let x, y;
+          if (edge === 0) { x = -5; y = H * 0.15 + t * H * 0.7; }
+          else if (edge === 1) { x = W + 5; y = H * 0.15 + t * H * 0.7; }
+          else if (edge === 2) { x = W * 0.15 + t * W * 0.7; y = -5; }
+          else { x = W * 0.15 + t * W * 0.7; y = H + 5; }
+          const dx = cx - x, dy = cy - y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const orb = createOrb(x, y);
+          orb.vx = (dx / dist) * speed + (Math.random() - 0.5) * 1.5;
+          orb.vy = (dy / dist) * speed + (Math.random() - 0.5) * 1.5;
+          orbsRef.current.push(orb);
+          ripplesRef.current.push({ x, y, color: orb.color, born: performance.now() });
+          setOrbCount(orbsRef.current.length);
+        }, i * 40 + edge * 20);
+      }
+    }
+    shakeRef.current = 18;
+    playBoom();
+  }, []);
+
   const handleToggleAudio = useCallback(() => {
     setAudioEnabled((prev) => {
       setAudioMuted(prev);
@@ -5324,6 +5355,10 @@ function App() {
           handleFireworkShow();
           flashLabel("FIREWORK SHOW", "#fa709a");
           break;
+        case "9":
+          handleCrossfire();
+          flashLabel("CROSSFIRE", "#feb47b");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -5331,7 +5366,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleFireworkShow, handleVolley, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleFireworkShow, handleVolley, handleCrossfire, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -5505,27 +5540,16 @@ function App() {
                 <polyline points="21 3 21 9 15 9" />
               </svg>
             </ActionButton>
-            <ActionButton onClick={() => { handleGalaxy(); comboFlashRef.current.push({ text: "GALAXY", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#667eea" }); }} title="Galaxy spiral (I)">
+            <ActionButton onClick={() => { handleCrossfire(); comboFlashRef.current.push({ text: "CROSSFIRE", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#feb47b" }); }} title="Crossfire (9)">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-                <path d="M12 12c2-4 7-4 7 0s-5 6-7 2" />
-                <path d="M12 12c-2 4-7 4-7 0s5-6 7-2" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={() => { handleFireworkShow(); comboFlashRef.current.push({ text: "FIREWORK SHOW", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#fa709a" }); }} title="Firework show (4)">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="6" y1="22" x2="6" y2="14" />
-                <line x1="6" y1="10" x2="3" y2="7" />
-                <line x1="6" y1="10" x2="9" y2="7" />
-                <line x1="6" y1="10" x2="6" y2="6" />
-                <line x1="18" y1="22" x2="18" y2="12" />
-                <line x1="18" y1="8" x2="15" y2="5" />
-                <line x1="18" y1="8" x2="21" y2="5" />
-                <line x1="18" y1="8" x2="18" y2="4" />
-                <line x1="12" y1="22" x2="12" y2="16" />
-                <line x1="12" y1="12" x2="9" y2="9" />
-                <line x1="12" y1="12" x2="15" y2="9" />
-                <line x1="12" y1="12" x2="12" y2="8" />
+                <line x1="2" y1="2" x2="10" y2="10" />
+                <polyline points="6 2 2 2 2 6" />
+                <line x1="22" y1="2" x2="14" y2="10" />
+                <polyline points="18 2 22 2 22 6" />
+                <line x1="2" y1="22" x2="10" y2="14" />
+                <polyline points="2 18 2 22 6 22" />
+                <line x1="22" y1="22" x2="14" y2="14" />
+                <polyline points="22 18 22 22 18 22" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
@@ -5584,6 +5608,7 @@ function App() {
               <Shortcut><Key>I</Key><span>Galaxy spiral</span></Shortcut>
               <Shortcut><Key>T</Key><span>Barrage (volley from edge)</span></Shortcut>
               <Shortcut><Key>4</Key><span>Firework show (multi-launch)</span></Shortcut>
+              <Shortcut><Key>9</Key><span>Crossfire (all edges converge)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
