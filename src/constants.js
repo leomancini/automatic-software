@@ -404,3 +404,14 @@ export const MESH_INFLUENCE_RANGE = 180;     // px — orbs warp grid within thi
 export const MESH_MAX_DISPLACEMENT = 22;     // max px a grid point can shift
 export const MESH_BASE_ALPHA = 0.08;         // base line opacity
 export const MESH_WARP_ALPHA = 0.35;         // max opacity when warped
+
+// ── Flocking / Swarm mode (boids) ─────────────────────────────────
+export const FLOCK_SEPARATION_DIST = 45;     // min distance before separation force
+export const FLOCK_ALIGNMENT_DIST = 120;     // range for velocity alignment
+export const FLOCK_COHESION_DIST = 160;      // range for cohesion (center-seeking)
+export const FLOCK_SEPARATION_FORCE = 0.35;  // push away from close neighbors
+export const FLOCK_ALIGNMENT_FORCE = 0.06;   // steer toward average neighbor velocity
+export const FLOCK_COHESION_FORCE = 0.012;   // steer toward average neighbor position
+export const FLOCK_MAX_SPEED = 4.5;          // speed cap to keep swarm cohesive
+export const FLOCK_CURSOR_FLEE_DIST = 150;   // orbs flee cursor within this range
+export const FLOCK_CURSOR_FLEE_FORCE = 0.8;  // how hard they flee

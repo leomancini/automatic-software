@@ -68,6 +68,9 @@ import {
   IMPLODE_PULL_MS, IMPLODE_PULL_FORCE, IMPLODE_BURST_SPEED,
   ORBIT_LOCK_GATHER_MS, ORBIT_LOCK_SPIN_MS, ORBIT_LOCK_RELEASE_MS, ORBIT_LOCK_RING_GAP, ORBIT_LOCK_SPIN_SPEED,
   MESH_SPACING, MESH_INFLUENCE_RANGE, MESH_MAX_DISPLACEMENT, MESH_BASE_ALPHA, MESH_WARP_ALPHA,
+  FLOCK_SEPARATION_DIST, FLOCK_ALIGNMENT_DIST, FLOCK_COHESION_DIST,
+  FLOCK_SEPARATION_FORCE, FLOCK_ALIGNMENT_FORCE, FLOCK_COHESION_FORCE,
+  FLOCK_MAX_SPEED, FLOCK_CURSOR_FLEE_DIST, FLOCK_CURSOR_FLEE_FORCE,
 } from './constants.js';
 import {
   PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce,
@@ -156,6 +159,8 @@ function App() {
   const gravityPaintModeRef = useRef(false);
   const [meshMode, setMeshMode] = useState(false);
   const meshModeRef = useRef(false);
+  const [flockingMode, setFlockingMode] = useState(false);
+  const flockingModeRef = useRef(false);
   // constellation lines are always-on ambient visual (no toggle needed)
   const gravityDotsRef = useRef([]);
   const dominoRef = useRef(null); // {queue, index, nextTime, respawnCount, phase}
@@ -1923,6 +1928,64 @@ function App() {
               orb.vx += (ndx / nDist) * force;
               orb.vy += (ndy / nDist) * force;
             }
+          }
+        }
+
+        // flocking / swarm: boids-style separation + alignment + cohesion
+        if (flockingModeRef.current) {
+          let sepX = 0, sepY = 0;
+          let alignVx = 0, alignVy = 0, alignCount = 0;
+          let cohX = 0, cohY = 0, cohCount = 0;
+          for (const other of orbs) {
+            if (other === orb) continue;
+            const fdx = other.x - orb.x;
+            const fdy = other.y - orb.y;
+            const fDist = Math.sqrt(fdx * fdx + fdy * fdy);
+            // separation: steer away from very close neighbors
+            if (fDist < FLOCK_SEPARATION_DIST && fDist > 1) {
+              const urgency = 1 - fDist / FLOCK_SEPARATION_DIST;
+              sepX -= (fdx / fDist) * urgency;
+              sepY -= (fdy / fDist) * urgency;
+            }
+            // alignment: match velocity of nearby neighbors
+            if (fDist < FLOCK_ALIGNMENT_DIST) {
+              alignVx += other.vx;
+              alignVy += other.vy;
+              alignCount++;
+            }
+            // cohesion: steer toward center of nearby group
+            if (fDist < FLOCK_COHESION_DIST) {
+              cohX += other.x;
+              cohY += other.y;
+              cohCount++;
+            }
+          }
+          orb.vx += sepX * FLOCK_SEPARATION_FORCE;
+          orb.vy += sepY * FLOCK_SEPARATION_FORCE;
+          if (alignCount > 0) {
+            orb.vx += (alignVx / alignCount - orb.vx) * FLOCK_ALIGNMENT_FORCE;
+            orb.vy += (alignVy / alignCount - orb.vy) * FLOCK_ALIGNMENT_FORCE;
+          }
+          if (cohCount > 0) {
+            orb.vx += (cohX / cohCount - orb.x) * FLOCK_COHESION_FORCE;
+            orb.vy += (cohY / cohCount - orb.y) * FLOCK_COHESION_FORCE;
+          }
+          // flee from cursor when mouse is on canvas
+          if (mouseRef.current.onCanvas) {
+            const cmx = orb.x - mouseRef.current.x;
+            const cmy = orb.y - mouseRef.current.y;
+            const cmDist = Math.sqrt(cmx * cmx + cmy * cmy);
+            if (cmDist < FLOCK_CURSOR_FLEE_DIST && cmDist > 1) {
+              const flee = (1 - cmDist / FLOCK_CURSOR_FLEE_DIST);
+              orb.vx += (cmx / cmDist) * flee * FLOCK_CURSOR_FLEE_FORCE;
+              orb.vy += (cmy / cmDist) * flee * FLOCK_CURSOR_FLEE_FORCE;
+            }
+          }
+          // cap speed to keep swarm cohesive
+          const fSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+          if (fSpeed > FLOCK_MAX_SPEED) {
+            orb.vx = (orb.vx / fSpeed) * FLOCK_MAX_SPEED;
+            orb.vy = (orb.vy / fSpeed) * FLOCK_MAX_SPEED;
           }
         }
 
@@ -5335,6 +5398,13 @@ function App() {
     });
   }, []);
 
+  const handleFlockingMode = useCallback(() => {
+    setFlockingMode((prev) => {
+      flockingModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleSparklerMode = useCallback(() => {
     setSparklerMode((prev) => {
       sparklerModeRef.current = !prev;
@@ -6284,6 +6354,9 @@ function App() {
         case "u":
           handleMeshMode();
           break;
+        case "8":
+          handleFlockingMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -6291,7 +6364,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6361,6 +6434,7 @@ function App() {
           {barrierMode && <ModePill $color="#4facfe">walls</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {meshMode && <ModePill $color="#667eea">mesh</ModePill>}
+          {flockingMode && <ModePill $color="#00f2fe">swarm</ModePill>}
           {longExposure && <ModePill $color="#feb47b">long exposure</ModePill>}
           {autoPlay && <ModePill $color="#43e97b">autoplay</ModePill>}
           {paletteIndex !== 0 && <ModePill $color="#f093fb">{PALETTES[paletteIndex].name.toLowerCase()}</ModePill>}
@@ -6506,6 +6580,9 @@ function App() {
         <ModeToggle onClick={handleMeshMode} $active={meshMode} $color="#667eea" title="Gravity mesh">
           mesh
         </ModeToggle>
+        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#00f2fe" title="Swarm mode (8)">
+          swarm
+        </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
@@ -6570,6 +6647,7 @@ function App() {
               <Shortcut><Key>N</Key><span>Place / remove gravity well</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>U</Key><span>Gravity mesh</span></Shortcut>
+              <Shortcut><Key>8</Key><span>Swarm mode (flocking)</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>J</Key><span>Long exposure (trail mode)</span></Shortcut>
