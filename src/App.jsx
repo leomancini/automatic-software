@@ -6246,13 +6246,12 @@ function App() {
               <line x1="12" y1="8" x2="16" y2="12" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleRicochet} title="Ricochet">
+          <ActionButton onClick={handleBlackHole} title="Black hole">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="4 20 10 8 16 16 20 4" />
-              <circle cx="4" cy="20" r="2" fill="currentColor" />
-              <circle cx="10" cy="8" r="2" fill="currentColor" />
-              <circle cx="16" cy="16" r="2" fill="currentColor" />
-              <circle cx="20" cy="4" r="2" fill="currentColor" />
+              <circle cx="12" cy="12" r="4" fill="currentColor" />
+              <ellipse cx="12" cy="12" rx="10" ry="4" opacity="0.5" />
+              <path d="M12 2a10 10 0 0 1 7.07 2.93" opacity="0.3" />
+              <path d="M12 22a10 10 0 0 1-7.07-2.93" opacity="0.3" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleSupernova} title="Supernova">
