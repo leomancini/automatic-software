@@ -4516,6 +4516,7 @@ function App() {
     const H = window.innerHeight;
     const cx = W / 2;
     const cy = H / 2;
+    const now = performance.now();
     for (const orb of orbsRef.current) {
       const dx = cx - orb.x;
       const dy = cy - orb.y;
@@ -4524,6 +4525,9 @@ function App() {
       orb.vx += (dx / dist) * strength;
       orb.vy += (dy / dist) * strength;
     }
+    shakeRef.current = 8;
+    ripplesRef.current.push({ x: cx, y: cy, color: "#43e97b", born: now });
+    playSwoosh();
   }, []);
 
   const handleGravity = useCallback(() => {
@@ -5532,6 +5536,15 @@ function App() {
                 <polyline points="11 19 5 19 5 13" />
                 <line x1="12" y1="12" x2="19" y2="19" />
                 <polyline points="19 13 19 19 13 19" />
+              </svg>
+            </ActionButton>
+            <ActionButton onClick={handleGather} title="Gather orbs">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="4" y1="4" x2="10" y2="10" />
+                <line x1="20" y1="4" x2="14" y2="10" />
+                <line x1="4" y1="20" x2="10" y2="14" />
+                <line x1="20" y1="20" x2="14" y2="14" />
+                <circle cx="12" cy="12" r="2.5" fill="currentColor" />
               </svg>
             </ActionButton>
 <ActionButton onClick={handleSpin} title="Spin orbs">
