@@ -3712,6 +3712,24 @@ function App() {
           ctx.fill();
         }
 
+        // chromatic aberration: prismatic RGB split on fast-moving orbs
+        if (speed > 3) {
+          const ca = Math.min((speed - 3) / 6, 1);
+          const off = r * ca * 1.5;
+          const tx = -orb.vx / speed;
+          const ty = -orb.vy / speed;
+          const px = -ty, py = tx;
+          ctx.globalCompositeOperation = "lighter";
+          ctx.beginPath();
+          ctx.arc(tx * off + px * off * 0.35, ty * off + py * off * 0.35, r * 0.75, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 60, 30, ${ca * 0.18})`;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(tx * off - px * off * 0.35, ty * off - py * off * 0.35, r * 0.75, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(30, 120, 255, ${ca * 0.18})`;
+          ctx.fill();
+        }
+
         ctx.restore();
       }
 
