@@ -5122,6 +5122,58 @@ function App() {
     playSwoosh();
   }, []);
 
+  const handleFission = useCallback(() => {
+    const orbs = orbsRef.current;
+    if (orbs.length === 0) return;
+    const now = performance.now();
+    const result = [];
+    for (const orb of orbs) {
+      const daughterRadius = orb.radius / Math.SQRT2;
+      if (daughterRadius < 4 || result.length >= 200) {
+        result.push(orb); // too small to split or cap reached
+        continue;
+      }
+      const splitAngle = Math.random() * Math.PI * 2;
+      const splitSpeed = 2 + Math.random() * 2;
+      const offset = daughterRadius * 1.2;
+      for (let d = 0; d < 2; d++) {
+        const dir = d === 0 ? 1 : -1;
+        result.push({
+          id: Date.now() + Math.random() + d + result.length,
+          x: orb.x + Math.cos(splitAngle) * offset * dir,
+          y: orb.y + Math.sin(splitAngle) * offset * dir,
+          vx: orb.vx + Math.cos(splitAngle) * splitSpeed * dir,
+          vy: orb.vy + Math.sin(splitAngle) * splitSpeed * dir,
+          radius: daughterRadius,
+          color: orb.color,
+          pulsePhase: Math.random() * Math.PI * 2,
+          polarity: d === 0 ? (orb.polarity || 1) : -(orb.polarity || 1),
+          born: now,
+        });
+      }
+      flashesRef.current.push({
+        x: orb.x, y: orb.y, color: orb.color,
+        radius: orb.radius * 1.2, born: now,
+      });
+      for (let s = 0; s < 4; s++) {
+        const angle = splitAngle + (s < 2 ? 0 : Math.PI) + (Math.random() - 0.5) * 0.8;
+        const speed = MERGE_SPARK_SPEED * (0.5 + Math.random());
+        mergeSparksRef.current.push({
+          x: orb.x, y: orb.y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          color: orb.color,
+          size: MERGE_SPARK_SIZE * (0.6 + Math.random() * 0.6),
+          born: now,
+        });
+      }
+    }
+    orbsRef.current = result;
+    setOrbCount(result.length);
+    shakeRef.current = 15;
+    playMitosis();
+  }, []);
+
   const handleComet = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -5208,10 +5260,10 @@ function App() {
   const handleRandomEffect = useCallback(() => {
     const orbs = orbsRef.current;
     const alwaysAvailable = [handleBurst, handleMeteorShower, handleFirework];
-    const needsOrbs = [handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom];
+    const needsOrbs = [handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission];
     const pool = orbs.length > 0 ? [...alwaysAvailable, ...needsOrbs] : alwaysAvailable;
     pool[Math.floor(Math.random() * pool.length)]();
-  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -5520,6 +5572,13 @@ function App() {
                 <circle cx="12" cy="12" r="1" fill="currentColor" />
                 <path d="M12 17a5 5 0 0 1-3.54-1.46" />
                 <path d="M12 21a9 9 0 0 1-6.36-2.64" />
+              </svg>
+            </ActionButton>
+            <ActionButton onClick={() => { handleFission(); comboFlashRef.current.push({ text: "FISSION", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#f5af19" }); }} title="Fission">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="8" cy="8" r="3" />
+                <circle cx="16" cy="16" r="3" />
+                <line x1="10.5" y1="10.5" x2="13.5" y2="13.5" opacity="0.5" strokeDasharray="2 2" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
