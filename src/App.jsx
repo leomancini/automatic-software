@@ -5043,6 +5043,38 @@ function App() {
     playGalaxySound();
   }, []);
 
+  const handleHelix = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cx = W / 2;
+    const cy = H / 2;
+    const count = 14;
+    const now = performance.now();
+    const twists = 2.5; // number of full rotations
+    const helixRadius = Math.min(W, H) * 0.12;
+    const helixLength = Math.min(W, H) * 0.55;
+    const spinDir = Math.random() < 0.5 ? 1 : -1;
+
+    for (let i = 0; i < count; i++) {
+      const strand = i % 2;
+      const t = Math.floor(i / 2) / (count / 2 - 1); // 0 to 1 along helix
+      const angle = t * Math.PI * 2 * twists + strand * Math.PI; // opposite strands
+      const x = cx + Math.cos(angle) * helixRadius;
+      const y = cy - helixLength / 2 + t * helixLength;
+      const orb = createOrb(x, y);
+      orb.radius = 6 + Math.random() * 6;
+      // tangential velocity creates spinning, expanding motion
+      orb.vx = Math.cos(angle + Math.PI / 2) * (2 + t * 2) * spinDir;
+      orb.vy = (t - 0.5) * -3 + Math.sin(angle) * 1.5;
+      orbsRef.current.push(orb);
+      ripplesRef.current.push({ x, y, color: orb.color, born: now });
+    }
+
+    setOrbCount(orbsRef.current.length);
+    shakeRef.current = 8;
+    playGalaxySound();
+  }, []);
+
   const handleFirework = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -5401,12 +5433,12 @@ function App() {
 
   const handleRandomEffect = useCallback(() => {
     const orbs = orbsRef.current;
-    const alwaysAvailable = [handleBurst, handleMeteorShower, handleFirework];
+    const alwaysAvailable = [handleBurst, handleMeteorShower, handleFirework, handleHelix];
     const needsOrbs = [handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission];
     const alwaysAvailableBig = [...alwaysAvailable, handlePulsar];
     const pool = orbs.length > 0 ? [...alwaysAvailableBig, ...needsOrbs] : alwaysAvailableBig;
     pool[Math.floor(Math.random() * pool.length)]();
-  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission, handlePulsar]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleHelix, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission, handlePulsar]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -5667,6 +5699,12 @@ function App() {
               <circle cx="12" cy="12" r="2" fill="currentColor" />
               <circle cx="12" cy="12" r="6" strokeDasharray="4 2" />
               <circle cx="12" cy="12" r="10" strokeDasharray="3 3" opacity="0.5" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={() => { handleHelix(); comboFlashRef.current.push({ text: "HELIX", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#43e97b" }); }} title="Helix">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 4c4 0 8 3 8 8s-4 8-8 8" />
+              <path d="M18 4c-4 0-8 3-8 8s4 8 8 8" />
             </svg>
           </ActionButton>
           <ActionButton onClick={() => { handleCyclePalette(); const W = window.innerWidth; const H = window.innerHeight; comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" }); }} title={`Palette: ${PALETTES[paletteIndex].name} (Y)`} $highlight>
