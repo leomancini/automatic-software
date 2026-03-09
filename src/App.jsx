@@ -6338,28 +6338,6 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleEruption} title="Eruption">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="22" x2="12" y2="10" />
-              <line x1="8" y1="22" x2="6" y2="12" />
-              <line x1="16" y1="22" x2="18" y2="12" />
-              <circle cx="12" cy="8" r="1.5" fill="currentColor" />
-              <circle cx="6" cy="10" r="1.5" fill="currentColor" />
-              <circle cx="18" cy="10" r="1.5" fill="currentColor" />
-              <circle cx="9" cy="5" r="1" fill="currentColor" opacity="0.6" />
-              <circle cx="15" cy="6" r="1" fill="currentColor" opacity="0.6" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={() => { handleRandomEffect(); }} title="Random effect">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="3" />
-              <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
-              <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" />
-              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-              <circle cx="8.5" cy="15.5" r="1.5" fill="currentColor" />
-              <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor" />
-            </svg>
-          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handleShuffle} title="Shuffle colors">
@@ -6446,6 +6424,9 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleCyclePalette} $active={paletteIndex !== 0} $color="#f093fb" title="Cycle color palette">
           {PALETTES[paletteIndex].name.toLowerCase()}
+        </ModeToggle>
+        <ModeToggle onClick={handleAutoPlay} $active={autoPlay} $color="#43e97b" title="Autoplay (ambient mode)">
+          autoplay
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
