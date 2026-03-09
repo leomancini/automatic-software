@@ -377,3 +377,10 @@ export const PALETTES = [
     nebula: [[140,150,170], [100,120,150], [120,140,170], [90,110,140], [130,145,165]],
   },
 ];
+
+// ── Orbit Lock ──
+export const ORBIT_LOCK_GATHER_MS = 700;   // time to smooth-move into ring positions
+export const ORBIT_LOCK_SPIN_MS = 3000;     // time orbiting in rings
+export const ORBIT_LOCK_RELEASE_MS = 400;   // visual fade after release
+export const ORBIT_LOCK_RING_GAP = 55;      // spacing between concentric rings
+export const ORBIT_LOCK_SPIN_SPEED = 1.8;   // radians per second base spin speed

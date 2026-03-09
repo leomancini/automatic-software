@@ -65,6 +65,8 @@ import {
   FLOCK_ALIGNMENT_FORCE, FLOCK_COHESION_FORCE, FLOCK_MAX_SPEED,
   LIGHTNING_SEGMENTS,
   PALETTES,
+  ORBIT_LOCK_GATHER_MS, ORBIT_LOCK_SPIN_MS, ORBIT_LOCK_RELEASE_MS,
+  ORBIT_LOCK_RING_GAP, ORBIT_LOCK_SPIN_SPEED,
 } from './constants.js';
 import {
   PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce,
@@ -112,6 +114,7 @@ function App() {
   const bloomRef = useRef(null); // offscreen canvas for bloom post-process
   const supernovaRef = useRef(null); // active supernova {cx, cy, born, phase}
   const maelstromRef = useRef(null); // active maelstrom {cx, cy, born, phase}
+  const orbitLockRef = useRef(null); // active orbit lock {cx, cy, born, phase, rings}
   const shatterAllRef = useRef(null); // active shatter-all {born, phase, frozenOrbs}
   const embersRef = useRef([]); // fire ember particles
   const mergeSparksRef = useRef([]); // collision spark particles
@@ -4786,6 +4789,128 @@ function App() {
         }
       }
 
+      // ── Orbit Lock effect ──
+      if (orbitLockRef.current) {
+        const ol = orbitLockRef.current;
+        const age = now - ol.born;
+        const totalGatherSpin = ORBIT_LOCK_GATHER_MS + ORBIT_LOCK_SPIN_MS;
+
+        if (ol.phase === "gather" || ol.phase === "spin") {
+          const isGathering = ol.phase === "gather" && age < ORBIT_LOCK_GATHER_MS;
+          const spinAge = ol.phase === "spin" ? age - ORBIT_LOCK_GATHER_MS : 0;
+
+          if (ol.phase === "gather" && age >= ORBIT_LOCK_GATHER_MS) {
+            ol.phase = "spin";
+          }
+
+          // Move orbs toward their ring positions / keep them orbiting
+          for (let i = 0; i < ol.assignments.length; i++) {
+            const a = ol.assignments[i];
+            const orb = a.orb;
+            if (!orbs.includes(orb)) continue; // orb was removed
+
+            const ringDir = a.ring % 2 === 0 ? 1 : -1;
+            const spinRate = ORBIT_LOCK_SPIN_SPEED * (1 + a.ring * 0.3) * ringDir;
+            const elapsed = ol.phase === "spin" ? spinAge : 0;
+            const currentAngle = a.angle + spinRate * (elapsed / 1000);
+
+            const targetX = ol.cx + Math.cos(currentAngle) * a.radius;
+            const targetY = ol.cy + Math.sin(currentAngle) * a.radius;
+
+            if (isGathering) {
+              const gatherT = Math.min(age / ORBIT_LOCK_GATHER_MS, 1);
+              const ease = 1 - Math.pow(1 - gatherT, 3); // ease-out cubic
+              orb.x += (targetX - orb.x) * ease * 0.15;
+              orb.y += (targetY - orb.y) * ease * 0.15;
+              orb.vx *= 0.85;
+              orb.vy *= 0.85;
+            } else {
+              // Lock to orbit position
+              orb.x += (targetX - orb.x) * 0.25;
+              orb.y += (targetY - orb.y) * 0.25;
+              orb.vx = 0;
+              orb.vy = 0;
+            }
+          }
+
+          // Visuals: glowing ring outlines
+          const ringAlpha = isGathering
+            ? Math.min(age / ORBIT_LOCK_GATHER_MS, 1) * 0.3
+            : 0.3 - (ol.phase === "spin" ? spinAge / ORBIT_LOCK_SPIN_MS * 0.1 : 0);
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+          for (let r = 0; r < ol.ringCount; r++) {
+            const ringR = ol.baseRadius + r * ORBIT_LOCK_RING_GAP;
+            const ringColor = r % 2 === 0 ? "120, 200, 255" : "240, 147, 251";
+            ctx.beginPath();
+            ctx.arc(ol.cx, ol.cy, ringR, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(${ringColor}, ${ringAlpha})`;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          }
+
+          // Center glow
+          const coreR = 12 + (isGathering ? age / ORBIT_LOCK_GATHER_MS * 8 : 8);
+          const coreGrad = ctx.createRadialGradient(ol.cx, ol.cy, 0, ol.cx, ol.cy, coreR);
+          coreGrad.addColorStop(0, `rgba(200, 220, 255, ${ringAlpha * 1.5})`);
+          coreGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(ol.cx, ol.cy, coreR, 0, Math.PI * 2);
+          ctx.fillStyle = coreGrad;
+          ctx.fill();
+          ctx.restore();
+
+          // Transition to release
+          if (ol.phase === "spin" && age >= totalGatherSpin) {
+            ol.phase = "release";
+            ol.releaseBorn = now;
+
+            // Fling orbs tangentially
+            for (const a of ol.assignments) {
+              const orb = a.orb;
+              if (!orbs.includes(orb)) continue;
+              const ringDir = a.ring % 2 === 0 ? 1 : -1;
+              const spinRate = ORBIT_LOCK_SPIN_SPEED * (1 + a.ring * 0.3) * ringDir;
+              const elapsed = ORBIT_LOCK_SPIN_MS / 1000;
+              const currentAngle = a.angle + spinRate * elapsed;
+              // Tangential velocity
+              const tangentSpeed = spinRate * a.radius / 1000 * 3;
+              orb.vx = -Math.sin(currentAngle) * tangentSpeed;
+              orb.vy = Math.cos(currentAngle) * tangentSpeed;
+            }
+
+            shakeRef.current = Math.max(shakeRef.current, 8);
+            wavesRef.current.push({
+              cx: ol.cx, cy: ol.cy, radius: 0,
+              color: "#f093fb", generation: 0,
+              hitOrbs: new Set(), delay: 0,
+            });
+            playSwoosh();
+          }
+        }
+
+        if (ol.phase === "release") {
+          const releaseAge = now - ol.releaseBorn;
+          if (releaseAge < ORBIT_LOCK_RELEASE_MS) {
+            const progress = releaseAge / ORBIT_LOCK_RELEASE_MS;
+            const fadeAlpha = (1 - progress) * 0.2;
+            ctx.save();
+            ctx.globalCompositeOperation = "lighter";
+            for (let r = 0; r < ol.ringCount; r++) {
+              const ringR = ol.baseRadius + r * ORBIT_LOCK_RING_GAP + progress * 30;
+              ctx.beginPath();
+              ctx.arc(ol.cx, ol.cy, ringR, 0, Math.PI * 2);
+              ctx.strokeStyle = `rgba(200, 180, 255, ${fadeAlpha})`;
+              ctx.lineWidth = 1;
+              ctx.stroke();
+            }
+            ctx.restore();
+          } else {
+            orbitLockRef.current = null;
+          }
+        }
+      }
+
       // ── Pulsar effect (rhythmic pulse waves → detonation) ──
 
       // ── Flick aiming line ──
@@ -5729,6 +5854,40 @@ function App() {
     playSwoosh();
   }, []);
 
+  const handleOrbitLock = useCallback(() => {
+    if (orbitLockRef.current || orbsRef.current.length === 0) return;
+    const orbs = orbsRef.current.filter(o => !o.spark);
+    if (orbs.length === 0) return;
+
+    // Center of mass
+    let cx = 0, cy = 0;
+    for (const orb of orbs) { cx += orb.x; cy += orb.y; }
+    cx /= orbs.length;
+    cy /= orbs.length;
+
+    // Determine ring count based on orb count
+    const ringCount = Math.max(1, Math.min(Math.ceil(orbs.length / 6), 5));
+    const baseRadius = Math.min(window.innerWidth, window.innerHeight) * 0.12;
+
+    // Assign orbs to rings evenly, then assign angle within ring
+    const assignments = [];
+    const shuffled = [...orbs].sort(() => Math.random() - 0.5);
+    for (let i = 0; i < shuffled.length; i++) {
+      const ring = i % ringCount;
+      const orbsInRing = Math.ceil((shuffled.length - ring) / ringCount);
+      const indexInRing = Math.floor(i / ringCount);
+      const angle = (Math.PI * 2 * indexInRing) / orbsInRing;
+      const radius = baseRadius + ring * ORBIT_LOCK_RING_GAP;
+      assignments.push({ orb: shuffled[i], ring, angle, radius });
+    }
+
+    orbitLockRef.current = {
+      cx, cy, born: performance.now(), phase: "gather",
+      assignments, ringCount, baseRadius,
+    };
+    playSwoosh();
+  }, []);
+
   const handleComet = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -5814,6 +5973,7 @@ function App() {
       [handleWave, "SHOCKWAVE"], [handleLightning, "LIGHTNING"], [handleScatter, "SCATTER"],
       [handleSpin, "SPIN"], [handleGather, "GATHER"], [handleSupernova, "SUPERNOVA"],
       [handleMaelstrom, "MAELSTROM"],
+      [handleOrbitLock, "ORBIT LOCK"],
     ];
     const pool = orbs.length > 0 ? [...alwaysAvailable, ...needsOrbs] : alwaysAvailable;
     const [fn, label] = pool[Math.floor(Math.random() * pool.length)];
@@ -5821,7 +5981,7 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     comboFlashRef.current.push({ text: label, x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" });
-  }, [handleBurst, handleMeteorShower, handleFirework, handleRicochet, handleGalaxy, handleVolley, handleCrossfire, handleTidalPulse, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleRicochet, handleGalaxy, handleVolley, handleCrossfire, handleTidalPulse, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleOrbitLock]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -5968,6 +6128,10 @@ function App() {
           handleBlackHole();
           flashLabel("BLACK HOLE", "#a855f7");
           break;
+        case "5":
+          handleOrbitLock();
+          flashLabel("ORBIT LOCK", "#f093fb");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -5975,7 +6139,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRicochet, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRicochet, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleBlackHole, handleOrbitLock, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6161,6 +6325,14 @@ function App() {
                 <polyline points="21 3 21 9 15 9" />
               </svg>
             </ActionButton>
+            <ActionButton onClick={handleOrbitLock} title="Orbit lock">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <ellipse cx="12" cy="12" rx="9" ry="4" />
+                <ellipse cx="12" cy="12" rx="9" ry="4" transform="rotate(60 12 12)" />
+                <ellipse cx="12" cy="12" rx="9" ry="4" transform="rotate(120 12 12)" />
+              </svg>
+            </ActionButton>
             <ActionButton onClick={() => { handlePlaceWell(); }} title="Place gravity well">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3" />
@@ -6231,6 +6403,7 @@ function App() {
               <Shortcut><Key>9</Key><span>Crossfire (all edges converge)</span></Shortcut>
               <Shortcut><Key>0</Key><span>Tidal pulse (inhale → exhale)</span></Shortcut>
               <Shortcut><Key>2</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
+              <Shortcut><Key>5</Key><span>Orbit lock (rings + release)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
