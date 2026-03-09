@@ -53,7 +53,6 @@ import {
   LIGHT_TRAIL_LENGTH, TRAIL_SPEED_MIN,
   NEBULA_COUNT, NEBULA_BASE_RADIUS, NEBULA_DRIFT, NEBULA_ORB_PULL, NEBULA_ALPHA, NEBULA_COLORS_RGB,
   TILT_GRAVITY_FORCE, TILT_SMOOTHING,
-  REWIND_BUFFER_SIZE, REWIND_STEP_RATE,
   TAP_SPARKLE_COUNT, TAP_SPARKLE_SPEED, TAP_SPARKLE_LIFETIME,
   HARP_STRING_COUNT, HARP_VIBRATION_DURATION, HARP_PLUCK_SPEED_THRESHOLD, HARP_PLUCK_COOLDOWN,
   SPAWN_DURATION,
@@ -63,14 +62,13 @@ import {
   FLOCK_SEPARATION_DIST, FLOCK_NEIGHBOR_DIST, FLOCK_SEPARATION_FORCE,
   FLOCK_ALIGNMENT_FORCE, FLOCK_COHESION_FORCE, FLOCK_MAX_SPEED,
   LIGHTNING_SEGMENTS,
-  PULSAR_PULSE_COUNT, PULSAR_PULSE_INTERVAL, PULSAR_DETONATION_COUNT, PULSAR_DETONATION_SPEED,
   PALETTES,
 } from './constants.js';
 import {
   PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce,
   playSwoosh, playBurstSound, playGalaxySound, playCollapse, playMitosis, playStreakTone,
   playWarpSound, playSpray, playLightning, playPortalSound, playMeteorSound,
-  playSupernovaSound, playRewindSound, playIgniteSound, playStrikeSound, playFirePop,
+  playSupernovaSound, playIgniteSound, playStrikeSound, playFirePop,
   playStormSound, playTsunamiSound, playColorWaveSound, playShatterAllSound,
   playBlackHoleSound, playBlackHoleAbsorbSound, playCometSound,
 } from './audio.js';
@@ -192,10 +190,7 @@ function App() {
   const tiltModeRef = useRef(false);
   const tiltVecRef = useRef({ x: 0, y: 1 }); // normalized gravity direction
   const hasTiltSensorRef = useRef(false);
-  const rewindRef = useRef(null); // {index} when rewinding
-  const rewindBufferRef = useRef([]); // circular buffer of orb snapshots
   const blackHoleRef = useRef(null); // {x, y, born, absorbed, mass, diskDots}
-  const pulsarRef = useRef(null); // {cx, cy, born, pulseCount, phase, detonateBorn}
   const autoplayTimersRef = useRef({ lastSpawn: 0, lastEffect: 0 });
   const [colorCycle, setColorCycle] = useState(false);
   const colorCycleRef = useRef(false);
@@ -1454,7 +1449,7 @@ function App() {
       // update physics
       for (const orb of orbs) {
         if (orb === dragRef.current) continue;
-        if (frozenRef.current || rewindRef.current) continue;
+        if (frozenRef.current) continue;
 
         // soft repulsion between orbs
         for (const other of orbs) {
@@ -2208,57 +2203,6 @@ function App() {
         orbsRef.current = orbs.filter((_, idx) => !toRemove.has(idx));
         setOrbCount(orbsRef.current.length);
         playMergeSound();
-      }
-
-      // Record snapshot for time rewind (only during normal play)
-      if (!rewindRef.current && !frozenRef.current) {
-        const snap = orbsRef.current.map(o => ({
-          x: o.x, y: o.y, vx: o.vx, vy: o.vy,
-          radius: o.radius, color: o.color, id: o.id, pulsePhase: o.pulsePhase
-        }));
-        rewindBufferRef.current.push(snap);
-        if (rewindBufferRef.current.length > REWIND_BUFFER_SIZE) {
-          rewindBufferRef.current.shift();
-        }
-      }
-
-      // ── Rewind playback: step backward through buffer ──
-      if (rewindRef.current) {
-        const buf = rewindBufferRef.current;
-        const rw = rewindRef.current;
-        for (let step = 0; step < REWIND_STEP_RATE && rw.index >= 0; step++) {
-          rw.index--;
-        }
-        if (rw.index >= 0 && buf[rw.index]) {
-          const snap = buf[rw.index];
-          // Restore orb positions from snapshot
-          const currentOrbs = orbsRef.current;
-          for (const saved of snap) {
-            const orb = currentOrbs.find(o => o.id === saved.id);
-            if (orb) {
-              orb.x = saved.x;
-              orb.y = saved.y;
-              orb.vx = saved.vx;
-              orb.vy = saved.vy;
-            }
-          }
-          // Reconstruct orb set from snapshot (handles merges/spawns)
-          if (snap.length !== currentOrbs.length) {
-            orbsRef.current = snap.map(s => {
-              const existing = currentOrbs.find(o => o.id === s.id);
-              if (existing) {
-                Object.assign(existing, { x: s.x, y: s.y, vx: s.vx, vy: s.vy, radius: s.radius, color: s.color });
-                return existing;
-              }
-              return { ...s, pulsePhase: s.pulsePhase || 0 };
-            });
-            setOrbCount(orbsRef.current.length);
-          }
-        } else {
-          // Reached beginning of buffer — stop rewinding
-          rewindRef.current = null;
-          rewindBufferRef.current = [];
-        }
       }
 
       // Mitosis: massive orbs split into two daughter orbs
@@ -4415,120 +4359,6 @@ function App() {
       }
 
       // ── Pulsar effect (rhythmic pulse waves → detonation) ──
-      if (pulsarRef.current) {
-        const ps = pulsarRef.current;
-        const age = now - ps.born;
-
-        if (ps.phase === "pulse") {
-          // Each pulse comes faster: interval shrinks as count increases
-          const interval = PULSAR_PULSE_INTERVAL * (1 - ps.pulseCount * 0.08);
-          let elapsed = 0;
-          for (let p = 0; p < ps.pulseCount; p++) {
-            elapsed += PULSAR_PULSE_INTERVAL * (1 - p * 0.08);
-          }
-
-          if (age >= elapsed && ps.pulseCount < PULSAR_PULSE_COUNT) {
-            ps.pulseCount++;
-            // Fire a shockwave from pulsar center
-            const hue = 270 + ps.pulseCount * 12;
-            wavesRef.current.push({
-              cx: ps.cx, cy: ps.cy, radius: 0,
-              color: `hsl(${hue}, 80%, 70%)`,
-              generation: 0, hitOrbs: new Set(), delay: 0,
-            });
-            shakeRef.current = Math.max(shakeRef.current, 3 + ps.pulseCount * 3);
-            // Ascending tone
-            playTone(220 + ps.pulseCount * 90, 0.2, "sine", 0.1 + ps.pulseCount * 0.02);
-            // Aurora flare with each pulse
-            auroraFlareRef.current = Math.min(auroraFlareRef.current + 0.15, 1);
-          }
-
-          // After all pulses, brief charge then detonate
-          if (ps.pulseCount >= PULSAR_PULSE_COUNT) {
-            let totalElapsed = 0;
-            for (let p = 0; p < PULSAR_PULSE_COUNT; p++) {
-              totalElapsed += PULSAR_PULSE_INTERVAL * (1 - p * 0.08);
-            }
-            if (age > totalElapsed + 350) {
-              ps.phase = "detonate";
-              ps.detonateBorn = now;
-            }
-          }
-
-          // Visual: pulsing core with growing intensity
-          const intensity = ps.pulseCount / PULSAR_PULSE_COUNT;
-          const pulse = Math.sin(age * 0.015) * 0.5 + 0.5;
-          const coreR = 10 + pulse * 12 + intensity * 30;
-
-          ctx.save();
-          ctx.globalCompositeOperation = "lighter";
-
-          const coreGrad = ctx.createRadialGradient(ps.cx, ps.cy, 0, ps.cx, ps.cy, coreR);
-          coreGrad.addColorStop(0, `rgba(255, 255, 255, ${0.4 + intensity * 0.5})`);
-          coreGrad.addColorStop(0.25, `rgba(180, 120, 255, ${0.3 + intensity * 0.3})`);
-          coreGrad.addColorStop(0.6, `rgba(100, 60, 220, ${0.12 + intensity * 0.15})`);
-          coreGrad.addColorStop(1, "transparent");
-          ctx.beginPath();
-          ctx.arc(ps.cx, ps.cy, coreR, 0, Math.PI * 2);
-          ctx.fillStyle = coreGrad;
-          ctx.fill();
-
-          // Orbiting particles around core
-          const pCount = 5 + Math.floor(intensity * 4);
-          for (let i = 0; i < pCount; i++) {
-            const pAngle = (Math.PI * 2 * i) / pCount + age * 0.004 * (1 + intensity * 2);
-            const pDist = coreR * 0.8 + Math.sin(age * 0.007 + i * 1.5) * 6;
-            const px = ps.cx + Math.cos(pAngle) * pDist;
-            const py = ps.cy + Math.sin(pAngle) * pDist;
-            ctx.beginPath();
-            ctx.arc(px, py, 1.5 + intensity * 2, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(200, 160, 255, ${0.4 + pulse * 0.4})`;
-            ctx.fill();
-          }
-
-          ctx.restore();
-
-        } else if (ps.phase === "detonate") {
-          const detAge = now - ps.detonateBorn;
-          if (detAge < 80) {
-            // Brief bright charge-up flash
-            const flashR = 20 + (detAge / 80) * 100;
-            const fg = ctx.createRadialGradient(ps.cx, ps.cy, 0, ps.cx, ps.cy, flashR);
-            fg.addColorStop(0, `rgba(255, 255, 255, 0.9)`);
-            fg.addColorStop(0.4, `rgba(180, 120, 255, 0.4)`);
-            fg.addColorStop(1, "transparent");
-            ctx.beginPath();
-            ctx.arc(ps.cx, ps.cy, flashR, 0, Math.PI * 2);
-            ctx.fillStyle = fg;
-            ctx.fill();
-          } else {
-            // Spawn explosion ring of orbs
-            for (let i = 0; i < PULSAR_DETONATION_COUNT; i++) {
-              const angle = (Math.PI * 2 * i) / PULSAR_DETONATION_COUNT + (Math.random() - 0.5) * 0.3;
-              const orb = createOrb(ps.cx, ps.cy);
-              orb.radius = 7 + Math.random() * 9;
-              orb.vx = Math.cos(angle) * (PULSAR_DETONATION_SPEED + Math.random() * 3);
-              orb.vy = Math.sin(angle) * (PULSAR_DETONATION_SPEED + Math.random() * 3);
-              orbsRef.current.push(orb);
-            }
-            // Massive flash + shockwave
-            flashesRef.current.push({
-              x: ps.cx, y: ps.cy, color: "#b06eff",
-              radius: 70, born: now,
-            });
-            wavesRef.current.push({
-              cx: ps.cx, cy: ps.cy, radius: 0,
-              color: "#b06eff", generation: 0,
-              hitOrbs: new Set(), delay: 0,
-            });
-            shakeRef.current = 45;
-            auroraFlareRef.current = Math.min(auroraFlareRef.current + 0.7, 1);
-            setOrbCount(orbsRef.current.length);
-            playBoom();
-            pulsarRef.current = null;
-          }
-        }
-      }
 
       // ── Flick aiming line ──
       if (slingshotRef.current && mouseDownRef.current) {
@@ -4604,28 +4434,6 @@ function App() {
       vignetteGrad.addColorStop(1, "rgba(0, 0, 0, 0.4)");
       ctx.fillStyle = vignetteGrad;
       ctx.fillRect(0, 0, W, H);
-
-      // ── Rewind VHS overlay ──
-      if (rewindRef.current) {
-        ctx.fillStyle = "rgba(79, 172, 254, 0.06)";
-        ctx.fillRect(0, 0, W, H);
-        ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
-        for (let sy = 0; sy < H; sy += 4) {
-          ctx.fillRect(0, sy, W, 1);
-        }
-        for (let gi = 0; gi < 3; gi++) {
-          const gy = Math.random() * H;
-          const gh = 1 + Math.random() * 3;
-          ctx.fillStyle = `rgba(255, 255, 255, ${0.03 + Math.random() * 0.06})`;
-          ctx.fillRect(0, gy, W, gh);
-        }
-        ctx.save();
-        ctx.font = "bold 20px monospace";
-        ctx.textAlign = "center";
-        ctx.fillStyle = `rgba(79, 172, 254, ${0.4 + Math.sin(time * 10) * 0.3})`;
-        ctx.fillText("\u25C0\u25C0 REWIND", W / 2, H - 50);
-        ctx.restore();
-      }
 
       // restore shake transform
       if (shake > 0.5) {
@@ -5043,195 +4851,6 @@ function App() {
     playGalaxySound();
   }, []);
 
-  const handleHelix = useCallback(() => {
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const cx = W / 2;
-    const cy = H / 2;
-    const count = 14;
-    const now = performance.now();
-    const twists = 2.5; // number of full rotations
-    const helixRadius = Math.min(W, H) * 0.12;
-    const helixLength = Math.min(W, H) * 0.55;
-    const spinDir = Math.random() < 0.5 ? 1 : -1;
-
-    for (let i = 0; i < count; i++) {
-      const strand = i % 2;
-      const t = Math.floor(i / 2) / (count / 2 - 1); // 0 to 1 along helix
-      const angle = t * Math.PI * 2 * twists + strand * Math.PI; // opposite strands
-      const x = cx + Math.cos(angle) * helixRadius;
-      const y = cy - helixLength / 2 + t * helixLength;
-      const orb = createOrb(x, y);
-      orb.radius = 6 + Math.random() * 6;
-      // tangential velocity creates spinning, expanding motion
-      orb.vx = Math.cos(angle + Math.PI / 2) * (2 + t * 2) * spinDir;
-      orb.vy = (t - 0.5) * -3 + Math.sin(angle) * 1.5;
-      orbsRef.current.push(orb);
-      ripplesRef.current.push({ x, y, color: orb.color, born: now });
-    }
-
-    setOrbCount(orbsRef.current.length);
-    shakeRef.current = 8;
-    playGalaxySound();
-  }, []);
-
-  const handleFractal = useCallback(() => {
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const cx = W / 2;
-    const cy = H / 2;
-    const DELAY = 200;
-    const branches = 3;
-    const branchSpread = 0.65;
-
-    // Estimate position after delay ms with friction
-    const estimatePos = (x, y, vx, vy, ms) => {
-      const frames = ms / 16.67;
-      const f = Math.pow(FRICTION, frames);
-      const disp = (1 - f) / (1 - FRICTION);
-      return { x: x + vx * disp, y: y + vy * disp };
-    };
-
-    // Gen 0: 3 orbs from center
-    const gen0 = [];
-    for (let i = 0; i < branches; i++) {
-      const angle = (Math.PI * 2 * i) / branches - Math.PI / 2;
-      gen0.push({ angle, speed: 4 });
-      const orb = createOrb(cx, cy);
-      orb.vx = Math.cos(angle) * 4;
-      orb.vy = Math.sin(angle) * 4;
-      orbsRef.current.push(orb);
-      ripplesRef.current.push({ x: cx, y: cy, color: orb.color, born: performance.now() });
-    }
-    setOrbCount(orbsRef.current.length);
-    shakeRef.current = 6;
-    playBurstSound();
-
-    // Gen 1: each gen 0 → 2 children
-    setTimeout(() => {
-      const now1 = performance.now();
-      const gen1 = [];
-      for (const p of gen0) {
-        const pos = estimatePos(cx, cy, Math.cos(p.angle) * p.speed, Math.sin(p.angle) * p.speed, DELAY);
-        for (let d = -1; d <= 1; d += 2) {
-          const childAngle = p.angle + d * branchSpread;
-          gen1.push({ x: pos.x, y: pos.y, angle: childAngle, speed: 3 });
-          const orb = createOrb(pos.x, pos.y);
-          orb.vx = Math.cos(childAngle) * 3;
-          orb.vy = Math.sin(childAngle) * 3;
-          orb.radius = 7 + Math.random() * 3;
-          orbsRef.current.push(orb);
-          ripplesRef.current.push({ x: pos.x, y: pos.y, color: orb.color, born: now1 });
-          for (let s = 0; s < 3; s++) {
-            const sa = Math.random() * Math.PI * 2;
-            mergeSparksRef.current.push({
-              x: pos.x, y: pos.y,
-              vx: Math.cos(sa) * 2, vy: Math.sin(sa) * 2,
-              color: orb.color, size: 2, born: now1,
-            });
-          }
-        }
-      }
-      setOrbCount(orbsRef.current.length);
-      shakeRef.current = Math.max(shakeRef.current, 8);
-      playSpawn();
-
-      // Gen 2: each gen 1 → 2 grandchildren
-      setTimeout(() => {
-        const now2 = performance.now();
-        for (const p of gen1) {
-          const pos = estimatePos(p.x, p.y, Math.cos(p.angle) * p.speed, Math.sin(p.angle) * p.speed, DELAY);
-          for (let d = -1; d <= 1; d += 2) {
-            const gAngle = p.angle + d * branchSpread * 0.7;
-            const orb = createOrb(pos.x, pos.y);
-            orb.vx = Math.cos(gAngle) * 2.5;
-            orb.vy = Math.sin(gAngle) * 2.5;
-            orb.radius = 5 + Math.random() * 3;
-            orbsRef.current.push(orb);
-            ripplesRef.current.push({ x: pos.x, y: pos.y, color: orb.color, born: now2 });
-            for (let s = 0; s < 3; s++) {
-              const sa = Math.random() * Math.PI * 2;
-              mergeSparksRef.current.push({
-                x: pos.x, y: pos.y,
-                vx: Math.cos(sa) * 2.5, vy: Math.sin(sa) * 2.5,
-                color: orb.color, size: 1.8, born: now2,
-              });
-            }
-          }
-        }
-        setOrbCount(orbsRef.current.length);
-        shakeRef.current = Math.max(shakeRef.current, 12);
-        playBurstSound();
-      }, DELAY);
-    }, DELAY);
-  }, []);
-
-  const handleCollider = useCallback(() => {
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const cy = H / 2;
-    const now = performance.now();
-    const count = 5;
-    const spread = Math.min(H * 0.3, 120);
-
-    // Left group — moving right
-    for (let i = 0; i < count; i++) {
-      const y = cy + (i - (count - 1) / 2) * (spread / count);
-      const orb = createOrb(40, y);
-      orb.vx = 6 + Math.random() * 2;
-      orb.vy = (Math.random() - 0.5) * 0.5;
-      orb.radius = 10 + Math.random() * 4;
-      orbsRef.current.push(orb);
-      ripplesRef.current.push({ x: 40, y, color: orb.color, born: now });
-    }
-
-    // Right group — moving left
-    for (let i = 0; i < count; i++) {
-      const y = cy + (i - (count - 1) / 2) * (spread / count);
-      const orb = createOrb(W - 40, y);
-      orb.vx = -(6 + Math.random() * 2);
-      orb.vy = (Math.random() - 0.5) * 0.5;
-      orb.radius = 10 + Math.random() * 4;
-      orbsRef.current.push(orb);
-      ripplesRef.current.push({ x: W - 40, y, color: orb.color, born: now });
-    }
-
-    setOrbCount(orbsRef.current.length);
-
-    // Schedule collision shockwave when groups meet in the middle
-    const travelDist = (W / 2) - 40;
-    const avgSpeed = 7;
-    const meetMs = Math.round((travelDist / avgSpeed) * 16.67);
-
-    setTimeout(() => {
-      const cx = W / 2;
-      const midY = H / 2;
-      const burstNow = performance.now();
-      wavesRef.current.push({
-        cx, cy: midY, radius: 0, color: "#ffffff",
-        generation: 0, hitOrbs: new Set(), delay: 0,
-      });
-      for (let i = 0; i < 20; i++) {
-        const angle = (Math.PI * 2 * i) / 20;
-        const speed = 3 + Math.random() * 5;
-        burstsRef.current.push({
-          x: cx, y: midY,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          color: randomColor(),
-          radius: 2 + Math.random() * 3,
-          born: burstNow,
-        });
-      }
-      ripplesRef.current.push({ x: cx, y: midY, color: "#ffffff", born: burstNow });
-      shakeRef.current = Math.max(shakeRef.current, 20);
-      playBoom();
-    }, meetMs);
-
-    shakeRef.current = 6;
-    playSwoosh();
-  }, []);
-
   const handleFirework = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -5277,6 +4896,33 @@ function App() {
         playBurstSound();
       }, burst * 300);
     }
+  }, []);
+
+  const handleVolley = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const count = 12;
+    const edge = Math.floor(Math.random() * 4);
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => {
+        const t = i / (count - 1);
+        const speed = 4 + Math.random() * 3;
+        let x, y, vx, vy;
+        if (edge === 0) { x = -5; y = H * 0.1 + t * H * 0.8; vx = speed; vy = (Math.random() - 0.5) * 2; }
+        else if (edge === 1) { x = W + 5; y = H * 0.1 + t * H * 0.8; vx = -speed; vy = (Math.random() - 0.5) * 2; }
+        else if (edge === 2) { x = W * 0.1 + t * W * 0.8; y = -5; vx = (Math.random() - 0.5) * 2; vy = speed; }
+        else { x = W * 0.1 + t * W * 0.8; y = H + 5; vx = (Math.random() - 0.5) * 2; vy = -speed; }
+        const orb = createOrb(x, y);
+        orb.vx = vx;
+        orb.vy = vy;
+        orbsRef.current.push(orb);
+        ripplesRef.current.push({ x, y, color: orb.color, born: performance.now() });
+        setOrbCount(orbsRef.current.length);
+        shakeRef.current = Math.max(shakeRef.current, 6);
+      }, i * 50);
+    }
+    shakeRef.current = 10;
+    playBoom();
   }, []);
 
   const handleToggleAudio = useCallback(() => {
@@ -5463,74 +5109,6 @@ function App() {
     playSwoosh();
   }, []);
 
-  const handlePulsar = useCallback(() => {
-    if (pulsarRef.current) return; // already in progress
-    const mx = mouseRef.current.x;
-    const my = mouseRef.current.y;
-    const cx = (mx > 0 || my > 0) ? mx : window.innerWidth / 2;
-    const cy = (mx > 0 || my > 0) ? my : window.innerHeight / 2;
-    pulsarRef.current = {
-      cx, cy,
-      born: performance.now(),
-      pulseCount: 0,
-      phase: "pulse",
-      detonateBorn: 0,
-    };
-    playTone(180, 0.4, "sine", 0.12);
-  }, []);
-
-  const handleFission = useCallback(() => {
-    const orbs = orbsRef.current;
-    if (orbs.length === 0) return;
-    const now = performance.now();
-    const result = [];
-    for (const orb of orbs) {
-      const daughterRadius = orb.radius / Math.SQRT2;
-      if (daughterRadius < 4 || result.length >= 200) {
-        result.push(orb); // too small to split or cap reached
-        continue;
-      }
-      const splitAngle = Math.random() * Math.PI * 2;
-      const splitSpeed = 2 + Math.random() * 2;
-      const offset = daughterRadius * 1.2;
-      for (let d = 0; d < 2; d++) {
-        const dir = d === 0 ? 1 : -1;
-        result.push({
-          id: Date.now() + Math.random() + d + result.length,
-          x: orb.x + Math.cos(splitAngle) * offset * dir,
-          y: orb.y + Math.sin(splitAngle) * offset * dir,
-          vx: orb.vx + Math.cos(splitAngle) * splitSpeed * dir,
-          vy: orb.vy + Math.sin(splitAngle) * splitSpeed * dir,
-          radius: daughterRadius,
-          color: orb.color,
-          pulsePhase: Math.random() * Math.PI * 2,
-          polarity: d === 0 ? (orb.polarity || 1) : -(orb.polarity || 1),
-          born: now,
-        });
-      }
-      flashesRef.current.push({
-        x: orb.x, y: orb.y, color: orb.color,
-        radius: orb.radius * 1.2, born: now,
-      });
-      for (let s = 0; s < 4; s++) {
-        const angle = splitAngle + (s < 2 ? 0 : Math.PI) + (Math.random() - 0.5) * 0.8;
-        const speed = MERGE_SPARK_SPEED * (0.5 + Math.random());
-        mergeSparksRef.current.push({
-          x: orb.x, y: orb.y,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          color: orb.color,
-          size: MERGE_SPARK_SIZE * (0.6 + Math.random() * 0.6),
-          born: now,
-        });
-      }
-    }
-    orbsRef.current = result;
-    setOrbCount(result.length);
-    shakeRef.current = 15;
-    playMitosis();
-  }, []);
-
   const handleComet = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -5605,23 +5183,13 @@ function App() {
     playBlackHoleSound();
   }, []);
 
-  const handleRewind = useCallback(() => {
-    if (rewindRef.current) return;
-    const buf = rewindBufferRef.current;
-    if (buf.length < 10) return;
-    rewindRef.current = { index: buf.length - 1 };
-    playRewindSound();
-    shakeRef.current = Math.max(shakeRef.current, 6);
-  }, []);
-
   const handleRandomEffect = useCallback(() => {
     const orbs = orbsRef.current;
-    const alwaysAvailable = [handleBurst, handleMeteorShower, handleFirework, handleFireworkShow, handleHelix, handleFractal, handleCollider];
-    const needsOrbs = [handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission];
-    const alwaysAvailableBig = [...alwaysAvailable, handlePulsar];
-    const pool = orbs.length > 0 ? [...alwaysAvailableBig, ...needsOrbs] : alwaysAvailableBig;
+    const alwaysAvailable = [handleBurst, handleMeteorShower, handleFirework, handleFireworkShow, handleGalaxy, handleVolley];
+    const needsOrbs = [handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom];
+    const pool = orbs.length > 0 ? [...alwaysAvailable, ...needsOrbs] : alwaysAvailable;
     pool[Math.floor(Math.random() * pool.length)]();
-  }, [handleBurst, handleMeteorShower, handleFirework, handleFireworkShow, handleHelix, handleFractal, handleCollider, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission, handlePulsar]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleFireworkShow, handleGalaxy, handleVolley, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -5732,10 +5300,6 @@ function App() {
           handleGalaxy();
           flashLabel("GALAXY", "#667eea");
           break;
-        case "t":
-          handleRewind();
-          flashLabel("REWIND", "#00f2fe");
-          break;
         case "v":
           handleToggleAudio();
           break;
@@ -5752,13 +5316,9 @@ function App() {
           handleCyclePalette();
           flashLabel(PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), "#f093fb");
           break;
-        case "2":
-          handleFractal();
-          flashLabel("FRACTAL", "#43e97b");
-          break;
-        case "3":
-          handleCollider();
-          flashLabel("COLLIDER", "#4facfe");
+        case "t":
+          handleVolley();
+          flashLabel("BARRAGE", "#43e97b");
           break;
         case "4":
           handleFireworkShow();
@@ -5771,7 +5331,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleFireworkShow, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleFractal, handleCollider, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleFireworkShow, handleVolley, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -5887,6 +5447,16 @@ function App() {
               <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
               <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={() => { handleVolley(); comboFlashRef.current.push({ text: "BARRAGE", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#43e97b" }); }} title="Barrage (T)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="2" y1="5" x2="14" y2="9" />
+              <line x1="2" y1="12" x2="16" y2="12" />
+              <line x1="2" y1="19" x2="14" y2="15" />
+              <circle cx="17" cy="10" r="2" fill="currentColor" />
+              <circle cx="19" cy="12" r="2" fill="currentColor" />
+              <circle cx="17" cy="14" r="2" fill="currentColor" />
             </svg>
           </ActionButton>
           <ActionButton onClick={() => { handleCyclePalette(); const W = window.innerWidth; const H = window.innerHeight; comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" }); }} title={`Palette: ${PALETTES[paletteIndex].name} (Y)`} $highlight>
@@ -6012,8 +5582,7 @@ function App() {
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
               <Shortcut><Key>U</Key><span>Maelstrom (spiral + release)</span></Shortcut>
               <Shortcut><Key>I</Key><span>Galaxy spiral</span></Shortcut>
-              <Shortcut><Key>2</Key><span>Fractal burst (branching spawn)</span></Shortcut>
-              <Shortcut><Key>3</Key><span>Collider (opposing streams)</span></Shortcut>
+              <Shortcut><Key>T</Key><span>Barrage (volley from edge)</span></Shortcut>
               <Shortcut><Key>4</Key><span>Firework show (multi-launch)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
@@ -6022,7 +5591,6 @@ function App() {
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
-              <Shortcut><Key>T</Key><span>Time rewind (~3 sec)</span></Shortcut>
               <Shortcut><Key>G</Key><span>Cycle gravity (↓ → ↑ ← off)</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
               <Shortcut><Key>A</Key><span>Attract mode</span></Shortcut>
