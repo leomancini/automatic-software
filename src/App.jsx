@@ -993,6 +993,8 @@ function App() {
     const ctx = canvas.getContext("2d");
 
     let time = 0;
+    let prevCursorX = 0, prevCursorY = 0;
+    let cursorSpeed = 0;
     function draw() {
       animRef.current = requestAnimationFrame(draw);
       try {
@@ -1002,6 +1004,15 @@ function App() {
       const H = canvas.height / dpr;
 
       const now = performance.now();
+
+      // ── Cursor velocity (for wake effect) ──
+      const cmx = mouseRef.current.x;
+      const cmy = mouseRef.current.y;
+      const cdx = cmx - prevCursorX;
+      const cdy = cmy - prevCursorY;
+      cursorSpeed = Math.sqrt(cdx * cdx + cdy * cdy);
+      prevCursorX = cmx;
+      prevCursorY = cmy;
 
       // ── Age and expire sparks ──
       orbsRef.current = orbsRef.current.filter(o => {
@@ -1828,6 +1839,14 @@ function App() {
           const direction = repelModeRef.current ? -3 : attractModeRef.current ? 8 : 1;
           orb.vx += (mdx / mDist) * pull * direction;
           orb.vy += (mdy / mDist) * pull * direction;
+        }
+
+        // cursor wake: fast cursor movement gently pushes nearby orbs aside
+        if (cursorSpeed > 3 && mouseRef.current.onCanvas && mDist < 90 && mDist > 0) {
+          const wakeFalloff = 1 - mDist / 90;
+          const wakePush = cursorSpeed * 0.025 * wakeFalloff * wakeFalloff;
+          orb.vx -= (mdx / mDist) * wakePush;
+          orb.vy -= (mdy / mDist) * wakePush;
         }
 
         // gravity (directional)
