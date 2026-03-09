@@ -3568,6 +3568,24 @@ function App() {
         ctx.fillStyle = coreGrad;
         ctx.fill();
 
+        // firefly blink: brief additive flash at pulse peak — mesmerizing when orbs sync
+        const blinkRaw = Math.max(0, Math.sin(time * 1.5 + orb.pulsePhase) - 0.96) / 0.04;
+        if (blinkRaw > 0.01) {
+          const blinkI = blinkRaw * blinkRaw * blinkRaw;
+          const blinkR = r * (2 + blinkI * 3);
+          const blinkA = blinkI * 0.25;
+          ctx.globalCompositeOperation = "lighter";
+          const blinkGrad = ctx.createRadialGradient(0, 0, r * 0.2, 0, 0, blinkR);
+          blinkGrad.addColorStop(0, `rgba(255, 255, 255, ${blinkA * 0.6})`);
+          blinkGrad.addColorStop(0.4, orb.color + hexAlpha(blinkA * 255));
+          blinkGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(0, 0, blinkR, 0, Math.PI * 2);
+          ctx.fillStyle = blinkGrad;
+          ctx.fill();
+          ctx.globalCompositeOperation = "source-over";
+        }
+
         // proximity bloom halo: soft bright ring when cursor is near
         if (proximityBoost > 0.05) {
           const bloomR = r * (2 + proximityBoost * 2.5);
