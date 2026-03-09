@@ -175,6 +175,7 @@ function App() {
   const [streakDisplay, setStreakDisplay] = useState(0);
   const streakFadeRef = useRef(null);
   const comboFlashRef = useRef([]); // [{text, x, y, born, color}]
+  const burstComboRef = useRef({ lastTime: 0, level: 0 }); // burst button combo tracker
   const mouseDownRef = useRef(false);
   const sprayActiveRef = useRef(false);
   const sprayStartRef = useRef({ x: 0, y: 0 });
@@ -5904,20 +5905,53 @@ function App() {
   const handleBurst = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
-    const cx = W / 2;
-    const cy = H / 2;
-    const count = 6;
     const now = performance.now();
+
+    // Burst combo: rapid presses escalate intensity
+    const combo = burstComboRef.current;
+    if (now - combo.lastTime < 1000) {
+      combo.level = Math.min(combo.level + 1, 5);
+    } else {
+      combo.level = 1;
+    }
+    combo.lastTime = now;
+    const lvl = combo.level;
+
+    // Escalating parameters
+    const count = lvl <= 1 ? 6 : lvl === 2 ? 9 : lvl === 3 ? 14 : lvl === 4 ? 20 : 28;
+    const speed = lvl <= 1 ? 4 : lvl === 2 ? 5 : lvl === 3 ? 6.5 : lvl === 4 ? 8 : 10;
+    const shake = lvl <= 1 ? 10 : lvl === 2 ? 14 : lvl === 3 ? 20 : lvl === 4 ? 28 : 38;
+
+    // Spread spawn points at higher levels
+    const cx = W / 2 + (lvl >= 3 ? (Math.random() - 0.5) * W * 0.3 : 0);
+    const cy = H / 2 + (lvl >= 3 ? (Math.random() - 0.5) * H * 0.3 : 0);
+
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count;
       const orb = createOrb(cx, cy);
-      orb.vx = Math.cos(angle) * (3 + Math.random() * 2);
-      orb.vy = Math.sin(angle) * (3 + Math.random() * 2);
+      orb.vx = Math.cos(angle) * (speed * (0.7 + Math.random() * 0.6));
+      orb.vy = Math.sin(angle) * (speed * (0.7 + Math.random() * 0.6));
       orbsRef.current.push(orb);
-      ripplesRef.current.push({ x: cx, y: cy, color: orb.color, born: now });
     }
+    ripplesRef.current.push({ x: cx, y: cy, color: randomColor(), born: now });
+
+    // At level 3+, trigger a shockwave from the burst center
+    if (lvl >= 3) {
+      wavesRef.current.push({ x: cx, y: cy, radius: 0, born: now, color: randomColor() });
+    }
+
+    // At level 4+, add a flash
+    if (lvl >= 4) {
+      flashesRef.current.push({ x: cx, y: cy, color: randomColor(), radius: 40, born: now });
+    }
+
+    // At max level, flash label
+    if (lvl >= 5) {
+      comboFlashRef.current.push({ text: "SUPERBURST", x: cx, y: cy, born: now, color: "#fa709a" });
+    }
+
     setOrbCount(orbsRef.current.length);
-    shakeRef.current = 10;
+    shakeRef.current = shake;
     playBurstSound();
   }, []);
 
