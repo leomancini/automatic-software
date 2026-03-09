@@ -7062,6 +7062,11 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleShowtime} title="Showtime" $highlight>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handleShuffle} title="Shuffle colors">
@@ -7171,47 +7176,32 @@ function App() {
             <HelpTitle>Keyboard Shortcuts</HelpTitle>
             <ShortcutList>
               <Shortcut><Key>click</Key><span>Create orb</span></Shortcut>
-              <Shortcut><Key>drag</Key><span>Spray orbs (empty space)</span></Shortcut>
-              <Shortcut><Key>drag orb</Key><span>Move orb</span></Shortcut>
+              <Shortcut><Key>drag</Key><span>Spray orbs / move orb</span></Shortcut>
               <Shortcut><Key>dbl-click</Key><span>Burst (empty) / remove (orb)</span></Shortcut>
-              <Shortcut><Key>hold</Key><span>Attract orbs (release to burst)</span></Shortcut>
+              <Shortcut><Key>hold</Key><span>Attract → release to burst</span></Shortcut>
               <Shortcut><Key>right-click</Key><span>Split orb</span></Shortcut>
-              <Shortcut><Key>long-press</Key><span>Split orb (mobile)</span></Shortcut>
               <Shortcut><Key>overlap</Key><span>Merge (big ones split!)</span></Shortcut>
+              <Shortcut><Key>rapid taps</Key><span>Combo streaks → bonus effects</span></Shortcut>
               <hr />
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
-              <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
-              <Shortcut><Key>0</Key><span>Black hole (absorbs → explodes)</span></Shortcut>
-              <Shortcut><Key>2</Key><span>Comet (streaks across screen)</span></Shortcut>
-              <Shortcut><Key>1</Key><span>Spiral galaxy spawn</span></Shortcut>
-              <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
-              <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
-              <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
-              <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
+              <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
+              <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
+              <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
+              <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
-              <Shortcut><Key>G</Key><span>Cycle gravity (↓ → ↑ ← off)</span></Shortcut>
+              <Shortcut><Key>N</Key><span>Gravity well</span></Shortcut>
+              <hr />
+              <Shortcut><Key>G</Key><span>Cycle gravity direction</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
-              <Shortcut><Key>A</Key><span>Attract mode</span></Shortcut>
-              <Shortcut><Key>O</Key><span>Orbit mode</span></Shortcut>
-              <Shortcut><Key>N</Key><span>Place / remove gravity well</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
-              <Shortcut><Key>Y</Key><span>Cycle color palette</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
-              <Shortcut><Key>3</Key><span>Trails mode (orb paths)</span></Shortcut>
-              <Shortcut><Key>4</Key><span>Showtime (grand finale chain)</span></Shortcut>
-              <Shortcut><Key>9</Key><span>Heartbeat (rhythmic pulse)</span></Shortcut>
-              <Shortcut><Key>I</Key><span>Kaleidoscope mirror</span></Shortcut>
-              <Shortcut><Key>J</Key><span>Long exposure (trail mode)</span></Shortcut>
-              <Shortcut><Key>Z</Key><span>Autoplay (ambient mode)</span></Shortcut>
-              <Shortcut><Key>K</Key><span>Save screenshot</span></Shortcut>
+              <Shortcut><Key>Y</Key><span>Cycle color palette</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
-              <Shortcut><Key>X</Key><span>Clear all orbs</span></Shortcut>
-              <Shortcut><Key>rapid taps</Key><span>Streak combos unlock effects at 5×, 12×, 20×, 25×...</span></Shortcut>
-              <Shortcut><Key>?</Key><span>Toggle this help</span></Shortcut>
+              <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
             </ShortcutList>
             <HelpClose onClick={() => setShowHelp(false)}>Got it</HelpClose>
           </HelpPanel>
