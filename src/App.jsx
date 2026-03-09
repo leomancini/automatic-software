@@ -5283,19 +5283,52 @@ function App() {
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        // Dotted trajectory extension
+        // Physics-predicted trajectory (curves with gravity + wells)
         if (sDist > 30) {
-          const trajLen = sSpeed * 12;
-          const trajEndX = sling.startX + Math.cos(sAngle) * trajLen;
-          const trajEndY = sling.startY + Math.sin(sAngle) * trajLen;
-          ctx.beginPath();
-          ctx.setLineDash([5, 7]);
-          ctx.moveTo(mx, my);
-          ctx.lineTo(trajEndX, trajEndY);
-          ctx.strokeStyle = `rgba(255, 255, 255, 0.18)`;
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-          ctx.setLineDash([]);
+          let sx = sling.startX, sy = sling.startY;
+          let svx = Math.cos(sAngle) * sSpeed;
+          let svy = Math.sin(sAngle) * sSpeed;
+          const steps = 90;
+          for (let i = 0; i < steps; i++) {
+            if (gravityRef.current) {
+              const gDir = gravityDirRef.current;
+              if (gDir === "down") svy += GRAVITY;
+              else if (gDir === "up") svy -= GRAVITY;
+              else if (gDir === "right") svx += GRAVITY;
+              else if (gDir === "left") svx -= GRAVITY;
+            }
+            for (const well of wellsRef.current) {
+              const wdx = well.x - sx, wdy = well.y - sy;
+              const wDist = Math.sqrt(wdx * wdx + wdy * wdy);
+              if (wDist < WELL_RANGE && wDist > 3) {
+                let ws = 1;
+                if (well.expiry) { ws = Math.min((well.expiry - now) / 1500, 1); if (ws <= 0) continue; }
+                const f = WELL_GRAVITY * ws / (1 + wDist * 0.01);
+                svx += (wdx / wDist) * f;
+                svy += (wdy / wDist) * f;
+                const of = f * 0.6 * (well.spinDir || 1);
+                svx += (-wdy / wDist) * of;
+                svy += (wdx / wDist) * of;
+              }
+            }
+            svx *= FRICTION;
+            svy *= FRICTION;
+            sx += svx;
+            sy += svy;
+            if (sx < 0) { sx = 0; svx *= -0.7; }
+            if (sx > W) { sx = W; svx *= -0.7; }
+            if (sy < 0) { sy = 0; svy *= -0.7; }
+            if (sy > H) { sy = H; svy *= -0.7; }
+            if (i % 3 === 0) {
+              const progress = i / steps;
+              const alpha = 0.45 * (1 - progress);
+              const dotR = 2.5 * (1 - progress * 0.5);
+              ctx.beginPath();
+              ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
+              ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+              ctx.fill();
+            }
+          }
         }
 
         // Orb preview glow at start position
