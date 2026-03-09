@@ -62,7 +62,6 @@ import {
   AUTOPLAY_SPAWN_INTERVAL, AUTOPLAY_SPAWN_COUNT, AUTOPLAY_EFFECT_INTERVAL,
   BLACK_HOLE_RANGE, BLACK_HOLE_GRAVITY, BLACK_HOLE_EVENT_HORIZON,
   BLACK_HOLE_ABSORB_TO_EXPLODE, BLACK_HOLE_RING_COUNT, BLACK_HOLE_RING_SPEED, BLACK_HOLE_DISK_DOTS,
-  ERUPTION_COUNT, ERUPTION_SPEED_MIN, ERUPTION_SPEED_MAX, ERUPTION_SPREAD, ERUPTION_EMBER_COUNT,
   GPULSE_BEATS, GPULSE_INTERVAL, GPULSE_PULL_MS,
   GPULSE_PULL_BASE, GPULSE_PULL_GROWTH, GPULSE_PUSH_BASE, GPULSE_PUSH_GROWTH,
   LIGHTNING_SEGMENTS,
@@ -6313,46 +6312,6 @@ function App() {
     playBurstSound();
   }, []);
 
-  const handleEruption = useCallback(() => {
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const cx = W / 2;
-    const cy = H - 10;
-    const now = performance.now();
-
-    // Launch orbs upward from screen bottom
-    for (let i = 0; i < ERUPTION_COUNT; i++) {
-      const angle = -Math.PI / 2 + (Math.random() - 0.5) * ERUPTION_SPREAD;
-      const speed = ERUPTION_SPEED_MIN + Math.random() * (ERUPTION_SPEED_MAX - ERUPTION_SPEED_MIN);
-      const orb = createOrb(cx + (Math.random() - 0.5) * 50, cy);
-      orb.vx = Math.cos(angle) * speed;
-      orb.vy = Math.sin(angle) * speed;
-      orb.radius = 5 + Math.random() * 8;
-      orbsRef.current.push(orb);
-    }
-
-    // Ember trail at eruption base
-    for (let i = 0; i < ERUPTION_EMBER_COUNT; i++) {
-      embersRef.current.push({
-        x: cx + (Math.random() - 0.5) * 60,
-        y: cy - Math.random() * 30,
-        vx: (Math.random() - 0.5) * 2,
-        vy: -(1 + Math.random() * 3),
-        size: 1.5 + Math.random() * 2.5,
-        born: now - Math.random() * 200,
-      });
-    }
-
-    // Ripple + flash at base
-    ripplesRef.current.push({ x: cx, y: cy, color: "#fa709a", born: now });
-    ripplesRef.current.push({ x: cx, y: cy, color: "#feb47b", born: now + 80 });
-    flashesRef.current.push({ x: cx, y: cy, color: "#feb47b", radius: 50, born: now });
-
-    setOrbCount(orbsRef.current.length);
-    shakeRef.current = 18;
-    playBurstSound();
-    playBoom();
-  }, []);
 
   const handleCascade = useCallback(() => {
     const orbs = orbsRef.current;
@@ -6775,7 +6734,7 @@ function App() {
     const orbs = orbsRef.current;
     const alwaysAvailable = [
       [handleBurst, "BURST"], [handleMeteorShower, "METEOR SHOWER"], [handleFirework, "FIREWORK"],
-      [handleEruption, "ERUPTION"], [handleSpiral, "SPIRAL"],
+      [handleComet, "COMET"], [handleSpiral, "SPIRAL"],
     ];
     const needsOrbs = [
       [handleWave, "SHOCKWAVE"], [handleLightning, "LIGHTNING"], [handleScatter, "SCATTER"],
@@ -6788,7 +6747,7 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     comboFlashRef.current.push({ text: label, x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" });
-  }, [handleBurst, handleMeteorShower, handleFirework, handleEruption, handleSpiral, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleBlackHole]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleComet, handleSpiral, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleBlackHole]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -6921,8 +6880,8 @@ function App() {
           handleKaleidoscopeMode();
           break;
         case "2":
-          handleEruption();
-          flashLabel("ERUPTION", "#feb47b");
+          handleComet();
+          flashLabel("COMET", "#66d9ef");
           break;
         case "0":
           handleBlackHole();
@@ -6944,7 +6903,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleSpiral, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, handleTrailsMode, handleShowtime, handlePulseMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleSpiral, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleComet, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, handleTrailsMode, handleShowtime, handlePulseMode, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -7077,12 +7036,12 @@ function App() {
               <ellipse cx="12" cy="12" rx="10" ry="4" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleEruption} title="Eruption">
+          <ActionButton onClick={handleComet} title="Comet">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2L10 8L8 6L10 12L6 10L9 14L4 13L8 16L3 17L7 18L5 20L12 19L19 20L17 18L21 17L16 16L20 13L15 14L18 10L14 12L16 6L14 8Z" />
-              <line x1="8" y1="22" x2="16" y2="22" />
-              <line x1="6" y1="22" x2="6" y2="19" />
-              <line x1="18" y1="22" x2="18" y2="19" />
+              <circle cx="18" cy="6" r="3" fill="currentColor" />
+              <path d="M15 9L3 21" />
+              <path d="M13 7L2 18" />
+              <path d="M16 10L5 21" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -7213,7 +7172,7 @@ function App() {
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
               <Shortcut><Key>0</Key><span>Black hole (absorbs → explodes)</span></Shortcut>
-              <Shortcut><Key>2</Key><span>Eruption (volcanic geyser)</span></Shortcut>
+              <Shortcut><Key>2</Key><span>Comet (streaks across screen)</span></Shortcut>
               <Shortcut><Key>1</Key><span>Spiral galaxy spawn</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>

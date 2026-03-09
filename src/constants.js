@@ -393,12 +393,6 @@ export const PALETTES = [
   },
 ];
 
-// ── Eruption (volcanic geyser of orbs from screen bottom) ──
-export const ERUPTION_COUNT = 16;           // orbs launched
-export const ERUPTION_SPEED_MIN = 8;        // minimum upward speed
-export const ERUPTION_SPEED_MAX = 16;       // maximum upward speed
-export const ERUPTION_SPREAD = 0.7;         // horizontal spread (radians from vertical)
-export const ERUPTION_EMBER_COUNT = 20;     // trailing ember particles
 
 // ── Implode (gravity bomb — pull existing orbs in, then explode outward) ──
 export const IMPLODE_PULL_MS = 600;       // ms for inward pull phase
