@@ -795,6 +795,21 @@ function App() {
         orbsRef.current = orbsRef.current.filter((o) => o.id !== hit.id);
         setOrbCount(orbsRef.current.length);
         playBoom();
+      } else {
+        // Double-tap on empty space: spawn a burst of orbs at that location
+        const now = performance.now();
+        const count = 5;
+        for (let i = 0; i < count; i++) {
+          const angle = (Math.PI * 2 * i) / count;
+          const orb = createOrb(pos.x, pos.y);
+          orb.vx = Math.cos(angle) * (2.5 + Math.random() * 2);
+          orb.vy = Math.sin(angle) * (2.5 + Math.random() * 2);
+          orbsRef.current.push(orb);
+          ripplesRef.current.push({ x: pos.x, y: pos.y, color: orb.color, born: now });
+        }
+        setOrbCount(orbsRef.current.length);
+        shakeRef.current = Math.max(shakeRef.current, 8);
+        playBurstSound();
       }
     },
     [getPos, findOrb]
@@ -5678,7 +5693,7 @@ function App() {
       />
       <HUD>
         <Title>Automatic Software</Title>
-        <Hint>tap to create &middot; hold to attract &middot; drag to launch &middot; double-click to remove &middot; right-click to split &middot; rapid taps unlock combos</Hint>
+        <Hint>tap to create &middot; hold to attract &middot; drag to launch &middot; double-tap to burst or remove &middot; right-click to split &middot; rapid taps unlock combos</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <>
@@ -5858,7 +5873,7 @@ function App() {
               <Shortcut><Key>click</Key><span>Create orb</span></Shortcut>
               <Shortcut><Key>drag</Key><span>Spray orbs (empty space)</span></Shortcut>
               <Shortcut><Key>drag orb</Key><span>Move orb</span></Shortcut>
-              <Shortcut><Key>dbl-click</Key><span>Remove orb</span></Shortcut>
+              <Shortcut><Key>dbl-click</Key><span>Burst (empty) / remove (orb)</span></Shortcut>
               <Shortcut><Key>hold</Key><span>Attract orbs (release to burst)</span></Shortcut>
               <Shortcut><Key>right-click</Key><span>Split orb</span></Shortcut>
               <Shortcut><Key>long-press</Key><span>Split orb (mobile)</span></Shortcut>
