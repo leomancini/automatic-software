@@ -5977,23 +5977,33 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleTidalPulse} title="Tidal pulse">
+          <ActionButton onClick={handleFireworkShow} title="Firework show">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="2" fill="currentColor" />
-              <path d="M12 5a7 7 0 0 1 0 14" opacity="0.8" />
-              <path d="M12 5a7 7 0 0 0 0 14" opacity="0.8" />
-              <path d="M12 2a10 10 0 0 1 0 20" opacity="0.4" />
-              <path d="M12 2a10 10 0 0 0 0 20" opacity="0.4" />
+              <line x1="6" y1="22" x2="6" y2="14" />
+              <line x1="6" y1="10" x2="3" y2="7" />
+              <line x1="6" y1="10" x2="9" y2="7" />
+              <line x1="6" y1="10" x2="6" y2="6" />
+              <line x1="18" y1="22" x2="18" y2="12" />
+              <line x1="18" y1="8" x2="15" y2="5" />
+              <line x1="18" y1="8" x2="21" y2="5" />
+              <line x1="18" y1="8" x2="18" y2="4" />
+              <line x1="12" y1="22" x2="12" y2="16" />
+              <line x1="12" y1="12" x2="9" y2="9" />
+              <line x1="12" y1="12" x2="15" y2="9" />
+              <line x1="12" y1="12" x2="12" y2="8" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={() => { handleRandomEffect(); }} title="Random effect">
+          <ActionButton onClick={handleVolley} title="Barrage">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="3" />
-              <circle cx="8" cy="8" r="1.5" fill="currentColor" />
-              <circle cx="16" cy="8" r="1.5" fill="currentColor" />
-              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-              <circle cx="8" cy="16" r="1.5" fill="currentColor" />
-              <circle cx="16" cy="16" r="1.5" fill="currentColor" />
+              <line x1="2" y1="4" x2="12" y2="12" />
+              <polyline points="2 8 2 4 6 4" />
+              <line x1="2" y1="12" x2="12" y2="14" />
+              <polyline points="2 16 2 12 6 12" />
+              <line x1="2" y1="20" x2="12" y2="16" />
+              <polyline points="2 24 2 20 6 20" />
+              <circle cx="14" cy="12" r="1.5" fill="currentColor" />
+              <circle cx="14" cy="14.5" r="1.5" fill="currentColor" />
+              <circle cx="14" cy="16" r="1.5" fill="currentColor" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
