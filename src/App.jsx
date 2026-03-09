@@ -64,6 +64,7 @@ import {
   FLOCK_ALIGNMENT_FORCE, FLOCK_COHESION_FORCE, FLOCK_MAX_SPEED,
   LIGHTNING_SEGMENTS,
   PALETTES,
+  IMPLODE_PULL_MS, IMPLODE_PULL_FORCE, IMPLODE_BURST_SPEED,
   ORBIT_LOCK_GATHER_MS, ORBIT_LOCK_SPIN_MS, ORBIT_LOCK_RELEASE_MS, ORBIT_LOCK_RING_GAP, ORBIT_LOCK_SPIN_SPEED,
 } from './constants.js';
 import {
@@ -111,6 +112,7 @@ function App() {
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
   const bloomRef = useRef(null); // offscreen canvas for bloom post-process
   const supernovaRef = useRef(null); // active supernova {cx, cy, born, phase}
+  const implodeRef = useRef(null); // active implode {cx, cy, born, phase}
   const shatterAllRef = useRef(null); // active shatter-all {born, phase, frozenOrbs}
   const embersRef = useRef([]); // fire ember particles
   const mergeSparksRef = useRef([]); // collision spark particles
@@ -4753,6 +4755,73 @@ function App() {
 
       // ── Pulsar effect (rhythmic pulse waves → detonation) ──
 
+      // ── Implode effect (gravity bomb — pull in then explode out) ──
+      if (implodeRef.current) {
+        const imp = implodeRef.current;
+        const impAge = now - imp.born;
+
+        if (imp.phase === "pull" && impAge < IMPLODE_PULL_MS) {
+          const progress = impAge / IMPLODE_PULL_MS;
+          const force = IMPLODE_PULL_FORCE * (0.5 + progress * 2);
+          for (const orb of orbs) {
+            if (orb === dragRef.current) continue;
+            const dx = imp.cx - orb.x;
+            const dy = imp.cy - orb.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            orb.vx += (dx / dist) * force;
+            orb.vy += (dy / dist) * force;
+            orb.vx *= 0.93;
+            orb.vy *= 0.93;
+          }
+
+          // Contracting rings
+          for (let ri = 0; ri < 3; ri++) {
+            const phase = (ri / 3 + progress) % 1;
+            const maxR = Math.min(W, H) * 0.45;
+            const ringR = maxR * (1 - phase);
+            const ringAlpha = (1 - progress) * 0.25 * (1 - phase);
+            if (ringAlpha > 0.01 && ringR > 5) {
+              ctx.beginPath();
+              ctx.arc(imp.cx, imp.cy, ringR, 0, Math.PI * 2);
+              ctx.strokeStyle = `rgba(250, 130, 180, ${ringAlpha})`;
+              ctx.lineWidth = 2 + phase * 3;
+              ctx.stroke();
+            }
+          }
+
+          // Growing core glow
+          const coreR = 8 + progress * 45;
+          const coreGrad = ctx.createRadialGradient(imp.cx, imp.cy, 0, imp.cx, imp.cy, coreR);
+          coreGrad.addColorStop(0, `rgba(255, 200, 220, ${0.3 + progress * 0.5})`);
+          coreGrad.addColorStop(0.4, `rgba(250, 112, 154, ${progress * 0.3})`);
+          coreGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(imp.cx, imp.cy, coreR, 0, Math.PI * 2);
+          ctx.fillStyle = coreGrad;
+          ctx.fill();
+
+          shakeRef.current = Math.max(shakeRef.current, 2 + progress * 10);
+        } else if (imp.phase === "pull") {
+          // Explode: fling all orbs outward from epicenter
+          for (const orb of orbs) {
+            const dx = orb.x - imp.cx;
+            const dy = orb.y - imp.cy;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            orb.vx = (dx / dist) * (IMPLODE_BURST_SPEED + Math.random() * 3);
+            orb.vy = (dy / dist) * (IMPLODE_BURST_SPEED + Math.random() * 3);
+          }
+          wavesRef.current.push({
+            cx: imp.cx, cy: imp.cy, radius: 0,
+            color: "#fa709a", generation: 0,
+            hitOrbs: new Set(), delay: 0,
+          });
+          flashesRef.current.push({ x: imp.cx, y: imp.cy, color: "#fa709a", radius: 50, born: now });
+          shakeRef.current = 30;
+          playBoom();
+          implodeRef.current = null;
+        }
+      }
+
       // ── Orbit Lock effect ──
       if (orbitLockRef.current) {
         const ol = orbitLockRef.current;
@@ -5722,6 +5791,17 @@ function App() {
     playSupernovaSound();
   }, []);
 
+  const handleImplode = useCallback(() => {
+    if (implodeRef.current) return;
+    if (orbsRef.current.length < 2) return;
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    const cx = (mx > 0 || my > 0) ? mx : window.innerWidth / 2;
+    const cy = (mx > 0 || my > 0) ? my : window.innerHeight / 2;
+    implodeRef.current = { cx, cy, born: performance.now(), phase: "pull" };
+    playSwoosh();
+  }, []);
+
   const handleOrbitLock = useCallback(() => {
     if (orbitLockRef.current) return;
     const orbs = orbsRef.current;
@@ -5833,6 +5913,7 @@ function App() {
       [handleWave, "SHOCKWAVE"], [handleLightning, "LIGHTNING"], [handleScatter, "SCATTER"],
       [handleSpin, "SPIN"], [handleGather, "GATHER"], [handleSupernova, "SUPERNOVA"],
       [handleCascade, "CASCADE"], [handleOrbitLock, "ORBIT LOCK"],
+      [handleImplode, "IMPLODE"],
     ];
     const pool = orbs.length > 0 ? [...alwaysAvailable, ...needsOrbs] : alwaysAvailable;
     const [fn, label] = pool[Math.floor(Math.random() * pool.length)];
@@ -5840,7 +5921,7 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     comboFlashRef.current.push({ text: label, x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" });
-  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleCascade, handleOrbitLock]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleCascade, handleOrbitLock, handleImplode]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -5970,6 +6051,10 @@ function App() {
         case "1":
           handleRandomEffect();
           break;
+        case "3":
+          handleImplode();
+          flashLabel("IMPLODE", "#fa709a");
+          break;
         case "7":
           handleBarrierMode();
           break;
@@ -5984,7 +6069,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6184,6 +6269,19 @@ function App() {
                 <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-60 12 12)" opacity="0.3" />
               </svg>
             </ActionButton>
+            <ActionButton onClick={handleImplode} title="Implode" $highlight>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+                <line x1="5" y1="5" x2="9.5" y2="9.5" />
+                <line x1="19" y1="5" x2="14.5" y2="9.5" />
+                <line x1="5" y1="19" x2="9.5" y2="14.5" />
+                <line x1="19" y1="19" x2="14.5" y2="14.5" />
+                <line x1="12" y1="2" x2="12" y2="7" />
+                <line x1="12" y1="17" x2="12" y2="22" />
+                <line x1="2" y1="12" x2="7" y2="12" />
+                <line x1="17" y1="12" x2="22" y2="12" />
+              </svg>
+            </ActionButton>
             <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -6252,6 +6350,7 @@ function App() {
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
               <Shortcut><Key>1</Key><span>Random effect (surprise!)</span></Shortcut>
               <Shortcut><Key>2</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
+              <Shortcut><Key>3</Key><span>Implode (gravity bomb)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>

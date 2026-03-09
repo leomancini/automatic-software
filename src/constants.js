@@ -378,6 +378,11 @@ export const PALETTES = [
   },
 ];
 
+// ── Implode (gravity bomb — pull existing orbs in, then explode outward) ──
+export const IMPLODE_PULL_MS = 600;       // ms for inward pull phase
+export const IMPLODE_PULL_FORCE = 0.18;   // per-frame pull strength (ramps up)
+export const IMPLODE_BURST_SPEED = 9;     // outward velocity on detonation
+
 // ── Orbit Lock ──
 export const ORBIT_LOCK_GATHER_MS = 700;   // time to smooth-move into ring positions
 export const ORBIT_LOCK_SPIN_MS = 3000;     // time orbiting in rings
