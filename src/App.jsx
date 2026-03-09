@@ -202,6 +202,7 @@ function App() {
   const vortexStormRef = useRef(null); // {cx, cy, born, exploded}
   const nebulaRef = useRef([]); // ambient nebula glow points
   const tapSparklesRef = useRef([]); // tiny sparkle particles from taps
+  const cursorTrailRef = useRef([]); // cursor comet trail points
   const tapWebRef = useRef([]); // recent tap positions for constellation web [{x, y, color, born}]
   const harpVibrationsRef = useRef([]); // gravity harp string pluck visuals
   const formationRef = useRef(null); // {targets, born, type}
@@ -421,6 +422,13 @@ function App() {
         }
       }
       mouseRef.current = { ...pos, onCanvas: true };
+      // cursor comet trail: push position samples (throttled by distance)
+      const ct = cursorTrailRef.current;
+      const last = ct.length > 0 ? ct[ct.length - 1] : null;
+      if (!last || Math.abs(pos.x - last.x) + Math.abs(pos.y - last.y) > 3) {
+        ct.push({ x: pos.x, y: pos.y, t: performance.now() });
+        if (ct.length > 60) ct.shift();
+      }
     },
     [getPos]
   );
@@ -3808,6 +3816,46 @@ function App() {
           }
         }
         ctx.restore();
+      }
+
+      // ── Cursor comet trail ──
+      {
+        const ct = cursorTrailRef.current;
+        const TRAIL_LIFE = 500;
+        while (ct.length > 0 && now - ct[0].t > TRAIL_LIFE) ct.shift();
+        if (ct.length > 1 && mouseRef.current.onCanvas) {
+          ctx.save();
+          ctx.lineCap = 'round';
+          const colors = PALETTES[0].colors;
+          for (let i = 1; i < ct.length; i++) {
+            const age = now - ct[i].t;
+            const life = 1 - age / TRAIL_LIFE;
+            const alpha = life * life * 0.3;
+            const width = life * 2.5 + 0.5;
+            if (alpha <= 0) continue;
+            const c = colors[i % colors.length];
+            ctx.beginPath();
+            ctx.moveTo(ct[i - 1].x, ct[i - 1].y);
+            ctx.lineTo(ct[i].x, ct[i].y);
+            ctx.strokeStyle = c + hexAlpha(alpha * 255);
+            ctx.lineWidth = width;
+            ctx.stroke();
+          }
+          // soft glow at cursor head
+          const head = ct[ct.length - 1];
+          const headAge = now - head.t;
+          if (headAge < 150) {
+            const ha = (1 - headAge / 150) * 0.2;
+            const hg = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 14);
+            hg.addColorStop(0, `rgba(200, 210, 255, ${ha})`);
+            hg.addColorStop(1, 'rgba(200, 210, 255, 0)');
+            ctx.beginPath();
+            ctx.arc(head.x, head.y, 14, 0, Math.PI * 2);
+            ctx.fillStyle = hg;
+            ctx.fill();
+          }
+          ctx.restore();
+        }
       }
 
       // draw orbs
