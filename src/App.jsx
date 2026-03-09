@@ -37,6 +37,8 @@ import {
   IGNITE_SPREAD_DIST, IGNITE_BURN_MS, IGNITE_SPARK_COUNT, IGNITE_SPARK_SPEED,
   IGNITE_SPREAD_CHANCE, EMBER_LIFETIME,
   STORM_DURATION, STORM_ZAP_INTERVAL, STORM_SPIN_FORCE, STORM_RADIAL_FORCE, STORM_ARC_COUNT,
+  BOUNCE_RESTITUTION, BOUNCE_SPARK_COUNT, BOUNCE_SPARK_SPEED, BOUNCE_SPARK_LIFETIME,
+  BOUNCE_SPARK_SIZE, BOUNCE_SHAKE_THRESHOLD, BOUNCE_SHAKE_INTENSITY,
   MERGE_SPARK_COUNT, MERGE_SPARK_SPEED, MERGE_SPARK_LIFETIME, MERGE_SPARK_SIZE,
   MERGE_PUSH_RADIUS, MERGE_PUSH_FORCE, MERGE_PUSH_SPEED_MIN,
   MAGNET_RANGE, MAGNET_FORCE,
@@ -2727,7 +2729,63 @@ function App() {
           const dy = a.y - b.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           const smaller = Math.min(a.radius, b.radius);
-          if (dist < smaller * MERGE_DIST_FACTOR) {
+          const touchDist = a.radius + b.radius;
+          // elastic bounce — orbs ricochet off each other like billiard balls
+          if (dist < touchDist && dist >= smaller * MERGE_DIST_FACTOR && dist > 0.1) {
+            const nx = dx / dist;
+            const ny = dy / dist;
+            // relative velocity along collision normal
+            const dvx = a.vx - b.vx;
+            const dvy = a.vy - b.vy;
+            const dvn = dvx * nx + dvy * ny;
+            // only bounce if approaching (not separating)
+            if (dvn > 0) {
+              const massA = a.radius * a.radius;
+              const massB = b.radius * b.radius;
+              const totalMass = massA + massB;
+              const impulse = (2 * dvn * BOUNCE_RESTITUTION) / totalMass;
+              a.vx -= impulse * massB * nx;
+              a.vy -= impulse * massB * ny;
+              b.vx += impulse * massA * nx;
+              b.vy += impulse * massA * ny;
+              // separate orbs so they don't overlap
+              const overlap = touchDist - dist;
+              if (overlap > 0) {
+                const sep = overlap / 2 + 0.5;
+                a.x += nx * sep;
+                a.y += ny * sep;
+                b.x -= nx * sep;
+                b.y -= ny * sep;
+              }
+              // contact point for visual effects
+              const cx = (a.x + b.x) / 2;
+              const cy = (a.y + b.y) / 2;
+              const relSpeed = Math.sqrt(dvx * dvx + dvy * dvy);
+              // bounce sparks at contact point
+              const sparkColors = [a.color, b.color];
+              for (let s = 0; s < BOUNCE_SPARK_COUNT; s++) {
+                const perpAngle = Math.atan2(ny, nx) + Math.PI / 2;
+                const angle = perpAngle + (Math.random() - 0.5) * 2.2;
+                const spd = BOUNCE_SPARK_SPEED * (0.5 + Math.random()) * Math.min(relSpeed / 4, 1.5);
+                mergeSparksRef.current.push({
+                  x: cx, y: cy,
+                  vx: Math.cos(angle) * spd,
+                  vy: Math.sin(angle) * spd,
+                  color: sparkColors[s % 2],
+                  size: BOUNCE_SPARK_SIZE * (0.6 + Math.random() * 0.6),
+                  born: now,
+                  lifetime: BOUNCE_SPARK_LIFETIME,
+                });
+              }
+              // screen shake for energetic bounces
+              if (relSpeed > BOUNCE_SHAKE_THRESHOLD) {
+                const shakeAmt = Math.min(relSpeed / 10, 1) * BOUNCE_SHAKE_INTENSITY;
+                shakeRef.current = Math.max(shakeRef.current, Math.floor(shakeAmt));
+              }
+              // play bounce sound for audible impacts
+              if (relSpeed > 2) playBounce();
+            }
+          } else if (dist < smaller * MERGE_DIST_FACTOR) {
             // merge b into a (conserve area)
             const newArea = Math.PI * a.radius * a.radius + Math.PI * b.radius * b.radius;
             const bigger = a.radius >= b.radius ? a : b;
@@ -3857,10 +3915,11 @@ function App() {
         }
       }
 
-      // draw merge collision sparks
-      mergeSparksRef.current = mergeSparksRef.current.filter((s) => now - s.born < MERGE_SPARK_LIFETIME);
+      // draw merge/bounce collision sparks
+      mergeSparksRef.current = mergeSparksRef.current.filter((s) => now - s.born < (s.lifetime || MERGE_SPARK_LIFETIME));
       for (const spark of mergeSparksRef.current) {
-        const age = (now - spark.born) / MERGE_SPARK_LIFETIME;
+        const life = spark.lifetime || MERGE_SPARK_LIFETIME;
+        const age = (now - spark.born) / life;
         spark.x += spark.vx;
         spark.y += spark.vy;
         spark.vx *= 0.94;

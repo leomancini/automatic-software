@@ -216,6 +216,15 @@ export const STORM_RADIAL_FORCE = 0.2; // oscillating push/pull
 export const STORM_ARC_COUNT = 6; // visual energy arcs from epicenter
 
 
+// ── Elastic bounce (orb-to-orb billiard collisions) ─────────────────
+export const BOUNCE_RESTITUTION = 0.82;    // energy retained per bounce (1 = perfectly elastic)
+export const BOUNCE_SPARK_COUNT = 4;       // small sparks at contact point
+export const BOUNCE_SPARK_SPEED = 2.0;     // spark velocity
+export const BOUNCE_SPARK_LIFETIME = 300;  // ms
+export const BOUNCE_SPARK_SIZE = 1.8;      // base radius
+export const BOUNCE_SHAKE_THRESHOLD = 5;   // min relative speed for screen shake
+export const BOUNCE_SHAKE_INTENSITY = 3;   // max screen shake from bounce
+
 // ── Merge sparks (collision particles) ──────────────────────────────
 export const MERGE_SPARK_COUNT = 10;     // particles per merge event
 export const MERGE_SPARK_SPEED = 3.5;    // initial outward velocity
