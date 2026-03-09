@@ -93,7 +93,7 @@ function App() {
   const orbsRef = useRef([]);
   const dragRef = useRef(null);
   const dragHistoryRef = useRef([]);
-  const mouseRef = useRef({ x: 0, y: 0 });
+  const mouseRef = useRef({ x: 0, y: 0, onCanvas: false });
   const animRef = useRef(null);
   const ripplesRef = useRef([]);
   const burstsRef = useRef([]);
@@ -209,6 +209,7 @@ function App() {
   const barrierModeRef = useRef(false);
   const barrierDrawRef = useRef(null); // {x1, y1, x2, y2} while actively drawing
   const orbitLockRef = useRef(null); // {born, phase, cx, cy, maxRing, spinBorn, releaseBorn}
+  const cursorAuraRef = useRef({ alpha: 0, nearCount: 0 }); // cursor glow state
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -288,7 +289,7 @@ function App() {
           holdChargeTimerRef.current = null;
         }, HOLD_CHARGE_DELAY);
       }
-      mouseRef.current = pos;
+      mouseRef.current = { ...pos, onCanvas: true };
     },
     [getPos, findOrb, splitOrb]
   );
@@ -393,7 +394,7 @@ function App() {
         }
         }
       }
-      mouseRef.current = pos;
+      mouseRef.current = { ...pos, onCanvas: true };
     },
     [getPos]
   );
@@ -3330,6 +3331,41 @@ function App() {
         ctx.fill();
       }
 
+      // ── Cursor aura ──
+      {
+        const ca = cursorAuraRef.current;
+        const mx = mouseRef.current.x;
+        const my = mouseRef.current.y;
+        // count nearby orbs to modulate glow intensity
+        let nearCount = 0;
+        for (const orb of orbs) {
+          const dx = mx - orb.x, dy = my - orb.y;
+          if (dx * dx + dy * dy < 180 * 180) nearCount++;
+        }
+        ca.nearCount += (nearCount - ca.nearCount) * 0.1; // smooth
+        // fade in when cursor is on canvas, fade out when it leaves
+        const targetAlpha = mouseRef.current.onCanvas ? 1 : 0;
+        ca.alpha += (targetAlpha - ca.alpha) * 0.08;
+        if (ca.alpha > 0.005) {
+          const baseAlpha = 0.04 + Math.min(ca.nearCount * 0.008, 0.06);
+          const pulseAlpha = baseAlpha * (1 + 0.15 * Math.sin(time * 2));
+          const glowRadius = 130 + Math.min(ca.nearCount * 4, 50);
+          const a = pulseAlpha * ca.alpha;
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+          const cg = ctx.createRadialGradient(mx, my, 0, mx, my, glowRadius);
+          cg.addColorStop(0, `rgba(120, 160, 255, ${(a * 1.2).toFixed(4)})`);
+          cg.addColorStop(0.3, `rgba(140, 120, 255, ${(a * 0.6).toFixed(4)})`);
+          cg.addColorStop(0.7, `rgba(100, 80, 220, ${(a * 0.15).toFixed(4)})`);
+          cg.addColorStop(1, "transparent");
+          ctx.fillStyle = cg;
+          ctx.beginPath();
+          ctx.arc(mx, my, glowRadius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
       // draw orbs
       for (const orb of orbs) {
         const pulse = 1 + 0.12 * Math.sin(time * 1.5 + orb.pulsePhase);
@@ -6102,7 +6138,9 @@ function App() {
         onDoubleClick={handleDblClick}
         onTouchStart={handleDown}
         onTouchMove={handleMove}
-        onTouchEnd={handleUp}
+        onTouchEnd={(e) => { handleUp(e); mouseRef.current = { ...mouseRef.current, onCanvas: false }; }}
+        onMouseEnter={() => { mouseRef.current = { ...mouseRef.current, onCanvas: true }; }}
+        onMouseLeave={() => { mouseRef.current = { ...mouseRef.current, onCanvas: false }; }}
       />
       <HUD>
         <Title>Automatic Software</Title>
