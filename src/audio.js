@@ -86,7 +86,20 @@ export function playBounce(intensity) {
   if (t - lastBounceTime < 0.06) return;
   lastBounceTime = t;
   const freq = 600 + Math.random() * 500;
-  playTone(freq, 0.06, "sine", 0.03 * Math.min(intensity, 1));
+  playTone(freq, 0.06, "sine", 0.03 * Math.min(intensity || 0.5, 1));
+}
+
+let lastChimeTime = 0;
+export function playCollisionChime(y, screenH, intensity) {
+  if (!audioCtx || audioMuted) return;
+  const t = audioCtx.currentTime;
+  if (t - lastChimeTime < 0.09) return;
+  lastChimeTime = t;
+  const idx = Math.floor((1 - (y / screenH)) * PENTATONIC.length);
+  const note = PENTATONIC[Math.max(0, Math.min(PENTATONIC.length - 1, idx))];
+  const vol = 0.05 * Math.min(intensity, 1);
+  playTone(note, 0.18, "sine", vol);
+  playTone(note * 2, 0.12, "sine", vol * 0.2);
 }
 
 export function playSwoosh() {

@@ -82,7 +82,7 @@ import {
   LENS_HOLD_RANGE, LENS_HOLD_STRENGTH,
 } from './constants.js';
 import {
-  PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce,
+  PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce, playCollisionChime,
   playSwoosh, playBurstSound, playGalaxySound, playCollapse, playMitosis, playStreakTone,
   playWarpSound, playSpray, playLightning, playPortalSound, playMeteorSound,
   playSupernovaSound, playIgniteSound, playStrikeSound, playFirePop,
@@ -2844,8 +2844,8 @@ function App() {
                 const shakeAmt = Math.min(relSpeed / 10, 1) * BOUNCE_SHAKE_INTENSITY;
                 shakeRef.current = Math.max(shakeRef.current, Math.floor(shakeAmt));
               }
-              // play bounce sound for audible impacts
-              if (relSpeed > 2) playBounce();
+              // play musical chime on orb-orb collision (pentatonic note mapped to Y)
+              if (relSpeed > 2) playCollisionChime(cy, H, Math.min(relSpeed / 6, 1));
             }
           } else if (dist < smaller * MERGE_DIST_FACTOR) {
             // merge b into a (conserve area)
