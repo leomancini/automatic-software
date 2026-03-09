@@ -91,6 +91,19 @@ export function hslToHex(h, s, l) {
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 
+export function blendHexColors(hexA, hexB, ratio) {
+  const [hA, sA, lA] = hexToHsl(hexA);
+  const [hB, sB, lB] = hexToHsl(hexB);
+  // Blend hue via shortest arc on the color wheel
+  let dh = hB - hA;
+  if (dh > 180) dh -= 360;
+  if (dh < -180) dh += 360;
+  const h = hA + dh * ratio;
+  const s = sA + (sB - sA) * ratio;
+  const l = lA + (lB - lA) * ratio;
+  return hslToHex(h, s, l);
+}
+
 export function easeOutElastic(t) {
   if (t <= 0) return 0;
   if (t >= 1) return 1;

@@ -91,7 +91,7 @@ import {
 } from './audio.js';
 import {
   getFormationTargets, generateBolt, randomColor, hexToHsl, hexAlpha, hslToHex,
-  easeOutElastic, createOrb,
+  blendHexColors, easeOutElastic, createOrb,
 } from './utils.js';
 import {
   Wrapper, Canvas, HUD, Title, Hint, Count, ModeIndicators, ModePill,
@@ -2889,6 +2889,12 @@ function App() {
                 b.x -= nx * sep;
                 b.y -= ny * sep;
               }
+              // collision color blending — orbs subtly mix colors on impact
+              const blendAmt = 0.08 + Math.min(Math.sqrt(dvx * dvx + dvy * dvy) / 20, 0.12);
+              const newColorA = blendHexColors(a.color, b.color, blendAmt);
+              const newColorB = blendHexColors(b.color, a.color, blendAmt);
+              a.color = newColorA;
+              b.color = newColorB;
               // contact point for visual effects
               const cx = (a.x + b.x) / 2;
               const cy = (a.y + b.y) / 2;
@@ -2938,6 +2944,9 @@ function App() {
             bigger.x = (a.x * a.radius + b.x * b.radius) / totalR;
             bigger.y = (a.y * a.radius + b.y * b.radius) / totalR;
             bigger.pulsePhase = Math.random() * Math.PI * 2;
+            // merge color blending — absorb lesser orb's color proportionally
+            const lesserRatio = lesser.radius / (bigger.radius + lesser.radius);
+            bigger.color = blendHexColors(bigger.color, lesser.color, lesserRatio * 0.6);
             // flash effect
             flashesRef.current.push({
               x: bigger.x,
@@ -7035,11 +7044,6 @@ function App() {
               <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
               <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleShowtime} title="Showtime (4)">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
