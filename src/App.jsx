@@ -3408,7 +3408,19 @@ function App() {
         const spawnT = Math.min(spawnAge / SPAWN_DURATION, 1);
         const spawnScale = easeOutElastic(spawnT);
 
-        const r = orb.radius * pulse * spawnScale;
+        // proximity bloom: orbs near cursor swell and glow
+        let proximityBoost = 0;
+        if (mouseRef.current.onCanvas) {
+          const pdx = orb.x - mouseRef.current.x;
+          const pdy = orb.y - mouseRef.current.y;
+          const pDist = Math.sqrt(pdx * pdx + pdy * pdy);
+          const pRange = 120;
+          if (pDist < pRange) {
+            proximityBoost = (1 - pDist / pRange) * (1 - pDist / pRange); // quadratic falloff
+          }
+        }
+
+        const r = orb.radius * pulse * spawnScale * (1 + proximityBoost * 0.3);
         if (r < 0.5) continue; // skip nearly-invisible orbs
 
         // Mitosis wobble: large orbs near split threshold elongate and pulse
@@ -3473,6 +3485,21 @@ function App() {
         ctx.arc(0, 0, r, 0, Math.PI * 2);
         ctx.fillStyle = coreGrad;
         ctx.fill();
+
+        // proximity bloom halo: soft bright ring when cursor is near
+        if (proximityBoost > 0.05) {
+          const bloomR = r * (2 + proximityBoost * 2.5);
+          const bloomA = proximityBoost * 0.35;
+          const bloomGrad = ctx.createRadialGradient(0, 0, r * 0.5, 0, 0, bloomR);
+          bloomGrad.addColorStop(0, orb.color + hexAlpha(bloomA * 255));
+          bloomGrad.addColorStop(0.4, orb.color + hexAlpha(bloomA * 0.3 * 255));
+          bloomGrad.addColorStop(1, "transparent");
+          ctx.globalCompositeOperation = "lighter";
+          ctx.beginPath();
+          ctx.arc(0, 0, bloomR, 0, Math.PI * 2);
+          ctx.fillStyle = bloomGrad;
+          ctx.fill();
+        }
 
         ctx.restore();
       }
@@ -6376,20 +6403,6 @@ function App() {
               <line x1="12" y1="8" x2="16" y2="12" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleEruption} title="Eruption">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22v-6" />
-              <path d="M8 22h8" />
-              <path d="M12 16l-4-8" />
-              <path d="M12 16l4-8" />
-              <path d="M12 16l0-10" />
-              <path d="M10 2l-2 4" />
-              <path d="M14 2l2 4" />
-              <circle cx="8" cy="6" r="1.5" fill="currentColor" opacity="0.6" />
-              <circle cx="16" cy="6" r="1.5" fill="currentColor" opacity="0.6" />
-              <circle cx="12" cy="3" r="1.5" fill="currentColor" opacity="0.6" />
-            </svg>
-          </ActionButton>
           <ActionButton onClick={handleSupernova} title="Supernova">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" fill="currentColor" />
@@ -6419,19 +6432,6 @@ function App() {
                 <circle cx="12" cy="12" r="3" />
                 <circle cx="12" cy="12" r="7" opacity="0.6" />
                 <circle cx="12" cy="12" r="11" opacity="0.3" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleGravityPulse} title="Gravity pulse">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="2" fill="currentColor" />
-                <path d="M12 5 C8 5 5 8 5 12" opacity="0.8" />
-                <path d="M12 5 C16 5 19 8 19 12" opacity="0.8" />
-                <path d="M12 19 C8 19 5 16 5 12" opacity="0.5" />
-                <path d="M12 19 C16 19 19 16 19 12" opacity="0.5" />
-                <line x1="12" y1="2" x2="12" y2="5" />
-                <line x1="12" y1="19" x2="12" y2="22" />
-                <line x1="2" y1="12" x2="5" y2="12" />
-                <line x1="19" y1="12" x2="22" y2="12" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleLightning} title="Chain lightning">
