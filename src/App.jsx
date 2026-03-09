@@ -148,8 +148,7 @@ function App() {
   const attractModeRef = useRef(false);
   const [gravityPaintMode, setGravityPaintMode] = useState(false);
   const gravityPaintModeRef = useRef(false);
-  const [constellationMode, setConstellationMode] = useState(false);
-  const constellationModeRef = useRef(false);
+  // constellation lines are always-on ambient visual (no toggle needed)
   const gravityDotsRef = useRef([]);
   const dominoRef = useRef(null); // {queue, index, nextTime, respawnCount, phase}
   const longPressRef = useRef(null);
@@ -2734,7 +2733,8 @@ function App() {
       }
 
       // ── Constellation connections ──
-      if (constellationModeRef.current && orbs.length > 1) {
+      // always-on constellation: subtle ambient lines connecting nearby orbs
+      if (orbs.length > 1 && orbs.length < 100) {
         ctx.lineCap = "round";
         for (let i = 0; i < orbs.length; i++) {
           for (let j = i + 1; j < orbs.length; j++) {
@@ -2746,7 +2746,7 @@ function App() {
             if (dist < CONSTELLATION_DIST) {
               const proximity = 1 - dist / CONSTELLATION_DIST;
               const shimmer = 0.7 + 0.3 * Math.sin(time * 2 + i * 0.5 + j * 0.3);
-              const alpha = proximity * proximity * shimmer * 0.55;
+              const alpha = proximity * proximity * shimmer * 0.25;
               const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
               grad.addColorStop(0, a.color + hexAlpha(alpha * 255));
               grad.addColorStop(1, b.color + hexAlpha(alpha * 255));
@@ -2754,14 +2754,14 @@ function App() {
               ctx.moveTo(a.x, a.y);
               ctx.lineTo(b.x, b.y);
               ctx.strokeStyle = grad;
-              ctx.lineWidth = 1 + proximity * 1.5;
+              ctx.lineWidth = 0.5 + proximity * 1;
               ctx.stroke();
               // small star at connection midpoint for bright connections
               if (proximity > CONSTELLATION_NODE_THRESHOLD) {
                 const mx = (a.x + b.x) / 2;
                 const my = (a.y + b.y) / 2;
-                const starAlpha = (proximity - CONSTELLATION_NODE_THRESHOLD) * 2.2 * shimmer * 0.5;
-                const starSize = 1.5 + proximity * 2;
+                const starAlpha = (proximity - CONSTELLATION_NODE_THRESHOLD) * 1.5 * shimmer * 0.3;
+                const starSize = 1 + proximity * 1.5;
                 ctx.beginPath();
                 ctx.arc(mx, my, starSize, 0, Math.PI * 2);
                 ctx.fillStyle = `rgba(255, 255, 255, ${starAlpha})`;
