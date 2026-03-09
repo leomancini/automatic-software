@@ -6117,6 +6117,9 @@ function App() {
           handleRicochet();
           flashLabel("RICOCHET", "#feb47b");
           break;
+        case "u":
+          handleFlockMode();
+          break;
         case "7":
           handleBarrierMode();
           break;
@@ -6131,7 +6134,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleFlockMode, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6201,6 +6204,7 @@ function App() {
           {barrierMode && <ModePill $color="#4facfe">walls</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {longExposure && <ModePill $color="#feb47b">long exposure</ModePill>}
+          {flockMode && <ModePill $color="#43e97b">flock</ModePill>}
           {autoPlay && <ModePill $color="#43e97b">autoplay</ModePill>}
           {paletteIndex !== 0 && <ModePill $color="#f093fb">{PALETTES[paletteIndex].name.toLowerCase()}</ModePill>}
         </ModeIndicators>
@@ -6325,16 +6329,7 @@ function App() {
                 <line x1="20" y1="12" x2="23" y2="12" opacity="0.4" />
               </svg>
             </ActionButton>
-            <ActionButton onClick={handleCascade} title="Cascade">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="6" r="3" />
-                <circle cx="6" cy="18" r="2.5" />
-                <circle cx="18" cy="18" r="2.5" />
-                <line x1="10" y1="8.5" x2="7.5" y2="15.5" />
-                <line x1="14" y1="8.5" x2="16.5" y2="15.5" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
+<ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
@@ -6354,8 +6349,8 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleAutoPlay} $active={autoPlay} $color="#43e97b" title="Autoplay">
-          autoplay
+        <ModeToggle onClick={handleFlockMode} $active={flockMode} $color="#43e97b" title="Flock mode">
+          flock
         </ModeToggle>
         <ModeToggle onClick={handleOrbitMode} $active={orbitMode} $color="#764ba2" title="Orbit mode">
           orbit
@@ -6416,7 +6411,7 @@ function App() {
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
-              <Shortcut><Key>T</Key><span>Cascade (split all orbs)</span></Shortcut>
+              <Shortcut><Key>U</Key><span>Flock mode (murmuration)</span></Shortcut>
               <Shortcut><Key>I</Key><span>Orbit lock (ring formation)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>G</Key><span>Cycle gravity (↓ → ↑ ← off)</span></Shortcut>
