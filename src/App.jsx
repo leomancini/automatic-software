@@ -834,6 +834,19 @@ function App() {
         const fadeAlpha = longExposureRef.current ? 0.035 : 0.25;
         ctx.fillStyle = `rgba(15, 15, 26, ${fadeAlpha})`;
         ctx.fillRect(0, 0, W, H);
+        // Cinematic vignette: subtle edge darkening for depth
+        const edgeAlpha = fadeAlpha * 0.15;
+        const vigGrad = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.max(W, H) * 0.7);
+        vigGrad.addColorStop(0, 'transparent');
+        vigGrad.addColorStop(1, `rgba(0, 0, 8, ${edgeAlpha})`);
+        ctx.fillStyle = vigGrad;
+        ctx.fillRect(0, 0, W, H);
+        // Impact glow: brief color pulse during screen shake
+        if (shake > 1) {
+          const pulseAlpha = Math.min(shake * 0.006, 0.05);
+          ctx.fillStyle = `rgba(102, 126, 234, ${pulseAlpha})`;
+          ctx.fillRect(0, 0, W, H);
+        }
       }
 
       // ── Ambient nebula update + render ──
@@ -5488,16 +5501,6 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={() => { handleVolley(); comboFlashRef.current.push({ text: "BARRAGE", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#43e97b" }); }} title="Barrage (T)">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="2" y1="5" x2="14" y2="9" />
-              <line x1="2" y1="12" x2="16" y2="12" />
-              <line x1="2" y1="19" x2="14" y2="15" />
-              <circle cx="17" cy="10" r="2" fill="currentColor" />
-              <circle cx="19" cy="12" r="2" fill="currentColor" />
-              <circle cx="17" cy="14" r="2" fill="currentColor" />
-            </svg>
-          </ActionButton>
           <ActionButton onClick={() => { handleCyclePalette(); const W = window.innerWidth; const H = window.innerHeight; comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" }); }} title={`Palette: ${PALETTES[paletteIndex].name} (Y)`} $highlight>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
@@ -5551,18 +5554,6 @@ function App() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 12a9 9 0 1 1-6.22-8.56" />
                 <polyline points="21 3 21 9 15 9" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={() => { handleCrossfire(); comboFlashRef.current.push({ text: "CROSSFIRE", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#feb47b" }); }} title="Crossfire (9)">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="2" y1="2" x2="10" y2="10" />
-                <polyline points="6 2 2 2 2 6" />
-                <line x1="22" y1="2" x2="14" y2="10" />
-                <polyline points="18 2 22 2 22 6" />
-                <line x1="2" y1="22" x2="10" y2="14" />
-                <polyline points="2 18 2 22 6 22" />
-                <line x1="22" y1="22" x2="14" y2="14" />
-                <polyline points="22 18 22 22 18 22" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
