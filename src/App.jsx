@@ -5522,20 +5522,41 @@ function App() {
     const H = window.innerHeight;
     const launchX = W * 0.2 + Math.random() * W * 0.6;
     const peakY = H * 0.15 + Math.random() * H * 0.25;
-    const count = 8;
+    const count = 10;
     const now = performance.now();
+    const burstColor = randomColor();
+
+    // Ascending rocket trail — embers from ground to peak
+    for (let t = 0; t < 14; t++) {
+      const frac = t / 14;
+      embersRef.current.push({
+        x: launchX + (Math.random() - 0.5) * 4,
+        y: H - (H - peakY) * frac,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: 0.3 + Math.random() * 0.5,
+        size: 1.5 + Math.random() * 2,
+        born: now - (14 - t) * 40, // stagger so they fade bottom-to-top
+      });
+    }
+
+    // Burst orbs from peak position
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
-      const orb = createOrb(launchX, H);
+      const speed = 2 + Math.random() * 3;
+      const orb = createOrb(launchX, peakY);
       orb.radius = 5 + Math.random() * 6;
-      // launch upward with spread
-      orb.vx = Math.cos(angle) * (1.5 + Math.random() * 1.5);
-      orb.vy = -(H - peakY) / 60 + Math.sin(angle) * (1 + Math.random());
+      orb.vx = Math.cos(angle) * speed;
+      orb.vy = Math.sin(angle) * speed;
       orbsRef.current.push(orb);
-      ripplesRef.current.push({ x: launchX, y: H, color: orb.color, born: now });
     }
+
+    // Flash + ripple at burst point
+    ripplesRef.current.push({ x: launchX, y: peakY, color: burstColor, born: now });
+    flashesRef.current.push({ x: launchX, y: peakY, color: burstColor, radius: 30, born: now });
+
     setOrbCount(orbsRef.current.length);
-    shakeRef.current = 8;
+    shakeRef.current = 10;
+    playBurstSound();
   }, []);
 
   const handleCascade = useCallback(() => {
