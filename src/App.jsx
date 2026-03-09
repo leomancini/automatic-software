@@ -76,6 +76,10 @@ import {
   CURRENT_STRENGTH, CURRENT_SCALE, CURRENT_SPEED,
   EDGE_GLOW_RANGE, EDGE_GLOW_DEPTH, EDGE_GLOW_ALPHA,
   VELOCITY_STRETCH_THRESHOLD, VELOCITY_STRETCH_MAX, VELOCITY_STRETCH_RAMP,
+  LENS_ORB_MIN_RADIUS, LENS_ORB_RANGE_FACTOR, LENS_ORB_STRENGTH,
+  LENS_WELL_RANGE, LENS_WELL_STRENGTH,
+  LENS_BH_RANGE, LENS_BH_STRENGTH,
+  LENS_HOLD_RANGE, LENS_HOLD_STRENGTH,
 } from './constants.js';
 import {
   PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce,
@@ -1162,8 +1166,65 @@ function App() {
       const warpTotal = WARP_CHARGE_MS + WARP_JUMP_MS + WARP_SETTLE_MS;
       const warpCx = W / 2, warpCy = H / 2;
 
+      // Collect gravitational lensing sources
+      const _lensOrbs = [];
+      for (let _li = 0; _li < orbs.length; _li++) {
+        if (orbs[_li].radius >= LENS_ORB_MIN_RADIUS) _lensOrbs.push(orbs[_li]);
+      }
+      const _lensWells = wellsRef.current;
+      const _lensBH = blackHoleRef.current;
+      const _lensHold = holdChargeRef.current;
+
       for (const star of starsRef.current) {
-        const sx = star.x * W, sy = star.y * H;
+        let sx = star.x * W, sy = star.y * H;
+
+        // Gravitational lensing — bend starlight around massive objects
+        for (let _li = 0; _li < _lensOrbs.length; _li++) {
+          const mo = _lensOrbs[_li];
+          const dx = sx - mo.x, dy = sy - mo.y;
+          const d2 = dx * dx + dy * dy;
+          const lr = mo.radius * LENS_ORB_RANGE_FACTOR;
+          if (d2 < lr * lr && d2 > 25) {
+            const d = Math.sqrt(d2);
+            const t = 1 - d / lr;
+            const s = (mo.radius / LENS_ORB_MIN_RADIUS) * LENS_ORB_STRENGTH;
+            sx -= (dx / d) * t * t * s;
+            sy -= (dy / d) * t * t * s;
+          }
+        }
+        for (let _wi = 0; _wi < _lensWells.length; _wi++) {
+          const w = _lensWells[_wi];
+          const dx = sx - w.x, dy = sy - w.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < LENS_WELL_RANGE * LENS_WELL_RANGE && d2 > 25) {
+            const d = Math.sqrt(d2);
+            const t = 1 - d / LENS_WELL_RANGE;
+            sx -= (dx / d) * t * t * LENS_WELL_STRENGTH;
+            sy -= (dy / d) * t * t * LENS_WELL_STRENGTH;
+          }
+        }
+        if (_lensBH) {
+          const dx = sx - _lensBH.x, dy = sy - _lensBH.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < LENS_BH_RANGE * LENS_BH_RANGE && d2 > 25) {
+            const d = Math.sqrt(d2);
+            const t = 1 - d / LENS_BH_RANGE;
+            sx -= (dx / d) * t * t * LENS_BH_STRENGTH;
+            sy -= (dy / d) * t * t * LENS_BH_STRENGTH;
+          }
+        }
+        if (_lensHold) {
+          const dx = sx - _lensHold.x, dy = sy - _lensHold.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < LENS_HOLD_RANGE * LENS_HOLD_RANGE && d2 > 25) {
+            const d = Math.sqrt(d2);
+            const elapsed = Math.min((now - _lensHold.born) / 1000, 1);
+            const t = 1 - d / LENS_HOLD_RANGE;
+            sx -= (dx / d) * t * t * LENS_HOLD_STRENGTH * elapsed;
+            sy -= (dy / d) * t * t * LENS_HOLD_STRENGTH * elapsed;
+          }
+        }
+
         const twinkle = 0.25 + 0.75 * ((1 + Math.sin(time * star.speed + star.phase)) * 0.5);
 
         if (warpActive && warpElapsed < WARP_CHARGE_MS + WARP_JUMP_MS) {

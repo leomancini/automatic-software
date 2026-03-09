@@ -435,6 +435,17 @@ export const FLOCK_MAX_SPEED = 4.5;          // speed cap to keep swarm cohesive
 export const FLOCK_CURSOR_FLEE_DIST = 150;   // orbs flee cursor within this range
 export const FLOCK_CURSOR_FLEE_FORCE = 0.8;  // how hard they flee
 
+// ── Gravitational lensing (starfield) ──
+export const LENS_ORB_MIN_RADIUS = 15;    // orbs must be this big to lens starlight
+export const LENS_ORB_RANGE_FACTOR = 8;   // lens range = orb radius * this
+export const LENS_ORB_STRENGTH = 6;       // pixel displacement at peak
+export const LENS_WELL_RANGE = 160;       // lens range around gravity wells
+export const LENS_WELL_STRENGTH = 14;     // displacement at peak
+export const LENS_BH_RANGE = 250;         // lens range around black holes
+export const LENS_BH_STRENGTH = 25;       // displacement at peak
+export const LENS_HOLD_RANGE = 180;       // lens range around hold-to-attract
+export const LENS_HOLD_STRENGTH = 16;     // displacement at peak
+
 // ── Reactive edge glow ──
 export const EDGE_GLOW_RANGE = 150;    // px from edge to detect orbs
 export const EDGE_GLOW_DEPTH = 60;     // how far glow extends inward from edge
