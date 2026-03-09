@@ -1082,6 +1082,97 @@ function App() {
         ctx.restore();
       }
 
+      // ── Space-time fabric: background grid that warps around orbs ──
+      {
+        const SP = 50; // grid spacing
+        const RNG = 120; // influence range
+        const RNG2 = RNG * RNG;
+        const STR = 15; // pull strength
+        const baseA = 0.06 + systemEnergyRef.current * 0.04;
+        const cols = Math.ceil(W / SP) + 1;
+        const rows = Math.ceil(H / SP) + 1;
+        const total = rows * cols;
+
+        // Pre-compute displaced grid positions
+        const gx = new Float32Array(total);
+        const gy = new Float32Array(total);
+        const gd = new Float32Array(total);
+        const gc = new Array(total);
+        const gcdist = new Float32Array(total);
+        gcdist.fill(RNG);
+
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const idx = r * cols + c;
+            const bx = c * SP;
+            const by = r * SP;
+            let dx = 0, dy = 0;
+
+            for (let oi = 0; oi < orbs.length; oi++) {
+              const orb = orbs[oi];
+              if (orb.spark) continue;
+              const ox = orb.x - bx;
+              const oy = orb.y - by;
+              const dSq = ox * ox + oy * oy;
+              if (dSq >= RNG2 || dSq < 1) continue;
+              const d = Math.sqrt(dSq);
+              const pull = 1 - d / RNG;
+              const f = pull * pull * STR * (orb.radius / 8);
+              dx += (ox / d) * f;
+              dy += (oy / d) * f;
+              if (d < gcdist[idx]) {
+                gcdist[idx] = d;
+                gc[idx] = orb.color;
+              }
+            }
+
+            gx[idx] = bx + dx;
+            gy[idx] = by + dy;
+            gd[idx] = Math.sqrt(dx * dx + dy * dy);
+          }
+        }
+
+        // Draw mesh lines between displaced neighbors
+        ctx.lineWidth = 0.5;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const idx = r * cols + c;
+            if (gd[idx] < 2) continue;
+
+            const la = Math.min(gd[idx] * 0.018, 0.14);
+            const lc = gc[idx]
+              ? gc[idx] + hexAlpha(la * 255)
+              : `rgba(140, 150, 200, ${la})`;
+            ctx.strokeStyle = lc;
+
+            if (c < cols - 1 && gd[idx + 1] > 2) {
+              ctx.beginPath();
+              ctx.moveTo(gx[idx], gy[idx]);
+              ctx.lineTo(gx[idx + 1], gy[idx + 1]);
+              ctx.stroke();
+            }
+            if (r < rows - 1 && gd[idx + cols] > 2) {
+              ctx.beginPath();
+              ctx.moveTo(gx[idx], gy[idx]);
+              ctx.lineTo(gx[idx + cols], gy[idx + cols]);
+              ctx.stroke();
+            }
+          }
+        }
+
+        // Draw grid dots
+        for (let i = 0; i < total; i++) {
+          const alpha = baseA + Math.min(gd[i] * 0.025, 0.25);
+          const sz = 1 + Math.min(gd[i] * 0.12, 1.5);
+          if (gc[i] && gcdist[i] < RNG * 0.7) {
+            ctx.fillStyle = gc[i] + hexAlpha(alpha * 255);
+          } else {
+            ctx.fillStyle = `rgba(140, 150, 200, ${alpha})`;
+          }
+          ctx.fillRect(gx[i] - sz * 0.5, gy[i] - sz * 0.5, sz, sz);
+        }
+      }
+
       // spawn shooting stars
       if (Math.random() < SHOOTING_STAR_CHANCE) {
         const startX = Math.random() * W;
