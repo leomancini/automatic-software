@@ -2907,6 +2907,10 @@ function App() {
                 const shakeAmt = Math.min(relSpeed / 10, 1) * BOUNCE_SHAKE_INTENSITY;
                 shakeRef.current = Math.max(shakeRef.current, Math.floor(shakeAmt));
               }
+              // collision ripple ring at contact point
+              if (relSpeed > 1.5) {
+                ripplesRef.current.push({ x: cx, y: cy, color: sparkColors[Math.floor(Math.random() * 2)], born: now });
+              }
               // play musical chime on orb-orb collision (pentatonic note mapped to Y)
               if (relSpeed > 2) playCollisionChime(cy, H, Math.min(relSpeed / 6, 1));
             }
@@ -6723,14 +6727,12 @@ function App() {
     const orbs = orbsRef.current;
     const alwaysAvailable = [
       [handleBurst, "BURST"], [handleMeteorShower, "METEOR SHOWER"], [handleFirework, "FIREWORK"],
-      [handleRicochet, "RICOCHET"], [handleEruption, "ERUPTION"],
+      [handleEruption, "ERUPTION"], [handleSpiral, "SPIRAL"],
     ];
     const needsOrbs = [
       [handleWave, "SHOCKWAVE"], [handleLightning, "LIGHTNING"], [handleScatter, "SCATTER"],
       [handleSpin, "SPIN"], [handleGather, "GATHER"], [handleSupernova, "SUPERNOVA"],
-      [handleCascade, "CASCADE"], [handleOrbitLock, "ORBIT LOCK"],
-      [handleImplode, "IMPLODE"], [handleBlackHole, "BLACK HOLE"],
-      [handleGravityPulse, "GRAVITY PULSE"],
+      [handleBlackHole, "BLACK HOLE"],
     ];
     const pool = orbs.length > 0 ? [...alwaysAvailable, ...needsOrbs] : alwaysAvailable;
     const [fn, label] = pool[Math.floor(Math.random() * pool.length)];
@@ -6738,7 +6740,7 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     comboFlashRef.current.push({ text: label, x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" });
-  }, [handleBurst, handleMeteorShower, handleFirework, handleRicochet, handleEruption, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleCascade, handleOrbitLock, handleImplode, handleGravityPulse]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleEruption, handleSpiral, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleBlackHole]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -6869,9 +6871,6 @@ function App() {
           break;
         case "i":
           handleKaleidoscopeMode();
-          break;
-        case "t":
-          handleAttractMode();
           break;
         case "2":
           handleEruption();
@@ -7030,10 +7029,12 @@ function App() {
               <circle cx="12" cy="12" r="1" fill="currentColor" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleShowtime} title="Showtime">
+          <ActionButton onClick={handleEruption} title="Eruption">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor" opacity="0.3" />
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              <path d="M12 2L10 8L8 6L10 12L6 10L9 14L4 13L8 16L3 17L7 18L5 20L12 19L19 20L17 18L21 17L16 16L20 13L15 14L18 10L14 12L16 6L14 8Z" />
+              <line x1="8" y1="22" x2="16" y2="22" />
+              <line x1="6" y1="22" x2="6" y2="19" />
+              <line x1="18" y1="22" x2="18" y2="19" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -7117,11 +7118,8 @@ function App() {
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode">
           paint
         </ModeToggle>
-        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#667eea" title="Trails mode (3)">
-          trails
-        </ModeToggle>
-        <ModeToggle onClick={handlePulseMode} $active={pulseMode} $color="#f093fb" title="Heartbeat mode (9)">
-          heartbeat
+        <ModeToggle onClick={handleAutoPlay} $active={autoPlay} $color="#43e97b" title="Autoplay (Z)">
+          autoplay
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
@@ -7166,7 +7164,6 @@ function App() {
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
-              <Shortcut><Key>T</Key><span>Attract mode (cursor pulls orbs)</span></Shortcut>
               <Shortcut><Key>0</Key><span>Black hole (absorbs → explodes)</span></Shortcut>
               <Shortcut><Key>2</Key><span>Eruption (volcanic geyser)</span></Shortcut>
               <Shortcut><Key>1</Key><span>Spiral galaxy spawn</span></Shortcut>
