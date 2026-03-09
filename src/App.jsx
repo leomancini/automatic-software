@@ -6186,6 +6186,9 @@ function App() {
           handleFission();
           flashLabel("FISSION", "#43e97b");
           break;
+        case "1":
+          handleRandomEffect();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -6193,7 +6196,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRicochet, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleBlackHole, handleOrbitLock, handleFission, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRicochet, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleBlackHole, handleOrbitLock, handleFission, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6322,11 +6325,14 @@ function App() {
               <circle cx="16" cy="18" r="1.5" fill="currentColor" opacity="0.6" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleBlackHole} title="Black hole">
+          <ActionButton onClick={() => { handleRandomEffect(); }} title="Random effect">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="4" fill="currentColor" />
-              <ellipse cx="12" cy="12" rx="10" ry="4" opacity="0.6" />
-              <ellipse cx="12" cy="12" rx="7" ry="9" opacity="0.3" />
+              <rect x="3" y="3" width="18" height="18" rx="3" />
+              <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
+              <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              <circle cx="8.5" cy="15.5" r="1.5" fill="currentColor" />
+              <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -6409,6 +6415,13 @@ function App() {
                 <circle cx="12" cy="22" r="2" fill="currentColor" />
               </svg>
             </ActionButton>
+            <ActionButton onClick={handleBlackHole} title="Black hole">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="4" fill="currentColor" />
+                <ellipse cx="12" cy="12" rx="10" ry="4" opacity="0.6" />
+                <ellipse cx="12" cy="12" rx="7" ry="9" opacity="0.3" />
+              </svg>
+            </ActionButton>
             <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -6467,6 +6480,7 @@ function App() {
               <Shortcut><Key>4</Key><span>Ricochet (bouncing burst)</span></Shortcut>
               <Shortcut><Key>9</Key><span>Crossfire (all edges converge)</span></Shortcut>
               <Shortcut><Key>0</Key><span>Tidal pulse (inhale → exhale)</span></Shortcut>
+              <Shortcut><Key>1</Key><span>Random effect (surprise!)</span></Shortcut>
               <Shortcut><Key>2</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
               <Shortcut><Key>5</Key><span>Orbit lock (rings + release)</span></Shortcut>
               <Shortcut><Key>6</Key><span>Fission (split all orbs)</span></Shortcut>
