@@ -5253,6 +5253,32 @@ function App() {
     shakeRef.current = 8;
   }, []);
 
+  const handleFireworkShow = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const count = 5;
+    for (let burst = 0; burst < count; burst++) {
+      setTimeout(() => {
+        const launchX = W * 0.1 + (burst / (count - 1)) * W * 0.8;
+        const peakY = H * 0.1 + Math.random() * H * 0.2;
+        const orbCount = 8;
+        const now = performance.now();
+        for (let i = 0; i < orbCount; i++) {
+          const angle = (Math.PI * 2 * i) / orbCount + Math.random() * 0.3;
+          const orb = createOrb(launchX, H);
+          orb.radius = 5 + Math.random() * 6;
+          orb.vx = Math.cos(angle) * (1.5 + Math.random() * 1.5);
+          orb.vy = -(H - peakY) / 60 + Math.sin(angle) * (1 + Math.random());
+          orbsRef.current.push(orb);
+          ripplesRef.current.push({ x: launchX, y: H, color: orb.color, born: now });
+        }
+        setOrbCount(orbsRef.current.length);
+        shakeRef.current = Math.max(shakeRef.current, 8);
+        playBurstSound();
+      }, burst * 300);
+    }
+  }, []);
+
   const handleToggleAudio = useCallback(() => {
     setAudioEnabled((prev) => {
       audioMuted = prev;
@@ -5590,12 +5616,12 @@ function App() {
 
   const handleRandomEffect = useCallback(() => {
     const orbs = orbsRef.current;
-    const alwaysAvailable = [handleBurst, handleMeteorShower, handleFirework, handleHelix, handleFractal, handleCollider];
+    const alwaysAvailable = [handleBurst, handleMeteorShower, handleFirework, handleFireworkShow, handleHelix, handleFractal, handleCollider];
     const needsOrbs = [handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission];
     const alwaysAvailableBig = [...alwaysAvailable, handlePulsar];
     const pool = orbs.length > 0 ? [...alwaysAvailableBig, ...needsOrbs] : alwaysAvailableBig;
     pool[Math.floor(Math.random() * pool.length)]();
-  }, [handleBurst, handleMeteorShower, handleFirework, handleHelix, handleFractal, handleCollider, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission, handlePulsar]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleFireworkShow, handleHelix, handleFractal, handleCollider, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom, handleFission, handlePulsar]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -5734,6 +5760,10 @@ function App() {
           handleCollider();
           flashLabel("COLLIDER", "#4facfe");
           break;
+        case "4":
+          handleFireworkShow();
+          flashLabel("FIREWORK SHOW", "#fa709a");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -5741,7 +5771,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleFractal, handleCollider, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleFireworkShow, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleFractal, handleCollider, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -5942,20 +5972,27 @@ function App() {
                 <polyline points="21 3 21 9 15 9" />
               </svg>
             </ActionButton>
-            <ActionButton onClick={handleMaelstrom} title="Maelstrom">
+            <ActionButton onClick={() => { handleGalaxy(); comboFlashRef.current.push({ text: "GALAXY", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#667eea" }); }} title="Galaxy spiral (I)">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 3a9 9 0 0 1 6.36 2.64" />
-                <path d="M12 7a5 5 0 0 1 3.54 1.46" />
-                <circle cx="12" cy="12" r="1" fill="currentColor" />
-                <path d="M12 17a5 5 0 0 1-3.54-1.46" />
-                <path d="M12 21a9 9 0 0 1-6.36-2.64" />
+                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                <path d="M12 12c2-4 7-4 7 0s-5 6-7 2" />
+                <path d="M12 12c-2 4-7 4-7 0s5-6 7-2" />
               </svg>
             </ActionButton>
-            <ActionButton onClick={() => { handleFission(); comboFlashRef.current.push({ text: "FISSION", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#f5af19" }); }} title="Fission">
+            <ActionButton onClick={() => { handleFireworkShow(); comboFlashRef.current.push({ text: "FIREWORK SHOW", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#fa709a" }); }} title="Firework show (4)">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="8" cy="8" r="3" />
-                <circle cx="16" cy="16" r="3" />
-                <line x1="10.5" y1="10.5" x2="13.5" y2="13.5" opacity="0.5" strokeDasharray="2 2" />
+                <line x1="6" y1="22" x2="6" y2="14" />
+                <line x1="6" y1="10" x2="3" y2="7" />
+                <line x1="6" y1="10" x2="9" y2="7" />
+                <line x1="6" y1="10" x2="6" y2="6" />
+                <line x1="18" y1="22" x2="18" y2="12" />
+                <line x1="18" y1="8" x2="15" y2="5" />
+                <line x1="18" y1="8" x2="21" y2="5" />
+                <line x1="18" y1="8" x2="18" y2="4" />
+                <line x1="12" y1="22" x2="12" y2="16" />
+                <line x1="12" y1="12" x2="9" y2="9" />
+                <line x1="12" y1="12" x2="15" y2="9" />
+                <line x1="12" y1="12" x2="12" y2="8" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
@@ -6014,6 +6051,7 @@ function App() {
               <Shortcut><Key>I</Key><span>Galaxy spiral</span></Shortcut>
               <Shortcut><Key>2</Key><span>Fractal burst (branching spawn)</span></Shortcut>
               <Shortcut><Key>3</Key><span>Collider (opposing streams)</span></Shortcut>
+              <Shortcut><Key>4</Key><span>Firework show (multi-launch)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
               <Shortcut><Key>S</Key><span>Scatter outward</span></Shortcut>
