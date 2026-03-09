@@ -5330,6 +5330,39 @@ function App() {
     shakeRef.current = 8;
   }, []);
 
+  const handleCascade = useCallback(() => {
+    const orbs = orbsRef.current;
+    if (orbs.length === 0) return;
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const now = performance.now();
+    const currentOrbs = [...orbs];
+    const newOrbs = [];
+    for (const o of currentOrbs) {
+      const baseAngle = Math.random() * Math.PI * 2;
+      for (let i = 0; i < 2; i++) {
+        const angle = baseAngle + (Math.PI * 2 * (i + 1)) / 3;
+        const spd = 3 + Math.random() * 4;
+        const child = createOrb(o.x, o.y);
+        child.radius = Math.max(4, o.radius * 0.6);
+        child.color = o.color;
+        child.vx = o.vx * 0.5 + Math.cos(angle) * spd;
+        child.vy = o.vy * 0.5 + Math.sin(angle) * spd;
+        newOrbs.push(child);
+        ripplesRef.current.push({ x: o.x, y: o.y, color: o.color, born: now });
+      }
+      o.vx += Math.cos(baseAngle) * 4;
+      o.vy += Math.sin(baseAngle) * 4;
+      o.radius = Math.max(4, o.radius * 0.6);
+    }
+    orbsRef.current.push(...newOrbs);
+    wavesRef.current.push({ cx: W / 2, cy: H / 2, radius: 0, color: "#f093fb", generation: 0, hitOrbs: new Set(), delay: 0 });
+    wavesRef.current.push({ cx: W / 2, cy: H / 2, radius: 0, color: "#4facfe", generation: 0, hitOrbs: new Set(), delay: 4 });
+    shakeRef.current = Math.max(shakeRef.current, 25);
+    setOrbCount(orbsRef.current.length);
+    playBoom();
+  }, []);
+
   const handleRicochet = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -5670,6 +5703,7 @@ function App() {
     const needsOrbs = [
       [handleWave, "SHOCKWAVE"], [handleLightning, "LIGHTNING"], [handleScatter, "SCATTER"],
       [handleSpin, "SPIN"], [handleGather, "GATHER"], [handleSupernova, "SUPERNOVA"],
+      [handleCascade, "CASCADE"],
     ];
     const pool = orbs.length > 0 ? [...alwaysAvailable, ...needsOrbs] : alwaysAvailable;
     const [fn, label] = pool[Math.floor(Math.random() * pool.length)];
@@ -5677,7 +5711,7 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     comboFlashRef.current.push({ text: label, x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" });
-  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleCascade]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -5796,6 +5830,10 @@ function App() {
           handleCyclePalette();
           flashLabel(PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), "#f093fb");
           break;
+        case "t":
+          handleCascade();
+          flashLabel("CASCADE", "#f093fb");
+          break;
         case "2":
           handleBlackHole();
           flashLabel("BLACK HOLE", "#a855f7");
@@ -5813,7 +5851,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -5996,6 +6034,15 @@ function App() {
                 <line x1="20" y1="12" x2="23" y2="12" opacity="0.4" />
               </svg>
             </ActionButton>
+            <ActionButton onClick={handleCascade} title="Cascade">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="6" r="3" />
+                <circle cx="6" cy="18" r="2.5" />
+                <circle cx="18" cy="18" r="2.5" />
+                <line x1="10.5" y1="8.5" x2="7.5" y2="15.5" />
+                <line x1="13.5" y1="8.5" x2="16.5" y2="15.5" />
+              </svg>
+            </ActionButton>
             <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -6016,14 +6063,8 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode">
-          paint
-        </ModeToggle>
         <ModeToggle onClick={handleCyclePalette} $active={paletteIndex !== 0} $color="#f093fb" title="Cycle color palette">
           {PALETTES[paletteIndex].name.toLowerCase()}
-        </ModeToggle>
-        <ModeToggle onClick={handleOrbitMode} $active={orbitMode} $color="#f093fb" title="Orbit mode">
-          orbit
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
@@ -6076,6 +6117,7 @@ function App() {
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
+              <Shortcut><Key>T</Key><span>Cascade (split all orbs)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>G</Key><span>Cycle gravity (↓ → ↑ ← off)</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
