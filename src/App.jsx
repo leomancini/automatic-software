@@ -1,985 +1,89 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
-import styled, { keyframes } from "styled-components";
+import {
+  RIPPLE_DURATION, BURST_DURATION, BURST_PARTICLE_COUNT, COLORS, CONNECTION_DIST,
+  MERGE_DIST_FACTOR, MERGE_FLASH_DURATION, STAR_COUNT, SHOOTING_STAR_CHANCE,
+  SHOOTING_STAR_DURATION, MOTE_COUNT, MOTE_SPEED, MOTE_ORB_PUSH_RANGE,
+  MOTE_ORB_PUSH_FORCE, MOTE_FRICTION, MOTE_DISTURBED_GLOW, SPLIT_COUNT,
+  LONG_PRESS_MS, FRICTION, REPEL_DIST, REPEL_FORCE, ATTRACT_DIST, ATTRACT_FORCE,
+  GRAVITY, WAVE_SPEED, WAVE_FORCE, WAVE_WIDTH, WAVE_MAX_RADIUS_FACTOR,
+  WALL_HIT_DURATION, WALL_HIT_SPEED_THRESHOLD, WELL_RANGE, WELL_GRAVITY,
+  TRAIL_SPEED_THRESHOLD, TRAIL_LIFETIME, TRAIL_MAX, TRAIL_SPAWN_RATE,
+  HOLD_CHARGE_DELAY, HOLD_CHARGE_RANGE, HOLD_CHARGE_FORCE, HOLD_CHARGE_MAX_MS,
+  CASCADE_MAX_GEN, CASCADE_SPEED_THRESHOLD, CASCADE_FORCE_DECAY, CASCADE_DELAY_FRAMES,
+  TAP_IMPULSE_RADIUS, TAP_IMPULSE_FORCE, COLLAPSE_RADIUS, MITOSIS_WOBBLE_START,
+  SPARK_LIFETIME, SPARK_SPAWN_DIST, VORTEX_DURATION, VORTEX_ARMS,
+  LIGHTNING_DURATION, LIGHTNING_CHAIN_DIST, LIGHTNING_MAX_CHAIN, LIGHTNING_FORCE,
+  METEOR_COUNT, METEOR_STAGGER, METEOR_TRAIL_DURATION,
+  PORTAL_RADIUS, PORTAL_TELEPORT_DIST, PORTAL_COOLDOWN,
+  SUPERNOVA_IMPLODE_MS, SUPERNOVA_RING_COUNT, SUPERNOVA_RING_SPEED, SUPERNOVA_PULL_STRENGTH,
+  COMET_SPEED, COMET_TRAIL_INTERVAL, COMET_ORB_COUNT, COMET_HEAD_RADIUS, COMET_TAIL_POINTS,
+  WARP_CHARGE_MS, WARP_JUMP_MS, WARP_SETTLE_MS, WARP_PULL, WARP_SCATTER_SPEED,
+  TAP_WAVE_DURATION, TAP_WAVE_MAX_RADIUS, TAP_WAVE_PUSH, TAP_WAVE_RINGS,
+  PULSE_INTERVAL, PULSE_PULL, PULSE_PULL_RAMP,
+  NOVA_CHANCE, NOVA_FUSE_MIN, NOVA_FUSE_MAX, NOVA_WARN_MS,
+  NOVA_BLAST_COUNT, NOVA_BLAST_SPEED, NOVA_PUSH_RADIUS, NOVA_PUSH_FORCE,
+  SHATTER_WAVE_SPEED, SHATTER_WAVE_MAX_RADIUS, SHATTER_WAVE_WIDTH,
+  SHATTER_CHAIN_CHANCE, SHATTER_CHAIN_DECAY, SHATTER_MAX_GEN,
+  SHATTER_PARTICLE_COUNT, SHATTER_DELAY_FRAMES,
+  SHATTER_ALL_FREEZE_MS, SHATTER_ALL_FRAG_COUNT, SHATTER_ALL_FRAG_SPEED,
+  FORMATION_TYPES, FORMATION_SPRING, FORMATION_DAMPING, FORMATION_HOLD_MS,
+  AURORA_BAND_COUNT, AURORA_BASE_ALPHA, AURORA_ACTIVITY_BOOST, AURORA_SMOOTHING, AURORA_COLORS,
+  TORNADO_DURATION, TORNADO_RADIUS, TORNADO_PULL, TORNADO_SPIN_FORCE,
+  TORNADO_FLING_SPEED, TORNADO_DEBRIS_MAX,
+  STREAK_WINDOW, STREAK_DECAY_DELAY, STREAK_FIREWORK, STREAK_LIGHTNING,
+  STREAK_METEOR, STREAK_SUPERNOVA, COMBO_FLASH_DURATION,
+  STRIKE_BEAM_MS, STRIKE_FADE_MS, STRIKE_ORB_COUNT, STRIKE_ORB_SPEED, STRIKE_BEAM_WIDTH,
+  IGNITE_SPREAD_DIST, IGNITE_BURN_MS, IGNITE_SPARK_COUNT, IGNITE_SPARK_SPEED,
+  IGNITE_SPREAD_CHANCE, EMBER_LIFETIME,
+  STORM_DURATION, STORM_ZAP_INTERVAL, STORM_SPIN_FORCE, STORM_RADIAL_FORCE, STORM_ARC_COUNT,
+  MERGE_SPARK_COUNT, MERGE_SPARK_SPEED, MERGE_SPARK_LIFETIME, MERGE_SPARK_SIZE,
+  MERGE_PUSH_RADIUS, MERGE_PUSH_FORCE, MERGE_PUSH_SPEED_MIN,
+  MAGNET_RANGE, MAGNET_FORCE,
+  TSUNAMI_SPEED, TSUNAMI_WIDTH, TSUNAMI_FORCE, TSUNAMI_TUMBLE, TSUNAMI_FOAM_COUNT,
+  GPAINT_DOT_LIFETIME, GPAINT_DOT_RANGE, GPAINT_DOT_FORCE, GPAINT_DOT_INTERVAL, GPAINT_DOT_MAX,
+  CONSTELLATION_DIST, CONSTELLATION_NODE_THRESHOLD,
+  FOUNTAIN_SPAWN_INTERVAL, FOUNTAIN_SPAWN_SPEED, FOUNTAIN_SPRAY_ANGLE, FOUNTAIN_ORB_CAP, FOUNTAIN_BASE_RADIUS,
+  DOMINO_DELAY, DOMINO_RESPAWN_DELAY,
+  COLOR_WAVE_SPEED, COLOR_WAVE_WIDTH, COLOR_WAVE_SEGMENTS,
+  NBODY_G, NBODY_RANGE, NBODY_MIN_DIST,
+  VORTEX_STORM_SPIRAL_MS, VORTEX_STORM_HOLD_MS, VORTEX_STORM_EXPLODE_MS,
+  VORTEX_STORM_SPIRAL_FORCE, VORTEX_STORM_TANGENT_FORCE, VORTEX_STORM_EXPLODE_SPEED,
+  VORTEX_STORM_ARM_COUNT,
+  LIGHT_TRAIL_LENGTH, TRAIL_SPEED_MIN,
+  NEBULA_COUNT, NEBULA_BASE_RADIUS, NEBULA_DRIFT, NEBULA_ORB_PULL, NEBULA_ALPHA, NEBULA_COLORS_RGB,
+  TILT_GRAVITY_FORCE, TILT_SMOOTHING,
+  REWIND_BUFFER_SIZE, REWIND_STEP_RATE,
+  TAP_SPARKLE_COUNT, TAP_SPARKLE_SPEED, TAP_SPARKLE_LIFETIME,
+  HARP_STRING_COUNT, HARP_VIBRATION_DURATION, HARP_PLUCK_SPEED_THRESHOLD, HARP_PLUCK_COOLDOWN,
+  SPAWN_DURATION,
+  AUTOPLAY_SPAWN_INTERVAL, AUTOPLAY_SPAWN_COUNT, AUTOPLAY_EFFECT_INTERVAL,
+  BLACK_HOLE_RANGE, BLACK_HOLE_GRAVITY, BLACK_HOLE_EVENT_HORIZON,
+  BLACK_HOLE_ABSORB_TO_EXPLODE, BLACK_HOLE_RING_COUNT, BLACK_HOLE_RING_SPEED, BLACK_HOLE_DISK_DOTS,
+  FLOCK_SEPARATION_DIST, FLOCK_NEIGHBOR_DIST, FLOCK_SEPARATION_FORCE,
+  FLOCK_ALIGNMENT_FORCE, FLOCK_COHESION_FORCE, FLOCK_MAX_SPEED,
+  LIGHTNING_SEGMENTS,
+  PALETTES,
+} from './constants.js';
+import {
+  ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce,
+  playSwoosh, playBurstSound, playGalaxySound, playCollapse, playMitosis, playStreakTone,
+  playWarpSound, playSpray, playLightning, playPortalSound, playMeteorSound,
+  playSupernovaSound, playRewindSound, playIgniteSound, playStrikeSound, playFirePop,
+  playStormSound, playTsunamiSound, playColorWaveSound, playShatterAllSound,
+  playBlackHoleSound, playBlackHoleAbsorbSound, playCometSound,
+} from './audio.js';
+import {
+  getFormationTargets, generateBolt, randomColor, hexToHsl, hexAlpha, hslToHex,
+  easeOutElastic, createOrb,
+} from './utils.js';
+import {
+  Wrapper, Canvas, HUD, Title, Hint, Count, ModeIndicators, ModePill,
+  StreakCounter, NextCombo, ButtonGroup, ButtonRow, ActionButton,
+  HelpButton, MuteButton, ExposureButton, SaveButton, SaveFlash,
+  HelpOverlay, HelpPanel, HelpTitle, ShortcutList, Shortcut, Key, HelpClose,
+} from './StyledComponents.js';
 
-const RIPPLE_DURATION = 600; // ms
-const BURST_DURATION = 500; // ms
-const BURST_PARTICLE_COUNT = 8;
-
-const COLORS = [
-  "#667eea",
-  "#764ba2",
-  "#f093fb",
-  "#4facfe",
-  "#00f2fe",
-  "#43e97b",
-  "#fa709a",
-  "#feb47b",
-];
-
-const CONNECTION_DIST = 160;
-const MERGE_DIST_FACTOR = 0.7; // merge when distance < smaller radius * this
-const MERGE_FLASH_DURATION = 400;
-const STAR_COUNT = 80;
-const SHOOTING_STAR_CHANCE = 0.003; // probability per frame
-const SHOOTING_STAR_DURATION = 800; // ms
-const MOTE_COUNT = 60;
-const MOTE_SPEED = 0.15;
-const MOTE_ORB_PUSH_RANGE = 90;     // px — orbs push motes within this distance
-const MOTE_ORB_PUSH_FORCE = 0.35;   // push strength (scales with orb speed)
-const MOTE_FRICTION = 0.94;         // velocity damping per frame
-const MOTE_DISTURBED_GLOW = 0.5;    // extra brightness when pushed
-const SPLIT_COUNT = 3;
-const LONG_PRESS_MS = 500;
-const FRICTION = 0.98;
-const REPEL_DIST = 50;
-const REPEL_FORCE = 0.3;
-const ATTRACT_DIST = 180;
-const ATTRACT_FORCE = 0.015;
-const GRAVITY = 0.12;
-const WAVE_SPEED = 5; // px per frame
-const WAVE_FORCE = 6;
-const WAVE_WIDTH = 40; // thickness of the ring
-const WAVE_MAX_RADIUS_FACTOR = 1.2; // expand to 120% of screen diagonal
-const WALL_HIT_DURATION = 350; // ms
-const WALL_HIT_SPEED_THRESHOLD = 1.5; // minimum pre-bounce speed to trigger
-const WELL_RANGE = 250; // gravity well attraction radius
-const WELL_GRAVITY = 0.08; // gravity well force
-const TRAIL_SPEED_THRESHOLD = 2.0; // min orb speed to shed trail particles
-const TRAIL_LIFETIME = 2500; // ms trail particles live
-const TRAIL_MAX = 600; // cap trail particle count for performance
-const TRAIL_SPAWN_RATE = 0.4; // probability per frame per orb (when fast enough)
-
-const HOLD_CHARGE_DELAY = 400; // ms before hold-to-attract activates
-const HOLD_CHARGE_RANGE = 220; // px attraction radius
-const HOLD_CHARGE_FORCE = 0.12; // base attraction force per frame
-const HOLD_CHARGE_MAX_MS = 2500; // ms to reach full charge power
-const CASCADE_MAX_GEN = 2; // max cascade depth for chain reaction shockwaves
-const CASCADE_SPEED_THRESHOLD = 3.5; // orb speed after hit to trigger cascade
-const CASCADE_FORCE_DECAY = 0.55; // each generation is 55% as strong
-const CASCADE_DELAY_FRAMES = 8; // frames to wait before cascade wave activates
-const TAP_IMPULSE_RADIUS = 120; // px — push nearby orbs when tapping
-const TAP_IMPULSE_FORCE = 1.8; // strength of the tap push (quadratic falloff)
-const COLLAPSE_RADIUS = 35; // orbs this big undergo mitosis (split into two)
-const MITOSIS_WOBBLE_START = COLLAPSE_RADIUS * 0.8; // visual wobble begins here
-
-// ── Sparkler mode ──────────────────────────────────────────────────
-const SPARK_LIFETIME = 2000; // ms before spark fades out
-const SPARK_SPAWN_DIST = 8; // min cursor movement to spawn sparks
-
-// ── Vortex visual effect ────────────────────────────────────────────
-const VORTEX_DURATION = 2000; // ms for spiral arms to fade
-const VORTEX_ARMS = 3; // number of spiral arms
-
-// ── Chain lightning effect ─────────────────────────────────────────
-const LIGHTNING_DURATION = 800; // ms for bolts to fade
-const LIGHTNING_CHAIN_DIST = 250; // max jump distance between orbs
-const LIGHTNING_MAX_CHAIN = 20; // max orbs per chain
-const LIGHTNING_FORCE = 3; // velocity boost on struck orbs
-const LIGHTNING_SEGMENTS = 10; // jagged segments per bolt
-
-// ── Meteor shower ────────────────────────────────────────────────
-const METEOR_COUNT = 14; // orbs per shower
-const METEOR_STAGGER = 60; // ms between each meteor spawn
-const METEOR_TRAIL_DURATION = 600; // ms for entry trail to fade
-
-// ── Wormhole portals ─────────────────────────────────────────────
-const PORTAL_RADIUS = 22;
-const PORTAL_TELEPORT_DIST = 28; // orb enters portal at this distance
-const PORTAL_COOLDOWN = 500; // ms before orb can re-enter a portal
-
-// ── Supernova ──────────────────────────────────────────────────────
-const SUPERNOVA_IMPLODE_MS = 600; // ms for implosion phase
-const SUPERNOVA_RING_COUNT = 16; // orbs spawned in explosion ring
-const SUPERNOVA_RING_SPEED = 8; // outward velocity of ring orbs
-const SUPERNOVA_PULL_STRENGTH = 12; // how hard orbs pull inward
-
-
-// ── Warp drive ────────────────────────────────────────────────────
-const WARP_CHARGE_MS = 800;   // pull-in phase
-const WARP_JUMP_MS = 400;     // flash + scatter phase
-const WARP_SETTLE_MS = 800;   // stars return to normal
-const WARP_PULL = 0.06;       // inward acceleration during charge
-const WARP_SCATTER_SPEED = 10; // outward velocity on jump
-
-// ── Tap pulse wave (concentric ripple on every tap) ────────────────
-const TAP_WAVE_DURATION = 900; // ms for full expansion
-const TAP_WAVE_MAX_RADIUS = 140; // max ring expansion in px
-const TAP_WAVE_PUSH = 0.6; // gentle outward push on orbs
-const TAP_WAVE_RINGS = 3; // concentric rings per tap
-
-// ── Pulse mode (rhythmic heartbeat) ──────────────────────────────────
-const PULSE_INTERVAL = 1800; // ms between heartbeat pulses
-const PULSE_PULL = 0.03; // gentle center-pull between pulses (inhale)
-const PULSE_PULL_RAMP = 600; // ms after pulse before pull begins (exhale grace period)
-
-// ── Nova orbs (time-bomb orbs that detonate) ────────────────────────
-const NOVA_CHANCE = 0.12; // probability per tap-spawn
-const NOVA_FUSE_MIN = 5000; // minimum ms before detonation
-const NOVA_FUSE_MAX = 9000; // maximum ms before detonation
-const NOVA_WARN_MS = 2000; // ms before detonation when flickering starts
-const NOVA_BLAST_COUNT = 6; // fragment orbs on detonation
-const NOVA_BLAST_SPEED = 5; // outward velocity of fragments
-const NOVA_PUSH_RADIUS = 160; // force push radius on detonation
-const NOVA_PUSH_FORCE = 4; // force push strength
-
-// ── Shatter chain (double-click cascade) ─────────────────────────
-const SHATTER_WAVE_SPEED = 5;        // px per frame
-const SHATTER_WAVE_MAX_RADIUS = 180; // how far the shatter ring expands
-const SHATTER_WAVE_WIDTH = 25;       // ring thickness for hit detection
-const SHATTER_CHAIN_CHANCE = 0.65;   // base probability of chain per hit
-const SHATTER_CHAIN_DECAY = 0.55;    // chance multiplier per generation
-const SHATTER_MAX_GEN = 5;           // max cascade depth
-const SHATTER_PARTICLE_COUNT = 14;   // fragments per shatter
-const SHATTER_DELAY_FRAMES = 6;      // frames before chain-shatter detonates
-
-// ── Shatter All (crystallize + explode) ──────────────────────
-const SHATTER_ALL_FREEZE_MS = 700;   // ms for crystallization phase
-const SHATTER_ALL_FRAG_COUNT = 3;    // fragments per orb
-const SHATTER_ALL_FRAG_SPEED = 5;    // outward velocity of fragments
-
-// ── Formation snap ────────────────────────────────────────────────
-const FORMATION_TYPES = ['circle', 'spiral', 'grid', 'wave'];
-const FORMATION_SPRING = 0.08;
-const FORMATION_DAMPING = 0.82;
-const FORMATION_HOLD_MS = 3000;
-
-// ── Aurora borealis ─────────────────────────────────────────────────
-const AURORA_BAND_COUNT = 5;         // number of overlapping curtain bands
-const AURORA_BASE_ALPHA = 0.018;     // minimum opacity (visible even with 0 orbs)
-const AURORA_ACTIVITY_BOOST = 0.035; // extra opacity from orb activity
-const AURORA_SMOOTHING = 0.015;      // how fast aurora responds to activity changes
-const AURORA_COLORS = [
-  [67, 233, 123],   // green
-  [79, 172, 254],   // blue
-  [118, 75, 162],   // purple
-  [0, 242, 254],    // cyan
-  [240, 147, 251],  // pink
-];
-
-// ── Tornado ─────────────────────────────────────────────────────────
-const TORNADO_DURATION = 4500; // ms to cross the screen
-const TORNADO_RADIUS = 120; // pull/capture radius
-const TORNADO_PULL = 0.3; // inward pull strength
-const TORNADO_SPIN_FORCE = 0.15; // tangential spin
-const TORNADO_FLING_SPEED = 10; // ejection speed when orbs reach center
-const TORNADO_DEBRIS_MAX = 80; // max visual debris particles
-
-function getFormationTargets(n, type, W, H) {
-  const cx = W / 2, cy = H / 2;
-  const targets = [];
-  const maxR = Math.min(W, H) * 0.32;
-
-  if (type === 'circle') {
-    for (let i = 0; i < n; i++) {
-      const a = (Math.PI * 2 * i) / n - Math.PI / 2;
-      targets.push({ x: cx + Math.cos(a) * maxR, y: cy + Math.sin(a) * maxR });
-    }
-  } else if (type === 'spiral') {
-    for (let i = 0; i < n; i++) {
-      const t = i / Math.max(n - 1, 1);
-      const a = t * Math.PI * 6;
-      targets.push({ x: cx + Math.cos(a) * t * maxR, y: cy + Math.sin(a) * t * maxR });
-    }
-  } else if (type === 'grid') {
-    const cols = Math.ceil(Math.sqrt(n));
-    const rows = Math.ceil(n / cols);
-    const spacing = Math.min(W / (cols + 2), H / (rows + 2), 45);
-    const sx = cx - ((cols - 1) * spacing) / 2;
-    const sy = cy - ((rows - 1) * spacing) / 2;
-    for (let i = 0; i < n; i++) {
-      targets.push({ x: sx + (i % cols) * spacing, y: sy + Math.floor(i / cols) * spacing });
-    }
-  } else if (type === 'wave') {
-    const amp = Math.min(H * 0.25, 120);
-    for (let i = 0; i < n; i++) {
-      const t = n > 1 ? i / (n - 1) : 0.5;
-      targets.push({ x: W * 0.08 + t * W * 0.84, y: cy + Math.sin(t * Math.PI * 3) * amp });
-    }
-  }
-
-  return targets;
-}
-
-// ── Tap streak / combo system ───────────────────────────────────────
-const STREAK_WINDOW = 600; // ms between taps to continue a streak
-const STREAK_DECAY_DELAY = 1200; // ms after last tap before streak counter fades
-
-// ── Streak combo rewards (auto-trigger effects at milestones) ──────
-const STREAK_FIREWORK = 12;       // radial burst from tap point
-const STREAK_LIGHTNING = 16;      // chain lightning from tap point
-const STREAK_METEOR = 20;         // meteor shower
-const STREAK_SUPERNOVA = 25;      // supernova at tap point
-const COMBO_FLASH_DURATION = 1400; // ms for floating reward text
-
-// ── Orbital strike ─────────────────────────────────────────────────
-const STRIKE_BEAM_MS = 400; // beam descent duration
-const STRIKE_FADE_MS = 600; // post-impact fade
-const STRIKE_ORB_COUNT = 8; // orbs spawned in explosion ring
-const STRIKE_ORB_SPEED = 5; // outward velocity of ring orbs
-const STRIKE_BEAM_WIDTH = 6; // beam core width
-
-// ── Chain combustion ────────────────────────────────────────────────
-const IGNITE_SPREAD_DIST = 65; // fire spreads within this distance
-const IGNITE_BURN_MS = 1800; // ms before orb pops
-const IGNITE_SPARK_COUNT = 5; // sparks per pop
-const IGNITE_SPARK_SPEED = 4; // initial spark velocity
-const IGNITE_SPREAD_CHANCE = 0.04; // per-frame probability of spreading
-const EMBER_LIFETIME = 700; // ms for ember particles
-
-// ── Magnetic storm ───────────────────────────────────────────────────
-const STORM_DURATION = 3000; // ms total storm length
-const STORM_ZAP_INTERVAL = 140; // ms between auto-lightning arcs
-const STORM_SPIN_FORCE = 0.35; // tangential chaos force
-const STORM_RADIAL_FORCE = 0.2; // oscillating push/pull
-const STORM_ARC_COUNT = 6; // visual energy arcs from epicenter
-
-
-// ── Merge sparks (collision particles) ──────────────────────────────
-const MERGE_SPARK_COUNT = 10;     // particles per merge event
-const MERGE_SPARK_SPEED = 3.5;    // initial outward velocity
-const MERGE_SPARK_LIFETIME = 450; // ms before spark fades
-const MERGE_SPARK_SIZE = 2.5;     // base radius
-
-// ── Merge shockwave (high-speed collisions push nearby orbs) ────────
-const MERGE_PUSH_RADIUS = 110;     // radius of outward push
-const MERGE_PUSH_FORCE = 2.2;      // max outward force
-const MERGE_PUSH_SPEED_MIN = 3.0;  // min relative collision speed to trigger
-
-// ── Magnetic polarity ────────────────────────────────────────────────
-const MAGNET_RANGE = 160;      // interaction range between orb pairs
-const MAGNET_FORCE = 0.045;    // base force strength (opposites attract, likes repel)
-
-
-// ── Tsunami wave ────────────────────────────────────────────────────
-const TSUNAMI_SPEED = 10; // px per frame — fast sweep
-const TSUNAMI_WIDTH = 100; // wall thickness in px
-const TSUNAMI_FORCE = 7; // horizontal push on orbs
-
-// ── Gravity painter ─────────────────────────────────────────────────
-const GPAINT_DOT_LIFETIME = 4000; // ms before dot fades
-const GPAINT_DOT_RANGE = 100; // attraction radius per dot
-const GPAINT_DOT_FORCE = 0.05; // attraction strength per dot
-const GPAINT_DOT_INTERVAL = 22; // px between dots when dragging
-const GPAINT_DOT_MAX = 150; // max active dots
-const TSUNAMI_TUMBLE = 2.5; // random vertical scatter
-const TSUNAMI_FOAM_COUNT = 18; // foam particles at leading edge
-
-// ── Constellation mode ──────────────────────────────────────────────
-const CONSTELLATION_DIST = 200; // max distance for constellation lines
-const CONSTELLATION_NODE_THRESHOLD = 0.55; // proximity threshold for midpoint stars
-
-// ── Particle fountain ──────────────────────────────────────────────
-const FOUNTAIN_SPAWN_INTERVAL = 180; // ms between spawns
-const FOUNTAIN_SPAWN_SPEED = 4.5; // initial upward velocity
-const FOUNTAIN_SPRAY_ANGLE = 0.5; // radians of spray spread
-const FOUNTAIN_ORB_CAP = 200; // won't spawn if total orbs exceed this
-const FOUNTAIN_BASE_RADIUS = 10; // visual base size
-
-// ── Domino cascade ──────────────────────────────────────────────
-const DOMINO_DELAY = 70; // ms between each detonation in the chain
-const DOMINO_RESPAWN_DELAY = 350; // ms after last detonation before respawn burst
-
-// ── Color wave ──────────────────────────────────────────────────
-const COLOR_WAVE_SPEED = 3.5; // px per frame
-const COLOR_WAVE_WIDTH = 55; // visual width of the ring
-const COLOR_WAVE_SEGMENTS = 36; // arc segments for rainbow rendering
-
-// ── N-body gravity (mutual gravitational attraction) ────────────
-const NBODY_G = 0.06;         // gravitational constant
-const NBODY_RANGE = 400;      // max interaction range
-const NBODY_MIN_DIST = 18;    // softening distance to prevent infinite force
-
-
-// ── Vortex storm ───────────────────────────────────────────────────
-const VORTEX_STORM_SPIRAL_MS = 2000;    // spiral-in phase duration
-const VORTEX_STORM_HOLD_MS = 400;       // brief hold at center
-const VORTEX_STORM_EXPLODE_MS = 1200;   // spiral-out explosion
-const VORTEX_STORM_SPIRAL_FORCE = 0.12; // radial inward pull
-const VORTEX_STORM_TANGENT_FORCE = 0.15; // tangential spin force
-const VORTEX_STORM_EXPLODE_SPEED = 8;   // outward velocity on release
-const VORTEX_STORM_ARM_COUNT = 5;       // visible spiral arms
-
-// ── Light trails (comet tails behind orbs) ──────────────────────────
-const LIGHT_TRAIL_LENGTH = 24; // positions stored per orb trail
-const TRAIL_SPEED_MIN = 1.5;   // min speed for visible trail
-
-// ── Ambient nebula (responsive background glow) ─────────────────────
-const NEBULA_COUNT = 5;
-const NEBULA_BASE_RADIUS = 250;
-const NEBULA_DRIFT = 0.15;        // px per frame drift speed
-const NEBULA_ORB_PULL = 0.002;    // attraction toward orb clusters
-const NEBULA_ALPHA = 0.035;       // per-frame opacity (steady-state ~4x)
-const NEBULA_COLORS_RGB = [
-  [80, 100, 220],   // soft indigo
-  [110, 60, 160],   // deep purple
-  [200, 100, 220],  // orchid
-  [50, 180, 120],   // emerald
-  [60, 140, 230],   // cerulean
-];
-
-// ── Tilt gravity ──────────────────────────────────────────────────
-const TILT_GRAVITY_FORCE = 0.18;  // directional gravity strength
-const TILT_SMOOTHING = 0.12;      // lerp factor for smooth transitions
-
-// ── Time rewind ─────────────────────────────────────────────────────
-const REWIND_BUFFER_SIZE = 180; // ~3 seconds at 60fps
-const REWIND_STEP_RATE = 3; // play back 3 frames per animation frame (fast rewind)
-
-// ── Tap sparkle particles ───────────────────────────────────────────
-const TAP_SPARKLE_COUNT = 8;       // particles per tap
-const TAP_SPARKLE_SPEED = 2.5;     // outward velocity
-const TAP_SPARKLE_LIFETIME = 600;  // ms before fade
-
-// ── Gravity harp strings ────────────────────────────────────────────
-const HARP_STRING_COUNT = 7;              // horizontal strings across canvas
-const HARP_VIBRATION_DURATION = 1200;     // ms for vibration to fade
-const HARP_PLUCK_SPEED_THRESHOLD = 1.8;   // min orb speed to pluck
-const HARP_PLUCK_COOLDOWN = 50;           // ms between pluck sounds
 let lastHarpPluckTime = 0;
-
-// ── Audio engine ──────────────────────────────────────────────────────
-let audioCtx = null;
-let masterGain = null;
-let audioMuted = false;
-let lastBounceTime = 0;
-let lastMergeTime = 0;
-
-// C major pentatonic across 2 octaves — always sounds musical
-const PENTATONIC = [
-  261.63, 293.66, 329.63, 392.00, 440.00,
-  523.25, 587.33, 659.25, 783.99, 880.00,
-];
-
-function ensureAudio() {
-  if (audioCtx) return true;
-  try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    masterGain = audioCtx.createGain();
-    masterGain.gain.value = 0.25;
-    masterGain.connect(audioCtx.destination);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function playTone(freq, duration = 0.3, type = "sine", gainVal = 0.15) {
-  if (!audioCtx || !masterGain || audioMuted) return;
-  const t = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, t);
-  g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(gainVal, t + 0.015);
-  g.gain.exponentialRampToValueAtTime(0.001, t + duration);
-  osc.connect(g);
-  g.connect(masterGain);
-  osc.start(t);
-  osc.stop(t + duration + 0.01);
-}
-
-function playSpawn(x, screenW) {
-  if (!ensureAudio() || audioMuted) return;
-  const idx = Math.floor((x / screenW) * PENTATONIC.length);
-  const note = PENTATONIC[Math.max(0, Math.min(PENTATONIC.length - 1, idx))];
-  playTone(note, 0.4, "sine", 0.1);
-  playTone(note * 2, 0.25, "sine", 0.03);
-}
-
-function playMergeSound() {
-  if (!audioCtx || audioMuted) return;
-  const t = audioCtx.currentTime;
-  if (t - lastMergeTime < 0.1) return;
-  lastMergeTime = t;
-  const base = 180 + Math.random() * 80;
-  playTone(base, 0.5, "sine", 0.08);
-  playTone(base * 1.5, 0.35, "triangle", 0.04);
-}
-
-function playBoom() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  osc.type = "sine";
-  osc.frequency.setValueAtTime(80, t);
-  osc.frequency.exponentialRampToValueAtTime(25, t + 0.5);
-  g.gain.setValueAtTime(0.18, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-  osc.connect(g);
-  g.connect(masterGain);
-  osc.start(t);
-  osc.stop(t + 0.55);
-}
-
-function playBounce(intensity) {
-  if (!audioCtx || audioMuted) return;
-  const t = audioCtx.currentTime;
-  if (t - lastBounceTime < 0.06) return;
-  lastBounceTime = t;
-  const freq = 600 + Math.random() * 500;
-  playTone(freq, 0.06, "sine", 0.03 * Math.min(intensity, 1));
-}
-
-function playSwoosh() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  osc.type = "sine";
-  osc.frequency.setValueAtTime(200, t);
-  osc.frequency.exponentialRampToValueAtTime(500, t + 0.12);
-  osc.frequency.exponentialRampToValueAtTime(120, t + 0.35);
-  g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(0.06, t + 0.03);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-  osc.connect(g);
-  g.connect(masterGain);
-  osc.start(t);
-  osc.stop(t + 0.4);
-}
-
-function playBurstSound() {
-  if (!ensureAudio() || audioMuted) return;
-  playTone(392, 0.35, "sine", 0.06);
-  playTone(523.25, 0.3, "sine", 0.05);
-  playTone(659.25, 0.25, "sine", 0.04);
-}
-
-function playGalaxySound() {
-  if (!ensureAudio() || audioMuted) return;
-  const notes = [261.63, 329.63, 392.00, 523.25, 659.25];
-  notes.forEach((note, i) => {
-    setTimeout(() => {
-      playTone(note, 0.5 - i * 0.06, "sine", 0.06);
-      playTone(note * 1.5, 0.3, "triangle", 0.02);
-    }, i * 60);
-  });
-}
-
-function playCollapse() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  // Deep rising rumble (implosion)
-  const osc1 = audioCtx.createOscillator();
-  const g1 = audioCtx.createGain();
-  osc1.type = "sine";
-  osc1.frequency.setValueAtTime(40, t);
-  osc1.frequency.exponentialRampToValueAtTime(120, t + 0.6);
-  g1.gain.setValueAtTime(0.2, t);
-  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
-  osc1.connect(g1);
-  g1.connect(masterGain);
-  osc1.start(t);
-  osc1.stop(t + 0.85);
-  // High harmonic shimmer
-  const osc2 = audioCtx.createOscillator();
-  const g2 = audioCtx.createGain();
-  osc2.type = "triangle";
-  osc2.frequency.setValueAtTime(200, t);
-  osc2.frequency.exponentialRampToValueAtTime(800, t + 0.4);
-  g2.gain.setValueAtTime(0, t);
-  g2.gain.linearRampToValueAtTime(0.06, t + 0.1);
-  g2.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-  osc2.connect(g2);
-  g2.connect(masterGain);
-  osc2.start(t);
-  osc2.stop(t + 0.55);
-}
-
-function playMitosis() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  // Bubbly ascending pop — two-tone split
-  playTone(500, 0.12, "sine", 0.09);
-  playTone(750, 0.1, "sine", 0.06);
-  // Soft bubble overtone
-  const osc = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  osc.type = "sine";
-  osc.frequency.setValueAtTime(300, t);
-  osc.frequency.exponentialRampToValueAtTime(900, t + 0.15);
-  g.gain.setValueAtTime(0.07, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-  osc.connect(g);
-  g.connect(masterGain);
-  osc.start(t);
-  osc.stop(t + 0.25);
-}
-
-function playStreakTone(streak, x, screenW) {
-  if (!ensureAudio() || audioMuted) return;
-  // Rising pitch with streak count — climb the pentatonic scale
-  const idx = Math.min(streak - 1, PENTATONIC.length - 1);
-  const note = PENTATONIC[idx];
-  const gain = Math.min(0.06 + streak * 0.015, 0.2);
-  playTone(note, 0.3, "sine", gain);
-  // Add sparkly overtone at higher streaks
-  if (streak >= 4) {
-    playTone(note * 2, 0.2, "triangle", gain * 0.4);
-  }
-  if (streak >= 7) {
-    playTone(note * 3, 0.15, "sine", gain * 0.2);
-  }
-}
-
-function playWarpSound() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  // Rising whoosh
-  const osc = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  osc.type = "sawtooth";
-  osc.frequency.setValueAtTime(80, t);
-  osc.frequency.exponentialRampToValueAtTime(800, t + 0.7);
-  g.gain.setValueAtTime(0.08, t);
-  g.gain.linearRampToValueAtTime(0.15, t + 0.6);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
-  osc.connect(g);
-  g.connect(masterGain);
-  osc.start(t);
-  osc.stop(t + 1.1);
-  // Deep boom at jump point
-  const bass = audioCtx.createOscillator();
-  const bg = audioCtx.createGain();
-  bass.type = "sine";
-  bass.frequency.setValueAtTime(60, t + 0.8);
-  bass.frequency.exponentialRampToValueAtTime(20, t + 1.6);
-  bg.gain.setValueAtTime(0, t);
-  bg.gain.setValueAtTime(0.2, t + 0.8);
-  bg.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
-  bass.connect(bg);
-  bg.connect(masterGain);
-  bass.start(t);
-  bass.stop(t + 2.0);
-  // High shimmer on jump
-  const shim = audioCtx.createOscillator();
-  const sg = audioCtx.createGain();
-  shim.type = "triangle";
-  shim.frequency.setValueAtTime(1200, t + 0.8);
-  shim.frequency.exponentialRampToValueAtTime(400, t + 1.4);
-  sg.gain.setValueAtTime(0, t);
-  sg.gain.setValueAtTime(0.06, t + 0.8);
-  sg.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
-  shim.connect(sg);
-  sg.connect(masterGain);
-  shim.start(t);
-  shim.stop(t + 1.6);
-}
-
-function playSpray(y, screenH) {
-  if (!audioCtx || audioMuted) return;
-  const idx = Math.floor((1 - y / screenH) * PENTATONIC.length);
-  const note = PENTATONIC[Math.max(0, Math.min(PENTATONIC.length - 1, idx))];
-  playTone(note * 2, 0.1, "sine", 0.015);
-}
-
-function playLightning() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  // High-frequency descending zap
-  const osc = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  osc.type = "sawtooth";
-  osc.frequency.setValueAtTime(2000, t);
-  osc.frequency.exponentialRampToValueAtTime(200, t + 0.15);
-  g.gain.setValueAtTime(0.1, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-  osc.connect(g);
-  g.connect(masterGain);
-  osc.start(t);
-  osc.stop(t + 0.25);
-  // Lower crackle
-  playTone(150, 0.25, "square", 0.05);
-}
-
-function playPortalSound() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  osc.type = "sine";
-  osc.frequency.setValueAtTime(300, t);
-  osc.frequency.exponentialRampToValueAtTime(900, t + 0.3);
-  g.gain.setValueAtTime(0.08, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-  osc.connect(g);
-  g.connect(masterGain);
-  osc.start(t);
-  osc.stop(t + 0.45);
-  playTone(600, 0.25, "triangle", 0.04);
-}
-
-function playMeteorSound() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  // Descending whistle (falling from sky)
-  const osc = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  osc.type = "sine";
-  osc.frequency.setValueAtTime(1200, t);
-  osc.frequency.exponentialRampToValueAtTime(300, t + 0.4);
-  g.gain.setValueAtTime(0.06, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-  osc.connect(g);
-  g.connect(masterGain);
-  osc.start(t);
-  osc.stop(t + 0.55);
-  // Rumble undertone
-  playTone(60, 0.6, "sine", 0.08);
-}
-
-function playSupernovaSound() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  // Phase 1: deep implosion rumble (rising pitch)
-  const osc1 = audioCtx.createOscillator();
-  const g1 = audioCtx.createGain();
-  osc1.type = "sine";
-  osc1.frequency.setValueAtTime(30, t);
-  osc1.frequency.exponentialRampToValueAtTime(200, t + 0.5);
-  g1.gain.setValueAtTime(0.2, t);
-  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-  osc1.connect(g1);
-  g1.connect(masterGain);
-  osc1.start(t);
-  osc1.stop(t + 0.65);
-  // Phase 2: massive detonation boom (delayed)
-  const osc2 = audioCtx.createOscillator();
-  const g2 = audioCtx.createGain();
-  osc2.type = "sine";
-  osc2.frequency.setValueAtTime(120, t + 0.5);
-  osc2.frequency.exponentialRampToValueAtTime(20, t + 1.3);
-  g2.gain.setValueAtTime(0, t);
-  g2.gain.setValueAtTime(0.25, t + 0.5);
-  g2.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
-  osc2.connect(g2);
-  g2.connect(masterGain);
-  osc2.start(t);
-  osc2.stop(t + 1.55);
-  // High shimmer overtones
-  const osc3 = audioCtx.createOscillator();
-  const g3 = audioCtx.createGain();
-  osc3.type = "triangle";
-  osc3.frequency.setValueAtTime(600, t + 0.5);
-  osc3.frequency.exponentialRampToValueAtTime(1800, t + 0.8);
-  osc3.frequency.exponentialRampToValueAtTime(400, t + 1.2);
-  g3.gain.setValueAtTime(0, t);
-  g3.gain.setValueAtTime(0.08, t + 0.5);
-  g3.gain.exponentialRampToValueAtTime(0.001, t + 1.3);
-  osc3.connect(g3);
-  g3.connect(masterGain);
-  osc3.start(t);
-  osc3.stop(t + 1.35);
-}
-
-function playRewindSound() {
-  if (!ensureAudio()) return;
-  // Descending warble — VHS tape rewind feel
-  const now = audioCtx.currentTime;
-  const o = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  o.type = "sawtooth";
-  o.frequency.setValueAtTime(600, now);
-  o.frequency.exponentialRampToValueAtTime(200, now + 0.3);
-  g.gain.setValueAtTime(0.12, now);
-  g.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-  o.connect(g).connect(masterGain);
-  o.start(now);
-  o.stop(now + 0.4);
-  // second voice — higher whine
-  const o2 = audioCtx.createOscillator();
-  const g2 = audioCtx.createGain();
-  o2.type = "sine";
-  o2.frequency.setValueAtTime(1200, now);
-  o2.frequency.exponentialRampToValueAtTime(400, now + 0.35);
-  g2.gain.setValueAtTime(0.06, now);
-  g2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-  o2.connect(g2).connect(masterGain);
-  o2.start(now);
-  o2.stop(now + 0.35);
-}
-
-function playIgniteSound() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  // Whooshing flame ignition
-  const osc = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  osc.type = "sawtooth";
-  osc.frequency.setValueAtTime(150, t);
-  osc.frequency.exponentialRampToValueAtTime(400, t + 0.1);
-  osc.frequency.exponentialRampToValueAtTime(80, t + 0.4);
-  g.gain.setValueAtTime(0.08, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
-  osc.connect(g);
-  g.connect(masterGain);
-  osc.start(t);
-  osc.stop(t + 0.55);
-  // Crackling overtone
-  playTone(800 + Math.random() * 400, 0.15, "square", 0.03);
-}
-
-function playStrikeSound() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  // Descending beam whistle (high → low)
-  const osc1 = audioCtx.createOscillator();
-  const g1 = audioCtx.createGain();
-  osc1.type = "sine";
-  osc1.frequency.setValueAtTime(2000, t);
-  osc1.frequency.exponentialRampToValueAtTime(150, t + 0.35);
-  g1.gain.setValueAtTime(0.1, t);
-  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-  osc1.connect(g1);
-  g1.connect(masterGain);
-  osc1.start(t);
-  osc1.stop(t + 0.45);
-  // Impact boom (delayed to match beam arrival)
-  const osc2 = audioCtx.createOscillator();
-  const g2 = audioCtx.createGain();
-  osc2.type = "sine";
-  osc2.frequency.setValueAtTime(100, t + 0.35);
-  osc2.frequency.exponentialRampToValueAtTime(25, t + 0.9);
-  g2.gain.setValueAtTime(0, t);
-  g2.gain.setValueAtTime(0.22, t + 0.35);
-  g2.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
-  osc2.connect(g2);
-  g2.connect(masterGain);
-  osc2.start(t);
-  osc2.stop(t + 1.05);
-  // Shimmer overtone on impact
-  playTone(900 + Math.random() * 300, 0.3, "triangle", 0.04);
-}
-
-let lastPopTime = 0;
-function playFirePop() {
-  if (!audioCtx || audioMuted) return;
-  const t = audioCtx.currentTime;
-  if (t - lastPopTime < 0.08) return;
-  lastPopTime = t;
-  playTone(400 + Math.random() * 300, 0.12, "sine", 0.06);
-}
-
-function playStormSound() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  // deep rumbling bass
-  const bass = audioCtx.createOscillator();
-  const bg = audioCtx.createGain();
-  bass.type = "sawtooth";
-  bass.frequency.setValueAtTime(55, t);
-  bass.frequency.linearRampToValueAtTime(40, t + 2.5);
-  bass.frequency.linearRampToValueAtTime(80, t + 3);
-  bg.gain.setValueAtTime(0, t);
-  bg.gain.linearRampToValueAtTime(0.08, t + 0.3);
-  bg.gain.setValueAtTime(0.08, t + 2.5);
-  bg.gain.linearRampToValueAtTime(0, t + 3.2);
-  bass.connect(bg);
-  bg.connect(masterGain);
-  bass.start(t);
-  bass.stop(t + 3.3);
-  // crackling high noise
-  const noise = audioCtx.createOscillator();
-  const ng = audioCtx.createGain();
-  noise.type = "square";
-  noise.frequency.setValueAtTime(120, t);
-  noise.frequency.linearRampToValueAtTime(200, t + 1.5);
-  noise.frequency.linearRampToValueAtTime(80, t + 3);
-  ng.gain.setValueAtTime(0, t);
-  ng.gain.linearRampToValueAtTime(0.04, t + 0.2);
-  ng.gain.setValueAtTime(0.04, t + 2.6);
-  ng.gain.exponentialRampToValueAtTime(0.001, t + 3.2);
-  noise.connect(ng);
-  ng.connect(masterGain);
-  noise.start(t);
-  noise.stop(t + 3.3);
-}
-
-function playTsunamiSound() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  // deep rushing sweep
-  const osc = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  osc.type = "sawtooth";
-  osc.frequency.setValueAtTime(55, t);
-  osc.frequency.linearRampToValueAtTime(110, t + 0.6);
-  osc.frequency.exponentialRampToValueAtTime(30, t + 1.8);
-  g.gain.setValueAtTime(0, t);
-  g.gain.linearRampToValueAtTime(0.1, t + 0.15);
-  g.gain.setValueAtTime(0.1, t + 1.0);
-  g.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
-  osc.connect(g);
-  g.connect(masterGain);
-  osc.start(t);
-  osc.stop(t + 2.1);
-  // high foamy hiss
-  const hiss = audioCtx.createOscillator();
-  const hg = audioCtx.createGain();
-  hiss.type = "square";
-  hiss.frequency.setValueAtTime(250, t);
-  hiss.frequency.linearRampToValueAtTime(500, t + 0.4);
-  hiss.frequency.exponentialRampToValueAtTime(120, t + 1.8);
-  hg.gain.setValueAtTime(0, t);
-  hg.gain.linearRampToValueAtTime(0.025, t + 0.1);
-  hg.gain.setValueAtTime(0.025, t + 0.8);
-  hg.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
-  hiss.connect(hg);
-  hg.connect(masterGain);
-  hiss.start(t);
-  hiss.stop(t + 2.1);
-}
-
-
-function playColorWaveSound() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  // Rising shimmer arpeggio
-  const notes = [523, 659, 784, 1047];
-  notes.forEach((freq, i) => {
-    const osc = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    osc.type = "sine";
-    osc.frequency.setValueAtTime(freq, t + i * 0.08);
-    g.gain.setValueAtTime(0, t + i * 0.08);
-    g.gain.linearRampToValueAtTime(0.06, t + i * 0.08 + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.08 + 0.5);
-    osc.connect(g);
-    g.connect(masterGain);
-    osc.start(t + i * 0.08);
-    osc.stop(t + i * 0.08 + 0.55);
-  });
-}
-
-
-function generateBolt(x1, y1, x2, y2, segments = LIGHTNING_SEGMENTS) {
-  const points = [{ x: x1, y: y1 }];
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-  const px = -dy / dist;
-  const py = dx / dist;
-  for (let i = 1; i < segments; i++) {
-    const t = i / segments;
-    const jitter = (Math.random() - 0.5) * dist * 0.15;
-    points.push({
-      x: x1 + dx * t + px * jitter,
-      y: y1 + dy * t + py * jitter,
-    });
-  }
-  points.push({ x: x2, y: y2 });
-  return points;
-}
-
-function playShatterAllSound() {
-  if (!ensureAudio() || audioMuted) return;
-  const t = audioCtx.currentTime;
-  // Phase 1: crystallizing crackle (rising high-frequency)
-  const osc1 = audioCtx.createOscillator();
-  const g1 = audioCtx.createGain();
-  osc1.type = "square";
-  osc1.frequency.setValueAtTime(800, t);
-  osc1.frequency.exponentialRampToValueAtTime(3000, t + 0.5);
-  g1.gain.setValueAtTime(0.04, t);
-  g1.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-  osc1.connect(g1);
-  g1.connect(masterGain);
-  osc1.start(t);
-  osc1.stop(t + 0.65);
-  // Phase 2: glass shatter burst (delayed)
-  const osc2 = audioCtx.createOscillator();
-  const g2 = audioCtx.createGain();
-  osc2.type = "sawtooth";
-  osc2.frequency.setValueAtTime(400, t + 0.6);
-  osc2.frequency.exponentialRampToValueAtTime(80, t + 1.2);
-  g2.gain.setValueAtTime(0, t);
-  g2.gain.setValueAtTime(0.2, t + 0.6);
-  g2.gain.exponentialRampToValueAtTime(0.001, t + 1.3);
-  osc2.connect(g2);
-  g2.connect(masterGain);
-  osc2.start(t);
-  osc2.stop(t + 1.35);
-  // High shatter tinkle
-  const osc3 = audioCtx.createOscillator();
-  const g3 = audioCtx.createGain();
-  osc3.type = "triangle";
-  osc3.frequency.setValueAtTime(2000, t + 0.6);
-  osc3.frequency.exponentialRampToValueAtTime(800, t + 1.0);
-  g3.gain.setValueAtTime(0, t);
-  g3.gain.setValueAtTime(0.08, t + 0.6);
-  g3.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
-  osc3.connect(g3);
-  g3.connect(masterGain);
-  osc3.start(t);
-  osc3.stop(t + 1.15);
-}
-
-function randomColor() {
-  return COLORS[Math.floor(Math.random() * COLORS.length)];
-}
-
-function hexToHsl(hex) {
-  let r = parseInt(hex.slice(1, 3), 16) / 255;
-  let g = parseInt(hex.slice(3, 5), 16) / 255;
-  let b = parseInt(hex.slice(5, 7), 16) / 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  let h, s, l = (max + min) / 2;
-  if (max === min) { h = s = 0; }
-  else {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-    else if (max === g) h = ((b - r) / d + 2) / 6;
-    else h = ((r - g) / d + 4) / 6;
-  }
-  return [h * 360, s, l];
-}
-
-function hexAlpha(a) {
-  return Math.min(255, Math.max(0, Math.round(a))).toString(16).padStart(2, "0");
-}
-
-function hslToHex(h, s, l) {
-  h = ((h % 360) + 360) % 360;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n) => {
-    const k = (n + h / 30) % 12;
-    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-    return Math.round(255 * Math.max(0, Math.min(1, color))).toString(16).padStart(2, "0");
-  };
-  return `#${f(0)}${f(8)}${f(4)}`;
-}
-
-// ── Spawn animation ───────────────────────────────────────────────
-const SPAWN_DURATION = 400; // ms for materialization
-
-function easeOutElastic(t) {
-  if (t <= 0) return 0;
-  if (t >= 1) return 1;
-  const p = 0.4;
-  return Math.pow(2, -10 * t) * Math.sin((t - p / 4) * (2 * Math.PI) / p) + 1;
-}
-
-function createOrb(x, y) {
-  const angle = Math.random() * Math.PI * 2;
-  const speed = 0.3 + Math.random() * 0.5;
-  return {
-    id: Date.now() + Math.random(),
-    x,
-    y,
-    vx: Math.cos(angle) * speed,
-    vy: Math.sin(angle) * speed,
-    radius: 8 + Math.random() * 12,
-    color: randomColor(),
-    pulsePhase: Math.random() * Math.PI * 2,
-    polarity: Math.random() < 0.5 ? 1 : -1,
-    born: performance.now(),
-  };
-}
-
-let eruptionGravityTag = 0; // tag to safely cancel eruption's temporary gravity
 
 function App() {
   const canvasRef = useRef(null);
@@ -1015,6 +119,7 @@ function App() {
   const tapWavesRef = useRef([]); // concentric pulse waves from taps [{x, y, born, color, streak}]
   const shatterRef = useRef([]); // chain-shatter waves [{x, y, radius, generation, hitOrbs, color, delay}]
   const fountainsRef = useRef([]); // persistent orb spawners [{x, y, color, born, lastSpawn}]
+  const cometsRef = useRef([]); // active comets [{x, y, vx, vy, color, born, lastSpawn, spawned, trail}]
   const auroraActivityRef = useRef(0); // smoothed aurora intensity (0-1)
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
@@ -1046,6 +151,7 @@ function App() {
   const gravityDotsRef = useRef([]);
   const dominoRef = useRef(null); // {queue, index, nextTime, respawnCount, phase}
   const longPressRef = useRef(null);
+  const [paletteIndex, setPaletteIndex] = useState(0);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const streakRef = useRef(0);
   const lastTapTimeRef = useRef(0);
@@ -5621,6 +4727,28 @@ function App() {
     }
   }, []);
 
+  const handleCyclePalette = useCallback(() => {
+    setPaletteIndex(prev => {
+      const next = (prev + 1) % PALETTES.length;
+      const palette = PALETTES[next];
+      // Mutate COLORS array in place so all modules see the change
+      COLORS.length = 0;
+      COLORS.push(...palette.colors);
+      // Mutate NEBULA_COLORS_RGB in place
+      NEBULA_COLORS_RGB.length = 0;
+      NEBULA_COLORS_RGB.push(...palette.nebula);
+      // Recolor existing orbs
+      for (const orb of orbsRef.current) {
+        orb.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+      }
+      // Recolor motes
+      for (const m of motesRef.current) {
+        m.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+      }
+      return next;
+    });
+  }, []);
+
   const handleBurst = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -5871,6 +4999,35 @@ function App() {
     playSupernovaSound();
   }, []);
 
+  const handleComet = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const edge = Math.floor(Math.random() * 4);
+    let startX, startY, angle;
+    switch (edge) {
+      case 0: startX = W * 0.1 + Math.random() * W * 0.8; startY = -20;
+        angle = Math.PI * 0.25 + Math.random() * Math.PI * 0.5; break;
+      case 1: startX = W + 20; startY = H * 0.1 + Math.random() * H * 0.8;
+        angle = Math.PI * 0.75 + Math.random() * Math.PI * 0.5; break;
+      case 2: startX = W * 0.1 + Math.random() * W * 0.8; startY = H + 20;
+        angle = -Math.PI * 0.75 + Math.random() * Math.PI * 0.5; break;
+      default: startX = -20; startY = H * 0.1 + Math.random() * H * 0.8;
+        angle = -Math.PI * 0.25 + Math.random() * Math.PI * 0.5; break;
+    }
+    cometsRef.current.push({
+      x: startX, y: startY,
+      vx: Math.cos(angle) * COMET_SPEED,
+      vy: Math.sin(angle) * COMET_SPEED,
+      color: randomColor(),
+      born: performance.now(),
+      lastSpawn: performance.now(),
+      spawned: 0,
+      trail: [],
+    });
+    shakeRef.current = 6;
+    playCometSound();
+  }, []);
+
   const handleBlackHole = useCallback(() => {
     // toggle: if one exists, remove it
     if (blackHoleRef.current) {
@@ -6054,6 +5211,10 @@ function App() {
         case "j":
           handleLongExposure();
           break;
+        case "y":
+          handleCyclePalette();
+          flashLabel(PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), "#f093fb");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -6061,7 +5222,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleRewind, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6126,6 +5287,7 @@ function App() {
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {longExposure && <ModePill $color="#feb47b">long exposure</ModePill>}
           {autoPlay && <ModePill $color="#43e97b">autoplay</ModePill>}
+          {paletteIndex !== 0 && <ModePill $color="#f093fb">{PALETTES[paletteIndex].name.toLowerCase()}</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -6183,6 +5345,11 @@ function App() {
               <circle cx="12" cy="12" r="2" fill="currentColor" />
               <path d="M12 12c2-4 7-5 8-1s-3 6-7 5" />
               <path d="M12 12c-2 4-7 5-8 1s3-6 7-5" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={() => { handleCyclePalette(); const W = window.innerWidth; const H = window.innerHeight; comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" }); }} title={`Palette: ${PALETTES[paletteIndex].name} (Y)`} $highlight>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -6313,6 +5480,7 @@ function App() {
               <Shortcut><Key>J</Key><span>Long exposure (trail mode)</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Autoplay (ambient mode)</span></Shortcut>
               <Shortcut><Key>K</Key><span>Save screenshot</span></Shortcut>
+              <Shortcut><Key>Y</Key><span>Cycle color palette</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all orbs</span></Shortcut>
               <Shortcut><Key>?</Key><span>Toggle this help</span></Shortcut>
@@ -6324,415 +5492,5 @@ function App() {
     </Wrapper>
   );
 }
-
-const Wrapper = styled.div`
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-  background: #0f0f1a;
-`;
-
-const Canvas = styled.canvas`
-  display: block;
-  width: 100%;
-  height: 100%;
-  cursor: crosshair;
-  touch-action: none;
-`;
-
-const HUD = styled.div`
-  position: fixed;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
-  pointer-events: none;
-  user-select: none;
-`;
-
-const Title = styled.h1`
-  font-size: 1.1rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  margin: 0 0 6px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-`;
-
-const Hint = styled.p`
-  font-size: 0.75rem;
-  color: rgba(160, 160, 184, 0.6);
-  margin: 0 0 4px;
-`;
-
-const Count = styled.p`
-  font-size: 0.7rem;
-  color: rgba(102, 126, 234, 0.5);
-  margin: 0;
-  font-variant-numeric: tabular-nums;
-`;
-
-const ModeIndicators = styled.div`
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-top: 8px;
-`;
-
-const ModePill = styled.span`
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 0.65rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: ${(p) => p.$color};
-  border: 1px solid ${(p) => p.$color}44;
-  background: ${(p) => p.$color}18;
-  animation: pillIn 0.2s ease;
-
-  @keyframes pillIn {
-    from { opacity: 0; transform: scale(0.8); }
-    to { opacity: 1; transform: scale(1); }
-  }
-`;
-
-const streakPop = keyframes`
-  0% { transform: scale(0.5); opacity: 0; }
-  30% { transform: scale(1.3); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
-`;
-
-const StreakCounter = styled.div`
-  font-size: ${(p) => Math.min(1.4 + p.$streak * 0.15, 3.2)}rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  margin-top: 8px;
-  background: linear-gradient(
-    135deg,
-    ${(p) => p.$streak >= 8 ? "#fa709a" : p.$streak >= 5 ? "#f093fb" : "#4facfe"},
-    ${(p) => p.$streak >= 8 ? "#feb47b" : p.$streak >= 5 ? "#667eea" : "#43e97b"}
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: ${streakPop} 0.25s ease-out;
-  text-shadow: none;
-  filter: drop-shadow(0 0 ${(p) => Math.min(4 + p.$streak * 2, 20)}px ${(p) => p.$streak >= 8 ? "rgba(250, 112, 154, 0.6)" : p.$streak >= 5 ? "rgba(240, 147, 251, 0.5)" : "rgba(79, 172, 254, 0.4)"});
-`;
-
-const nextComboFade = keyframes`
-  0% { opacity: 0; transform: translateY(-4px); }
-  100% { opacity: 1; transform: translateY(0); }
-`;
-
-const NextCombo = styled.div`
-  font-size: 0.65rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  color: rgba(160, 160, 184, 0.45);
-  margin-top: 2px;
-  animation: ${nextComboFade} 0.2s ease-out;
-
-  &::before {
-    content: "next → ";
-    opacity: 0.6;
-  }
-`;
-
-const ButtonGroup = styled.div`
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-
-  @media (max-width: 600px) {
-    bottom: 16px;
-    right: 50%;
-    transform: translateX(50%);
-    align-items: center;
-  }
-`;
-
-const ButtonRow = styled.div`
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-
-  @media (max-width: 600px) {
-    gap: 8px;
-    justify-content: center;
-    max-width: calc(100vw - 32px);
-  }
-`;
-
-const ActionButton = styled.button`
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: 1px solid ${(p) => p.$active ? "rgba(67, 233, 123, 0.6)" : p.$highlight ? "rgba(251, 191, 36, 0.4)" : p.$danger ? "rgba(250, 112, 154, 0.3)" : "rgba(102, 126, 234, 0.3)"};
-  background: ${(p) => p.$active ? "rgba(67, 233, 123, 0.15)" : p.$highlight ? "rgba(251, 191, 36, 0.1)" : "rgba(15, 15, 26, 0.7)"};
-  color: ${(p) => p.$active ? "#43e97b" : p.$highlight ? "rgba(251, 191, 36, 0.85)" : p.$danger ? "rgba(250, 112, 154, 0.7)" : "rgba(102, 126, 234, 0.7)"};
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(8px);
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: ${(p) => p.$danger ? "rgba(250, 112, 154, 0.15)" : "rgba(102, 126, 234, 0.15)"};
-    color: ${(p) => p.$danger ? "#fa709a" : "#667eea"};
-    border-color: ${(p) => p.$danger ? "rgba(250, 112, 154, 0.6)" : "rgba(102, 126, 234, 0.6)"};
-    transform: scale(1.1);
-  }
-
-  &:active {
-    transform: scale(0.95);
-  }
-
-  @media (max-width: 600px) {
-    width: 44px;
-    height: 44px;
-  }
-`;
-
-const HelpButton = styled.button`
-  position: fixed;
-  top: 24px;
-  right: 24px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid rgba(102, 126, 234, 0.3);
-  background: rgba(15, 15, 26, 0.7);
-  color: rgba(102, 126, 234, 0.7);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(8px);
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: rgba(102, 126, 234, 0.15);
-    color: #667eea;
-    border-color: rgba(102, 126, 234, 0.6);
-    transform: scale(1.1);
-  }
-
-  @media (max-width: 600px) {
-    top: 16px;
-    right: 16px;
-    width: 32px;
-    height: 32px;
-  }
-`;
-
-const MuteButton = styled.button`
-  position: fixed;
-  top: 24px;
-  right: 68px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid ${(p) => p.$muted ? "rgba(250, 112, 154, 0.4)" : "rgba(102, 126, 234, 0.3)"};
-  background: ${(p) => p.$muted ? "rgba(250, 112, 154, 0.1)" : "rgba(15, 15, 26, 0.7)"};
-  color: ${(p) => p.$muted ? "rgba(250, 112, 154, 0.8)" : "rgba(102, 126, 234, 0.7)"};
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(8px);
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: ${(p) => p.$muted ? "rgba(250, 112, 154, 0.2)" : "rgba(102, 126, 234, 0.15)"};
-    color: ${(p) => p.$muted ? "#fa709a" : "#667eea"};
-    transform: scale(1.1);
-  }
-
-  @media (max-width: 600px) {
-    top: 16px;
-    right: 56px;
-    width: 32px;
-    height: 32px;
-  }
-`;
-
-const ExposureButton = styled.button`
-  position: fixed;
-  top: 24px;
-  right: 156px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid ${(p) => p.$active ? "rgba(254, 180, 123, 0.6)" : "rgba(102, 126, 234, 0.3)"};
-  background: ${(p) => p.$active ? "rgba(254, 180, 123, 0.15)" : "rgba(15, 15, 26, 0.7)"};
-  color: ${(p) => p.$active ? "#feb47b" : "rgba(102, 126, 234, 0.7)"};
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(8px);
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: rgba(254, 180, 123, 0.15);
-    color: #feb47b;
-    border-color: rgba(254, 180, 123, 0.6);
-    transform: scale(1.1);
-  }
-
-  @media (max-width: 600px) {
-    top: 16px;
-    right: 136px;
-    width: 32px;
-    height: 32px;
-  }
-`;
-
-const SaveButton = styled.button`
-  position: fixed;
-  top: 24px;
-  right: 112px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid rgba(102, 126, 234, 0.3);
-  background: rgba(15, 15, 26, 0.7);
-  color: rgba(102, 126, 234, 0.7);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  backdrop-filter: blur(8px);
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: rgba(102, 126, 234, 0.15);
-    color: #667eea;
-    border-color: rgba(102, 126, 234, 0.6);
-    transform: scale(1.1);
-  }
-
-  @media (max-width: 600px) {
-    top: 16px;
-    right: 96px;
-    width: 32px;
-    height: 32px;
-  }
-`;
-
-const SaveFlash = styled.div`
-  position: fixed;
-  inset: 0;
-  background: rgba(255, 255, 255, 0.15);
-  pointer-events: none;
-  z-index: 200;
-  animation: flashFade 0.4s ease-out forwards;
-
-  @keyframes flashFade {
-    from { opacity: 1; }
-    to { opacity: 0; }
-  }
-`;
-
-const HelpOverlay = styled.div`
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  backdrop-filter: blur(4px);
-  animation: fadeIn 0.15s ease;
-
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-`;
-
-const HelpPanel = styled.div`
-  background: rgba(20, 20, 36, 0.95);
-  border: 1px solid rgba(102, 126, 234, 0.3);
-  border-radius: 16px;
-  padding: 28px 32px;
-  max-width: 340px;
-  width: calc(100vw - 48px);
-  backdrop-filter: blur(12px);
-`;
-
-const HelpTitle = styled.h2`
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0 0 16px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  text-align: center;
-`;
-
-const ShortcutList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-
-  hr {
-    border: none;
-    border-top: 1px solid rgba(102, 126, 234, 0.15);
-    margin: 4px 0;
-  }
-`;
-
-const Shortcut = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 0.8rem;
-  color: rgba(160, 160, 184, 0.8);
-`;
-
-const Key = styled.span`
-  display: inline-block;
-  min-width: 56px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid rgba(102, 126, 234, 0.25);
-  background: rgba(102, 126, 234, 0.08);
-  color: rgba(102, 126, 234, 0.9);
-  font-size: 0.75rem;
-  font-family: inherit;
-  text-align: center;
-`;
-
-const HelpClose = styled.button`
-  display: block;
-  width: 100%;
-  margin-top: 20px;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(102, 126, 234, 0.3);
-  background: rgba(102, 126, 234, 0.1);
-  color: rgba(102, 126, 234, 0.8);
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: rgba(102, 126, 234, 0.2);
-    color: #667eea;
-  }
-`;
 
 export default App;
