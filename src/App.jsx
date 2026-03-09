@@ -5393,30 +5393,81 @@ function App() {
     shakeRef.current = 8;
   }, []);
 
-  const handleFireworkShow = useCallback(() => {
+  const handleRicochet = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
-    const count = 5;
-    for (let burst = 0; burst < count; burst++) {
+    const margin = 5;
+
+    // Start from a random edge with an inward angle
+    const edge = Math.floor(Math.random() * 4);
+    let x, y, dvx, dvy;
+    if (edge === 0) { // left
+      x = margin; y = H * 0.2 + Math.random() * H * 0.6;
+      const a = -0.4 + Math.random() * 0.8;
+      dvx = Math.cos(a); dvy = Math.sin(a);
+    } else if (edge === 1) { // right
+      x = W - margin; y = H * 0.2 + Math.random() * H * 0.6;
+      const a = Math.PI - 0.4 + Math.random() * 0.8;
+      dvx = Math.cos(a); dvy = Math.sin(a);
+    } else if (edge === 2) { // top
+      x = W * 0.2 + Math.random() * W * 0.6; y = margin;
+      const a = Math.PI / 2 - 0.4 + Math.random() * 0.8;
+      dvx = Math.cos(a); dvy = Math.sin(a);
+    } else { // bottom
+      x = W * 0.2 + Math.random() * W * 0.6; y = H - margin;
+      const a = -Math.PI / 2 - 0.4 + Math.random() * 0.8;
+      dvx = Math.cos(a); dvy = Math.sin(a);
+    }
+
+    // Pre-calculate bounce points via ray casting
+    const points = [{ x, y }];
+    let cx = x, cy = y;
+    for (let bounce = 0; bounce < 6; bounce++) {
+      const tLeft = dvx < 0 ? (margin - cx) / dvx : Infinity;
+      const tRight = dvx > 0 ? (W - margin - cx) / dvx : Infinity;
+      const tTop = dvy < 0 ? (margin - cy) / dvy : Infinity;
+      const tBottom = dvy > 0 ? (H - margin - cy) / dvy : Infinity;
+      const t = Math.min(tLeft, tRight, tTop, tBottom);
+      if (!isFinite(t) || t <= 0) break;
+      cx += dvx * t;
+      cy += dvy * t;
+      if (t === tLeft || t === tRight) dvx = -dvx;
+      else dvy = -dvy;
+      points.push({ x: cx, y: cy });
+    }
+
+    // Stagger bursts at each bounce point with lightning connectors
+    points.forEach((pt, i) => {
       setTimeout(() => {
-        const launchX = W * 0.1 + (burst / (count - 1)) * W * 0.8;
-        const peakY = H * 0.1 + Math.random() * H * 0.2;
-        const orbCount = 8;
-        const now = performance.now();
-        for (let i = 0; i < orbCount; i++) {
-          const angle = (Math.PI * 2 * i) / orbCount + Math.random() * 0.3;
-          const orb = createOrb(launchX, H);
-          orb.radius = 5 + Math.random() * 6;
-          orb.vx = Math.cos(angle) * (1.5 + Math.random() * 1.5);
-          orb.vy = -(H - peakY) / 60 + Math.sin(angle) * (1 + Math.random());
+        const isLast = i === points.length - 1;
+        const count = isLast ? 6 : 3;
+        for (let j = 0; j < count; j++) {
+          const a = (Math.PI * 2 * j) / count + Math.random() * 0.4;
+          const speed = isLast ? 3 + Math.random() * 4 : 1.5 + Math.random() * 2.5;
+          const orb = createOrb(pt.x, pt.y);
+          orb.radius = isLast ? 6 + Math.random() * 7 : 4 + Math.random() * 5;
+          orb.vx = Math.cos(a) * speed;
+          orb.vy = Math.sin(a) * speed;
           orbsRef.current.push(orb);
-          ripplesRef.current.push({ x: launchX, y: H, color: orb.color, born: now });
         }
         setOrbCount(orbsRef.current.length);
-        shakeRef.current = Math.max(shakeRef.current, 8);
+        const now = performance.now();
+        ripplesRef.current.push({ x: pt.x, y: pt.y, color: randomColor(), born: now });
+
+        // Draw lightning bolt connecting to previous bounce point
+        if (i > 0) {
+          const prev = points[i - 1];
+          lightningRef.current.push({
+            bolts: [generateBolt(prev.x, prev.y, pt.x, pt.y)],
+            sparks: [],
+            born: now,
+          });
+        }
+
+        shakeRef.current = Math.max(shakeRef.current, isLast ? 14 : 6);
         playBurstSound();
-      }, burst * 300);
-    }
+      }, i * 150);
+    });
   }, []);
 
   const handleVolley = useCallback(() => {
@@ -5756,7 +5807,7 @@ function App() {
     const orbs = orbsRef.current;
     const alwaysAvailable = [
       [handleBurst, "BURST"], [handleMeteorShower, "METEOR SHOWER"], [handleFirework, "FIREWORK"],
-      [handleFireworkShow, "FIREWORK SHOW"], [handleGalaxy, "GALAXY"], [handleVolley, "BARRAGE"],
+      [handleRicochet, "RICOCHET"], [handleGalaxy, "GALAXY"], [handleVolley, "BARRAGE"],
       [handleCrossfire, "CROSSFIRE"], [handleTidalPulse, "TIDAL PULSE"],
     ];
     const needsOrbs = [
@@ -5770,7 +5821,7 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     comboFlashRef.current.push({ text: label, x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" });
-  }, [handleBurst, handleMeteorShower, handleFirework, handleFireworkShow, handleGalaxy, handleVolley, handleCrossfire, handleTidalPulse, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom]);
+  }, [handleBurst, handleMeteorShower, handleFirework, handleRicochet, handleGalaxy, handleVolley, handleCrossfire, handleTidalPulse, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleMaelstrom]);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -5902,8 +5953,8 @@ function App() {
           flashLabel("BARRAGE", "#43e97b");
           break;
         case "4":
-          handleFireworkShow();
-          flashLabel("FIREWORK SHOW", "#fa709a");
+          handleRicochet();
+          flashLabel("RICOCHET", "#fa709a");
           break;
         case "9":
           handleCrossfire();
@@ -5924,7 +5975,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleFireworkShow, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleGalaxy, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRicochet, handleVolley, handleCrossfire, handleTidalPulse, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleMaelstrom, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6045,20 +6096,12 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleFireworkShow} title="Firework show">
+          <ActionButton onClick={handleRicochet} title="Ricochet">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="6" y1="22" x2="6" y2="14" />
-              <line x1="6" y1="10" x2="3" y2="7" />
-              <line x1="6" y1="10" x2="9" y2="7" />
-              <line x1="6" y1="10" x2="6" y2="6" />
-              <line x1="18" y1="22" x2="18" y2="12" />
-              <line x1="18" y1="8" x2="15" y2="5" />
-              <line x1="18" y1="8" x2="21" y2="5" />
-              <line x1="18" y1="8" x2="18" y2="4" />
-              <line x1="12" y1="22" x2="12" y2="16" />
-              <line x1="12" y1="12" x2="9" y2="9" />
-              <line x1="12" y1="12" x2="15" y2="9" />
-              <line x1="12" y1="12" x2="12" y2="8" />
+              <polyline points="2 20 8 8 16 18 22 4" />
+              <circle cx="22" cy="4" r="2" fill="currentColor" />
+              <circle cx="8" cy="8" r="1.5" fill="currentColor" opacity="0.6" />
+              <circle cx="16" cy="18" r="1.5" fill="currentColor" opacity="0.6" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleBlackHole} title="Black hole">
@@ -6184,7 +6227,7 @@ function App() {
               <Shortcut><Key>U</Key><span>Maelstrom (spiral + release)</span></Shortcut>
               <Shortcut><Key>I</Key><span>Galaxy spiral</span></Shortcut>
               <Shortcut><Key>T</Key><span>Barrage (volley from edge)</span></Shortcut>
-              <Shortcut><Key>4</Key><span>Firework show (multi-launch)</span></Shortcut>
+              <Shortcut><Key>4</Key><span>Ricochet (bouncing burst)</span></Shortcut>
               <Shortcut><Key>9</Key><span>Crossfire (all edges converge)</span></Shortcut>
               <Shortcut><Key>0</Key><span>Tidal pulse (inhale → exhale)</span></Shortcut>
               <Shortcut><Key>2</Key><span>Black hole (absorbs orbs, explodes)</span></Shortcut>
