@@ -123,6 +123,7 @@ function App() {
   const cometsRef = useRef([]); // active comets [{x, y, vx, vy, color, born, lastSpawn, spawned, trail}]
   const auroraActivityRef = useRef(0); // smoothed aurora intensity (0-1)
   const auroraFlareRef = useRef(0); // slow-decay energy from explosions (0-1)
+  const systemEnergyRef = useRef(0); // smoothed total kinetic energy (0-1)
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -4441,12 +4442,52 @@ function App() {
         }
       }
 
-      // draw vignette overlay for cinematic depth
+      // ── System energy: total kinetic energy drives atmosphere reactivity ──
+      let rawEnergy = 0;
+      for (const orb of orbs) {
+        const speed2 = orb.vx * orb.vx + orb.vy * orb.vy;
+        rawEnergy += orb.radius * speed2;
+      }
+      const energyTarget = Math.min(rawEnergy / 600, 1);
+      systemEnergyRef.current += (energyTarget - systemEnergyRef.current) * 0.03;
+      const energy = systemEnergyRef.current;
+
+      // draw vignette overlay for cinematic depth — energy-reactive
+      const vignetteAlpha = 0.4 - energy * 0.15;
       const vignetteGrad = ctx.createRadialGradient(W / 2, H / 2, W * 0.25, W / 2, H / 2, W * 0.75);
       vignetteGrad.addColorStop(0, "transparent");
-      vignetteGrad.addColorStop(1, "rgba(0, 0, 0, 0.4)");
+      vignetteGrad.addColorStop(1, `rgba(0, 0, 0, ${vignetteAlpha.toFixed(3)})`);
       ctx.fillStyle = vignetteGrad;
       ctx.fillRect(0, 0, W, H);
+
+      // energy glow: warm ambient light at center during high energy
+      if (energy > 0.1) {
+        const glowAlpha = (energy - 0.1) * 0.06;
+        const glowGrad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.5);
+        glowGrad.addColorStop(0, `rgba(100, 80, 140, ${glowAlpha.toFixed(4)})`);
+        glowGrad.addColorStop(1, "transparent");
+        ctx.fillStyle = glowGrad;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // streak energy vignette: colored edge glow during active combos
+      const streakLevel = streakRef.current;
+      if (streakLevel >= 3) {
+        const streakT = Math.min((streakLevel - 3) / 22, 1);
+        const pulse = 0.8 + 0.2 * Math.sin(now / Math.max(200 - streakLevel * 6, 80));
+        let sr, sg, sb;
+        if (streakLevel >= 20) { sr = 240; sg = 147; sb = 251; }
+        else if (streakLevel >= 16) { sr = 67; sg = 233; sb = 123; }
+        else if (streakLevel >= 12) { sr = 79; sg = 172; sb = 254; }
+        else if (streakLevel >= 8) { sr = 250; sg = 112; sb = 154; }
+        else { sr = 102; sg = 126; sb = 234; }
+        const edgeAlpha = (0.05 + streakT * 0.2) * pulse;
+        const edgeGrad = ctx.createRadialGradient(W / 2, H / 2, W * 0.3, W / 2, H / 2, W * 0.7);
+        edgeGrad.addColorStop(0, "transparent");
+        edgeGrad.addColorStop(1, `rgba(${sr}, ${sg}, ${sb}, ${edgeAlpha.toFixed(3)})`);
+        ctx.fillStyle = edgeGrad;
+        ctx.fillRect(0, 0, W, H);
+      }
 
       // restore shake transform
       if (shake > 0.5) {
