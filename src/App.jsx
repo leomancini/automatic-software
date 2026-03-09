@@ -6976,23 +6976,14 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleEruption} title="Eruption">
+          <ActionButton onClick={handleRandomEffect} title="Surprise">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22v-4" />
-              <path d="M12 14V2" />
-              <path d="M8 6l-3 8" />
-              <path d="M16 6l3 8" />
-              <path d="M5 18c2-2 5-3 7-3s5 1 7 3" />
-              <circle cx="12" cy="4" r="1.5" fill="currentColor" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleBlackHole} title="Black hole">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="4" fill="currentColor" />
-              <circle cx="12" cy="12" r="8" opacity="0.4" />
-              <circle cx="12" cy="12" r="11" opacity="0.15" />
-              <path d="M4 12 C4 6, 12 4, 12 4" opacity="0.5" />
-              <path d="M20 12 C20 18, 12 20, 12 20" opacity="0.5" />
+              <rect x="3" y="3" width="18" height="18" rx="3" />
+              <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
+              <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              <circle cx="8.5" cy="15.5" r="1.5" fill="currentColor" />
+              <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleShowtime} title="Showtime">
