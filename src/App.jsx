@@ -6662,6 +6662,20 @@ function App() {
   }, []);
 
 
+  const handleShowtime = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    comboFlashRef.current.push({ text: "SHOWTIME", x: W / 2, y: H / 2, born: performance.now(), color: "#fbbf24" });
+
+    // Choreographed chain of the most popular effects
+    handleBurst();
+    setTimeout(() => handleWave(), 350);
+    setTimeout(() => handleFirework(), 700);
+    setTimeout(() => { handleFirework(); handleWave(); }, 1100);
+    setTimeout(() => handleMeteorShower(), 1500);
+    setTimeout(() => handleSupernova(), 2100);
+  }, [handleBurst, handleWave, handleFirework, handleMeteorShower, handleSupernova]);
+
   const handleRandomEffect = useCallback(() => {
     const orbs = orbsRef.current;
     const alwaysAvailable = [
@@ -6826,6 +6840,9 @@ function App() {
         case "3":
           handleTrailsMode();
           break;
+        case "4":
+          handleShowtime();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -6833,7 +6850,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, handleTrailsMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleRandomEffect, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleEruption, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, handleTrailsMode, handleShowtime, paletteIndex, setShowHelp]);
 
   // ── Autoplay timer ──
   useEffect(() => {
@@ -6976,6 +6993,12 @@ function App() {
               <circle cx="12" cy="12" r="11" opacity="0.15" />
               <path d="M4 12 C4 6, 12 4, 12 4" opacity="0.5" />
               <path d="M20 12 C20 18, 12 20, 12 20" opacity="0.5" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleShowtime} title="Showtime">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor" opacity="0.3" />
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -7132,6 +7155,7 @@ function App() {
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>3</Key><span>Trails mode (orb paths)</span></Shortcut>
+              <Shortcut><Key>4</Key><span>Showtime (grand finale chain)</span></Shortcut>
               <Shortcut><Key>I</Key><span>Kaleidoscope mirror</span></Shortcut>
               <Shortcut><Key>J</Key><span>Long exposure (trail mode)</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Autoplay (ambient mode)</span></Shortcut>
