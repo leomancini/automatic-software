@@ -32,7 +32,7 @@ import {
   TORNADO_DURATION, TORNADO_RADIUS, TORNADO_PULL, TORNADO_SPIN_FORCE,
   TORNADO_FLING_SPEED, TORNADO_DEBRIS_MAX,
   STREAK_WINDOW, STREAK_DECAY_DELAY, STREAK_FIREWORK, STREAK_LIGHTNING,
-  STREAK_METEOR, STREAK_SUPERNOVA, COMBO_FLASH_DURATION,
+  STREAK_METEOR, STREAK_SUPERNOVA, STREAK_CASCADE, COMBO_FLASH_DURATION,
   STRIKE_BEAM_MS, STRIKE_FADE_MS, STRIKE_ORB_COUNT, STRIKE_ORB_SPEED, STRIKE_BEAM_WIDTH,
   IGNITE_SPREAD_DIST, IGNITE_BURN_MS, IGNITE_SPARK_COUNT, IGNITE_SPARK_SPEED,
   IGNITE_SPREAD_CHANCE, EMBER_LIFETIME,
@@ -696,6 +696,41 @@ function App() {
         supernovaRef.current = { cx: pos.x, cy: pos.y, born: now, phase: "implode" };
         playSupernovaSound();
         comboFlashRef.current.push({ text: "SUPERNOVA!", x: pos.x, y: pos.y - 40, born: now, color: "#f093fb" });
+      }
+
+      if (streak === STREAK_CASCADE) {
+        // Cosmic Cascade: every orb splits into 3 with radial velocity
+        const currentOrbs = [...orbsRef.current];
+        const newOrbs = [];
+        for (const o of currentOrbs) {
+          const baseAngle = Math.random() * Math.PI * 2;
+          for (let i = 0; i < 2; i++) {
+            const angle = baseAngle + (Math.PI * 2 * (i + 1)) / 3;
+            const spd = 3 + Math.random() * 4;
+            const child = createOrb(o.x, o.y);
+            child.radius = Math.max(4, o.radius * 0.6);
+            child.color = o.color;
+            child.vx = o.vx * 0.5 + Math.cos(angle) * spd;
+            child.vy = o.vy * 0.5 + Math.sin(angle) * spd;
+            newOrbs.push(child);
+            ripplesRef.current.push({ x: o.x, y: o.y, color: o.color, born: now });
+          }
+          // Original orb also gets a kick
+          const kickAngle = baseAngle;
+          o.vx += Math.cos(kickAngle) * 4;
+          o.vy += Math.sin(kickAngle) * 4;
+          o.radius = Math.max(4, o.radius * 0.6);
+        }
+        orbsRef.current.push(...newOrbs);
+        // Massive shockwave from tap point
+        wavesRef.current.push({ cx: pos.x, cy: pos.y, radius: 0, color: "#f093fb", generation: 0, hitOrbs: new Set(), delay: 0 });
+        wavesRef.current.push({ cx: pos.x, cy: pos.y, radius: 0, color: "#4facfe", generation: 0, hitOrbs: new Set(), delay: 4 });
+        wavesRef.current.push({ cx: pos.x, cy: pos.y, radius: 0, color: "#43e97b", generation: 0, hitOrbs: new Set(), delay: 8 });
+        shakeRef.current = Math.max(shakeRef.current, 30);
+        playSupernovaSound();
+        playBoom();
+        comboFlashRef.current.push({ text: "COSMIC CASCADE!", x: pos.x, y: pos.y - 40, born: now, color: "#fbbf24" });
+        setOrbCount(orbsRef.current.length);
       }
 
       // ── Tap pulse wave — concentric ripples from every tap ──
@@ -5657,6 +5692,7 @@ function App() {
                streakDisplay < 16 ? `${STREAK_LIGHTNING}x lightning` :
                streakDisplay < 20 ? `${STREAK_METEOR}x meteors` :
                streakDisplay < 25 ? `${STREAK_SUPERNOVA}x supernova` :
+               streakDisplay < 30 ? `${STREAK_CASCADE}x cascade` :
                "MAX COMBO"}
             </NextCombo>
           </>
