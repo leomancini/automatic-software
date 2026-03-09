@@ -6766,6 +6766,10 @@ function App() {
         case "t":
           handleAttractMode();
           break;
+        case "2":
+          handleEruption();
+          flashLabel("ERUPTION", "#feb47b");
+          break;
         case "0":
           handleBlackHole();
           flashLabel("BLACK HOLE", "#a855f7");
@@ -6900,6 +6904,16 @@ function App() {
               <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
               <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleEruption} title="Eruption">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22v-4" />
+              <path d="M12 14V2" />
+              <path d="M8 6l-3 8" />
+              <path d="M16 6l3 8" />
+              <path d="M5 18c2-2 5-3 7-3s5 1 7 3" />
+              <circle cx="12" cy="4" r="1.5" fill="currentColor" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleBlackHole} title="Black hole">
@@ -7046,6 +7060,7 @@ function App() {
               <Shortcut><Key>E</Key><span>Supernova (implode + explode)</span></Shortcut>
               <Shortcut><Key>T</Key><span>Attract mode (cursor pulls orbs)</span></Shortcut>
               <Shortcut><Key>0</Key><span>Black hole (absorbs → explodes)</span></Shortcut>
+              <Shortcut><Key>2</Key><span>Eruption (volcanic geyser)</span></Shortcut>
               <Shortcut><Key>1</Key><span>Random effect (surprise!)</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>C</Key><span>Gather to center</span></Shortcut>
