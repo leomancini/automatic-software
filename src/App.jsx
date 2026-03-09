@@ -107,6 +107,7 @@ function App() {
   const portalsRef = useRef([]);
   const meteorTrailsRef = useRef([]);
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
+  const bloomRef = useRef(null); // offscreen canvas for bloom post-process
   const supernovaRef = useRef(null); // active supernova {cx, cy, born, phase}
   const maelstromRef = useRef(null); // active maelstrom {cx, cy, born, phase}
   const shatterAllRef = useRef(null); // active shatter-all {born, phase, frozenOrbs}
@@ -4553,6 +4554,33 @@ function App() {
         ctx.restore();
       }
 
+      // ── Cinematic bloom post-process ──
+      // Downscale to 1/4 res, blur, composite back with additive blending.
+      // Intensity scales with scene energy so explosions bloom dramatically.
+      {
+        if (!bloomRef.current) {
+          bloomRef.current = document.createElement('canvas');
+          bloomRef.current._ctx = bloomRef.current.getContext('2d');
+        }
+        const bc = bloomRef.current;
+        const bctx = bc._ctx;
+        const bw = Math.ceil(W / 4);
+        const bh = Math.ceil(H / 4);
+        if (bc.width !== bw) bc.width = bw;
+        if (bc.height !== bh) bc.height = bh;
+        bctx.clearRect(0, 0, bw, bh);
+        bctx.filter = 'blur(4px)';
+        bctx.drawImage(canvas, 0, 0, bw, bh);
+        bctx.filter = 'none';
+        const energy = systemEnergyRef.current;
+        const bloomAlpha = 0.06 + energy * 0.16 + Math.min(shake * 0.008, 0.06);
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = bloomAlpha;
+        ctx.drawImage(bc, 0, 0, W, H);
+        ctx.restore();
+      }
+
       } catch (err) {
         console.error("draw error:", err);
       }
@@ -5074,10 +5102,14 @@ function App() {
   }, []);
 
   const handleToggleAudio = useCallback(() => {
-    setAudioEnabled((prev) => {
-      setAudioMuted(prev);
-      return !prev;
-    });
+    try {
+      setAudioEnabled((prev) => {
+        setAudioMuted(prev);
+        return !prev;
+      });
+    } catch (err) {
+      console.error("handleToggleAudio error:", err);
+    }
   }, []);
 
   const handlePlaceWell = useCallback(() => {
