@@ -8121,14 +8121,12 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     const now = performance.now();
-    const count = 6;
-    const cy = H / 2;
-    const spread = H * 0.35;
+    const count = 4; // per edge
     const speed = 5 + Math.random() * 3;
 
     // Left volley → heading right
     for (let i = 0; i < count; i++) {
-      const y = cy - spread / 2 + (spread * i) / (count - 1);
+      const y = H * 0.25 + (H * 0.5 * i) / (count - 1);
       const orb = createOrb(-10, y);
       orb.vx = speed + Math.random() * 2;
       orb.vy = (Math.random() - 0.5) * 1.5;
@@ -8139,7 +8137,7 @@ function App() {
 
     // Right volley → heading left
     for (let i = 0; i < count; i++) {
-      const y = cy - spread / 2 + (spread * i) / (count - 1);
+      const y = H * 0.25 + (H * 0.5 * i) / (count - 1);
       const orb = createOrb(W + 10, y);
       orb.vx = -(speed + Math.random() * 2);
       orb.vy = (Math.random() - 0.5) * 1.5;
@@ -8148,8 +8146,30 @@ function App() {
       ripplesRef.current.push({ x: W, y, color: orb.color, born: now });
     }
 
+    // Top volley → heading down
+    for (let i = 0; i < count; i++) {
+      const x = W * 0.25 + (W * 0.5 * i) / (count - 1);
+      const orb = createOrb(x, -10);
+      orb.vy = speed + Math.random() * 2;
+      orb.vx = (Math.random() - 0.5) * 1.5;
+      orb.radius = 7 + Math.random() * 6;
+      orbsRef.current.push(orb);
+      ripplesRef.current.push({ x, y: 0, color: orb.color, born: now });
+    }
+
+    // Bottom volley → heading up
+    for (let i = 0; i < count; i++) {
+      const x = W * 0.25 + (W * 0.5 * i) / (count - 1);
+      const orb = createOrb(x, H + 10);
+      orb.vy = -(speed + Math.random() * 2);
+      orb.vx = (Math.random() - 0.5) * 1.5;
+      orb.radius = 7 + Math.random() * 6;
+      orbsRef.current.push(orb);
+      ripplesRef.current.push({ x, y: H, color: orb.color, born: now });
+    }
+
     // Delayed shockwave at impact center
-    const impactMs = (W / 2) / speed * (1000 / 60);
+    const impactMs = Math.min(W, H) / 2 / speed * (1000 / 60);
     setTimeout(() => {
       wavesRef.current.push({
         cx: W / 2, cy: H / 2, radius: 0,
@@ -8163,8 +8183,9 @@ function App() {
       playBoom();
     }, impactMs);
 
+    screenFlashesRef.current.push({ cx: W / 2, cy: H / 2, color: "#fa709a", born: now });
     setOrbCount(orbsRef.current.length);
-    shakeRef.current = Math.max(shakeRef.current, 6);
+    shakeRef.current = Math.max(shakeRef.current, 8);
     playBurstSound();
   }, []);
 
@@ -8486,6 +8507,19 @@ function App() {
               <line x1="12" y1="8" x2="16" y2="12" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleCrossfire} title="Crossfire">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="2" y1="12" x2="9" y2="12" />
+              <polyline points="7 10 9 12 7 14" />
+              <line x1="22" y1="12" x2="15" y2="12" />
+              <polyline points="17 10 15 12 17 14" />
+              <line x1="12" y1="2" x2="12" y2="9" />
+              <polyline points="10 7 12 9 14 7" />
+              <line x1="12" y1="22" x2="12" y2="15" />
+              <polyline points="10 17 12 15 14 17" />
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleFinale} title="Finale">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -8647,6 +8681,7 @@ function App() {
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Comet</span></Shortcut>
+              <Shortcut><Key>4</Key><span>Crossfire (4-way collision!)</span></Shortcut>
               <Shortcut><Key>;</Key><span>Finale (chains all effects!)</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
