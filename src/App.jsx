@@ -192,6 +192,8 @@ function App() {
   const lastTapTimeRef = useRef(0);
   const [streakDisplay, setStreakDisplay] = useState(0);
   const streakFadeRef = useRef(null);
+  const [tipCycle, setTipCycle] = useState(0);
+  const [tipFading, setTipFading] = useState(false);
   const comboFlashRef = useRef([]); // [{text, x, y, born, color}]
   const burstComboRef = useRef({ lastTime: 0, level: 0 }); // burst button combo tracker
   const mouseDownRef = useRef(false);
@@ -1038,6 +1040,18 @@ function App() {
       canvas.removeEventListener("touchstart", prevent);
       canvas.removeEventListener("touchmove", prevent);
     };
+  }, []);
+
+  // ── Rotating contextual tips ─────────────────────────────────────
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTipFading(true);
+      setTimeout(() => {
+        setTipCycle(c => c + 1);
+        setTipFading(false);
+      }, 400);
+    }, 5000);
+    return () => clearInterval(id);
   }, []);
 
   // ── Tilt/gyroscope gravity ─────────────────────────────────────
@@ -7509,7 +7523,16 @@ function App() {
       />
       <HUD>
         <Title>Automatic Software</Title>
-        <Hint>tap to create &middot; hold to charge &amp; release to detonate &middot; drag to launch &middot; double-tap to burst or remove &middot; rapid taps unlock combos</Hint>
+        <Hint style={{ opacity: tipFading ? 0 : 1, transition: 'opacity 0.4s ease' }}>
+          {(() => {
+            const tips = orbCount === 0
+              ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch"]
+              : orbCount < 6
+              ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left"];
+            return tips[tipCycle % tips.length];
+          })()}
+        </Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <>
