@@ -8394,8 +8394,7 @@ function App() {
           handleMagnetCursor();
           break;
         case "t":
-          handlePulse();
-          flashLabel("PULSE", "#4facfe");
+          handleTrailsMode();
           break;
         case "n":
           handlePlaceWell();
@@ -8526,7 +8525,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try auto mode \u00b7 sit back and watch the show"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try trails mode \u00b7 everything looks better", "try auto mode \u00b7 sit back and watch the show"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -8719,8 +8718,8 @@ function App() {
         <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce mode — billiard-ball collisions (.)">
           bounce
         </ModeToggle>
-        <ModeToggle onClick={handleBarrierMode} $active={barrierMode} $color="#f59e0b" title="Walls mode — drag to draw bounce walls (/)">
-          walls
+        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails mode — orbs leave glowing light trails (T)">
+          trails
         </ModeToggle>
         <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
           n-body
@@ -8783,7 +8782,7 @@ function App() {
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
               <Shortcut><Key>O</Key><span>Magnet cursor</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
-              <Shortcut><Key>/</Key><span>Walls mode</span></Shortcut>
+              <Shortcut><Key>T</Key><span>Trails mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>A</Key><span>N-body gravity</span></Shortcut>
