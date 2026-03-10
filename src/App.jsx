@@ -7962,38 +7962,44 @@ function App() {
     playGalaxySound();
   }, []);
 
-  const handleVolley = useCallback(() => {
+  const handleSlam = useCallback(() => {
     ensureAudio();
     const W = window.innerWidth;
     const H = window.innerHeight;
     const now = performance.now();
-    const count = 14;
-    screenFlashesRef.current.push({ cx: W / 2, cy: H * 0.8, color: "#43e97b", born: now });
-    for (let i = 0; i < count; i++) {
-      setTimeout(() => {
-        const x = W * 0.1 + Math.random() * W * 0.8;
-        const speed = 6 + Math.random() * 5;
-        const spread = (Math.random() - 0.5) * 3;
-        const orb = createOrb(x, H + 20);
-        orb.radius = 6 + Math.random() * 8;
-        orb.vx = spread;
-        orb.vy = -(speed + 2);
-        orbsRef.current.push(orb);
-        ripplesRef.current.push({ x, y: H, color: orb.color, born: performance.now() });
-        meteorTrailsRef.current.push({
-          x: x + (Math.random() - 0.5) * 40,
-          y: H + 60 + Math.random() * 40,
-          dx: orb.vx * 20,
-          dy: orb.vy * 20,
-          color: orb.color,
-          born: performance.now(),
-        });
-        setOrbCount(orbsRef.current.length);
-      }, i * 60 + Math.random() * 30);
+    const orbs = orbsRef.current;
+    if (orbs.length < 1) return;
+
+    // Flash from top — gravity wave descending
+    screenFlashesRef.current.push({ cx: W / 2, cy: 0, color: "#f59e0b", born: now });
+
+    // Slam all orbs downward
+    for (const orb of orbs) {
+      orb.vy = 16 + Math.random() * 10;
+      orb.vx *= 0.3; // dampen horizontal for dramatic straight-down feel
     }
-    shakeRef.current = Math.max(shakeRef.current, 10);
+
+    // Delayed floor shockwave when orbs impact bottom
+    setTimeout(() => {
+      wavesRef.current.push({
+        cx: W * 0.3, cy: H, radius: 0,
+        color: "#f59e0b", generation: 0, hitOrbs: new Set(), delay: 0,
+      });
+      wavesRef.current.push({
+        cx: W * 0.7, cy: H, radius: 0,
+        color: "#fa709a", generation: 0, hitOrbs: new Set(), delay: 2,
+      });
+      wavesRef.current.push({
+        cx: W * 0.5, cy: H, radius: 0,
+        color: "#4facfe", generation: 0, hitOrbs: new Set(), delay: 5,
+      });
+      shakeRef.current = Math.max(shakeRef.current, 22);
+      playBoom();
+    }, 350);
+
+    shakeRef.current = Math.max(shakeRef.current, 6);
     playMeteorSound();
-    comboFlashRef.current.push({ text: "VOLLEY", x: W / 2, y: H / 2 - 30, born: now, color: "#43e97b" });
+    comboFlashRef.current.push({ text: "SLAM!", x: W / 2, y: H / 2 - 30, born: now, color: "#f59e0b" });
   }, []);
 
   const handleComet = useCallback(() => {
@@ -8612,14 +8618,13 @@ function App() {
                 <polyline points="19 13 19 19 13 19" />
               </svg>
             </ActionButton>
-            <ActionButton onClick={handleVolley} title="Volley">
+            <ActionButton onClick={handleSlam} title="Slam">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="6" y1="20" x2="6" y2="10" />
-                <polyline points="3 13 6 10 9 13" />
-                <line x1="12" y1="20" x2="12" y2="7" />
-                <polyline points="9 10 12 7 15 10" />
-                <line x1="18" y1="20" x2="18" y2="10" />
-                <polyline points="15 13 18 10 21 13" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+                <polyline points="8 11 12 15 16 11" />
+                <line x1="4" y1="20" x2="20" y2="20" />
+                <line x1="6" y1="18" x2="6" y2="20" opacity="0.5" />
+                <line x1="18" y1="18" x2="18" y2="20" opacity="0.5" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleGather} title="Gather orbs">
