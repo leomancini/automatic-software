@@ -7625,6 +7625,14 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleComet} title="Comet">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="17" cy="7" r="3" fill="currentColor" />
+              <line x1="14" y1="10" x2="3" y2="21" />
+              <line x1="14" y1="10" x2="5" y2="17" opacity="0.5" />
+              <line x1="14" y1="10" x2="7" y2="21" opacity="0.5" />
+            </svg>
+          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handleShuffle} title="Shuffle colors">
@@ -7702,8 +7710,8 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleKaleidoscopeMode} $active={kaleidoscopeMode} $color="#f0abfc" title="Mirror mode — symmetric kaleidoscope">
-          mirror
+        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
+          n-body
         </ModeToggle>
         <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flocking swarm (K)">
           flock
@@ -7774,7 +7782,6 @@ function App() {
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>A</Key><span>N-body gravity</span></Shortcut>
-              <Shortcut><Key>U</Key><span>Mirror mode (kaleidoscope)</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
             </ShortcutList>
