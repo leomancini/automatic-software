@@ -7297,6 +7297,8 @@ function App() {
 
     ripplesRef.current.push({ x: cx, y: cy, color: randomColor(), born: now });
     wavesRef.current.push({ x: cx, y: cy, radius: 0, born: now, color: randomColor() });
+    screenFlashesRef.current.push({ cx, cy, color: "#c084fc", born: now });
+    comboFlashRef.current.push({ text: "SPIRAL", x: cx, y: cy, born: now, color: "#c084fc" });
     shakeRef.current = 10;
     playGalaxySound();
   }, []);
@@ -8104,6 +8106,10 @@ function App() {
         case ".":
           handleBounceMode();
           break;
+        case ",":
+          handleSpiral();
+          flashLabel("SPIRAL", "#c084fc");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -8111,7 +8117,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleFinale, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleFinale, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleSpiral, paletteIndex, setShowHelp]);
 
 
   return (
@@ -8137,7 +8143,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "crossfire \u00b7 opposing volleys collide mid-screen", "tide \u00b7 sweeping wave pushes all orbs", "bounce mode \u00b7 elastic walls for perpetual motion"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "spiral \u00b7 three-armed galaxy spawn", "bounce mode \u00b7 elastic walls for perpetual motion"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -8226,6 +8232,11 @@ function App() {
               <line x1="12" y1="8" x2="18" y2="8" />
               <line x1="12" y1="8" x2="8" y2="12" />
               <line x1="12" y1="8" x2="16" y2="12" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleSpiral} title="Spiral">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 12c0-1.5 1.2-2.7 2.7-2.7 2.2 0 4 1.8 4 4 0 3-2.4 5.4-5.4 5.4C9.5 18.7 6.3 15.5 6.3 11.7c0-4.5 3.7-8.2 8.2-8.2" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleSupernova} title="Supernova">
@@ -8365,8 +8376,7 @@ function App() {
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Comet</span></Shortcut>
-              <Shortcut><Key>4</Key><span>Crossfire</span></Shortcut>
-              <Shortcut><Key>2</Key><span>Tide</span></Shortcut>
+              <Shortcut><Key>,</Key><span>Spiral</span></Shortcut>
               <Shortcut><Key>;</Key><span>Finale (chains all effects!)</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
