@@ -491,6 +491,7 @@ function App() {
         const power = Math.min(chargeDuration / HOLD_CHARGE_MAX_MS, 1);
         const releaseForce = 3 + power * 12;
         const range = HOLD_CHARGE_RANGE * (0.8 + power * 0.5);
+        const releaseNow = performance.now();
         for (const orb of orbsRef.current) {
           const dx = orb.x - charge.x;
           const dy = orb.y - charge.y;
@@ -502,16 +503,45 @@ function App() {
             orb.vy += (dy / dist) * force;
           }
         }
+        // Primary shockwave — color shifts with power
+        const waveColor = power >= 0.8 ? "#f093fb" : power >= 0.6 ? "#a78bfa" : "#4facfe";
         wavesRef.current.push({
           cx: charge.x,
           cy: charge.y,
           radius: 0,
-          color: "#4facfe",
+          color: waveColor,
           generation: 0,
           hitOrbs: new Set(),
           delay: 0,
         });
-        shakeRef.current = Math.max(shakeRef.current, 3 + power * 10);
+        // High power (≥60%): chain lightning to nearby orbs
+        if (power >= 0.6) {
+          const nearby = orbsRef.current
+            .map(o => ({ o, d: Math.sqrt((o.x - charge.x) ** 2 + (o.y - charge.y) ** 2) }))
+            .filter(e => e.d < range && e.d > 0)
+            .sort((a, b) => a.d - b.d)
+            .slice(0, Math.floor(3 + power * 5));
+          if (nearby.length > 0) {
+            const bolts = [];
+            for (const { o } of nearby) {
+              bolts.push({ points: generateBolt(charge.x, charge.y, o.x, o.y), color: o.color });
+            }
+            lightningRef.current.push({ bolts, sparks: [], born: releaseNow });
+            playLightning();
+          }
+        }
+        // Max power: second shockwave ring + flash label
+        if (power >= 0.95) {
+          wavesRef.current.push({
+            cx: charge.x, cy: charge.y, radius: 0,
+            color: "#fa709a", generation: 0, hitOrbs: new Set(), delay: 4,
+          });
+          comboFlashRef.current.push({
+            text: "SINGULARITY", x: charge.x, y: charge.y - 40,
+            born: releaseNow, color: "#f093fb",
+          });
+        }
+        shakeRef.current = Math.max(shakeRef.current, 3 + power * 14);
         playBoom();
         return;
       }
@@ -4356,12 +4386,16 @@ function App() {
         const power = Math.min(chargeDuration / HOLD_CHARGE_MAX_MS, 1);
         const pulse = Math.sin(time * 4) * 0.15;
 
+        // Color shifts through tiers: blue → purple → pink
+        const fieldColor = power >= 0.8 ? "#f093fb" : power >= 0.6 ? "#a78bfa" : "#4facfe";
+        const coreColor = power >= 0.8 ? "#fa709a" : power >= 0.6 ? "#c084fc" : "#4facfe";
+
         // Outer attraction field glow
         const fieldRadius = HOLD_CHARGE_RANGE * (0.3 + power * 0.7);
         const fieldAlpha = 0.06 + power * 0.12 + pulse * 0.03;
         const fieldGrad = ctx.createRadialGradient(hc.x, hc.y, 0, hc.x, hc.y, fieldRadius);
-        fieldGrad.addColorStop(0, "#4facfe" + hexAlpha(fieldAlpha * 2 * 255));
-        fieldGrad.addColorStop(0.5, "#667eea" + hexAlpha(fieldAlpha * 255));
+        fieldGrad.addColorStop(0, fieldColor + hexAlpha(fieldAlpha * 2 * 255));
+        fieldGrad.addColorStop(0.5, coreColor + hexAlpha(fieldAlpha * 255));
         fieldGrad.addColorStop(1, "transparent");
         ctx.beginPath();
         ctx.arc(hc.x, hc.y, fieldRadius, 0, Math.PI * 2);
@@ -4380,22 +4414,39 @@ function App() {
           ctx.rotate(rotation);
           ctx.beginPath();
           ctx.ellipse(0, 0, ringRadius, ringRadius * 0.35, 0, 0, Math.PI * 2);
-          ctx.strokeStyle = "#4facfe" + hexAlpha(Math.min(ringAlpha, 1) * 255);
+          ctx.strokeStyle = fieldColor + hexAlpha(Math.min(ringAlpha, 1) * 255);
           ctx.lineWidth = 2 - ring * 0.3;
           ctx.stroke();
           ctx.restore();
         }
 
-        // Bright core
-        const coreSize = 4 + power * 8;
+        // Bright core — grows and intensifies at high power
+        const coreSize = 4 + power * 8 + (power >= 0.6 ? power * 4 : 0);
         const coreGrad = ctx.createRadialGradient(hc.x, hc.y, 0, hc.x, hc.y, coreSize);
         coreGrad.addColorStop(0, "#ffffff" + hexAlpha((0.7 + power * 0.3) * 255));
-        coreGrad.addColorStop(0.5, "#4facfe" + hexAlpha((0.4 + power * 0.3) * 255));
+        coreGrad.addColorStop(0.5, coreColor + hexAlpha((0.4 + power * 0.3) * 255));
         coreGrad.addColorStop(1, "transparent");
         ctx.beginPath();
         ctx.arc(hc.x, hc.y, coreSize, 0, Math.PI * 2);
         ctx.fillStyle = coreGrad;
         ctx.fill();
+
+        // At high power, draw crackling arcs around the core
+        if (power >= 0.6) {
+          const arcCount = Math.floor(2 + power * 4);
+          ctx.save();
+          ctx.strokeStyle = coreColor + hexAlpha(0.5 * 255);
+          ctx.lineWidth = 1;
+          for (let ai = 0; ai < arcCount; ai++) {
+            const aAngle = time * (2 + ai) + ai * 1.3;
+            const aRadius = coreSize + 8 + Math.random() * power * 20;
+            const aLen = 0.3 + Math.random() * 0.5;
+            ctx.beginPath();
+            ctx.arc(hc.x, hc.y, aRadius, aAngle, aAngle + aLen);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
       }
 
       // draw user-drawn barriers
@@ -7263,7 +7314,7 @@ function App() {
       />
       <HUD>
         <Title>Automatic Software</Title>
-        <Hint>tap to create &middot; hold to attract &middot; drag to launch &middot; double-tap to orbit or remove &middot; right-click to split &middot; rapid taps unlock combos</Hint>
+        <Hint>tap to create &middot; hold to charge &amp; release to detonate &middot; drag to launch &middot; double-tap to burst or remove &middot; rapid taps unlock combos</Hint>
         <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
         {streakDisplay >= 2 && (
           <>
@@ -7474,7 +7525,7 @@ function App() {
               <Shortcut><Key>click</Key><span>Create orb</span></Shortcut>
               <Shortcut><Key>drag</Key><span>Spray orbs / move orb</span></Shortcut>
               <Shortcut><Key>dbl-click</Key><span>Burst (empty) / remove (orb)</span></Shortcut>
-              <Shortcut><Key>hold</Key><span>Attract → release to burst</span></Shortcut>
+              <Shortcut><Key>hold</Key><span>Charge → release to detonate</span></Shortcut>
               <Shortcut><Key>right-click</Key><span>Split orb</span></Shortcut>
               <Shortcut><Key>overlap</Key><span>Merge (big ones split!)</span></Shortcut>
               <Shortcut><Key>rapid taps</Key><span>Combo streaks → bonus effects</span></Shortcut>
