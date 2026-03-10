@@ -136,6 +136,7 @@ function App() {
   const shatterAllRef = useRef(null); // active shatter-all {born, phase, frozenOrbs}
   const embersRef = useRef([]); // fire ember particles
   const mergeSparksRef = useRef([]); // collision spark particles
+  const screenFlashesRef = useRef([]); // full-screen radial color flashes from big effects
   const strikesRef = useRef([]); // active orbital strikes
   const stormRef = useRef(null); // active magnetic storm {born, cx, cy, lastZap}
   const tsunamisRef = useRef([]); // active tsunami waves [{x, dir, born, color, foam}]
@@ -247,6 +248,8 @@ function App() {
   const linksModeRef = useRef(false);
   const [volatileMode, setVolatileMode] = useState(false);
   const volatileModeRef = useRef(false);
+  const [waveMode, setWaveMode] = useState(false);
+  const waveModeRef = useRef(false);
   const barriersRef = useRef([]); // user-drawn bounce walls [{x1, y1, x2, y2, color}]
   const [barrierMode, setBarrierMode] = useState(false);
   const barrierModeRef = useRef(false);
@@ -2278,6 +2281,15 @@ function App() {
           }
         }
 
+
+        // wave mode: sinusoidal force creates undulating motion
+        if (waveModeRef.current) {
+          const wavePhase = now * 0.002;
+          const waveFreq = 0.012;
+          const waveForce = 0.35;
+          orb.vy += Math.sin(orb.x * waveFreq + wavePhase) * waveForce;
+          orb.vx += Math.cos(orb.y * waveFreq + wavePhase * 0.7) * waveForce * 0.3;
+        }
 
         // magnetic polarity: opposite polarities attract, same repel
         if (magnetModeRef.current) {
@@ -6607,6 +6619,7 @@ function App() {
       delay: 0,
     });
     shakeRef.current = 16;
+    screenFlashesRef.current.push({ cx, cy, color: "#4facfe", born: performance.now() });
     playBoom();
   }, []);
 
@@ -6777,6 +6790,13 @@ function App() {
     });
   }, []);
 
+  const handleWaveMode = useCallback(() => {
+    setWaveMode((prev) => {
+      waveModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleRainMode = useCallback(() => {
     setRainMode((prev) => {
       rainModeRef.current = !prev;
@@ -6867,6 +6887,7 @@ function App() {
     // Spread spawn points at higher levels
     const cx = W / 2 + (lvl >= 3 ? (Math.random() - 0.5) * W * 0.3 : 0);
     const cy = H / 2 + (lvl >= 3 ? (Math.random() - 0.5) * H * 0.3 : 0);
+    screenFlashesRef.current.push({ cx, cy, color: "#43e97b", born: now });
 
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count;
@@ -6945,6 +6966,8 @@ function App() {
     const count = 10;
     const now = performance.now();
     const burstColor = randomColor();
+
+    screenFlashesRef.current.push({ cx: launchX, cy: peakY, color: burstColor, born: now });
 
     // Ascending rocket trail — embers from ground to peak
     for (let t = 0; t < 14; t++) {
@@ -7220,6 +7243,7 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     const now = performance.now();
+    screenFlashesRef.current.push({ cx: W / 2, cy: H * 0.3, color: "#f59e0b", born: now });
 
     for (let i = 0; i < METEOR_COUNT; i++) {
       setTimeout(() => {
@@ -7262,6 +7286,7 @@ function App() {
       born: performance.now(),
       phase: "implode",
     };
+    screenFlashesRef.current.push({ cx, cy, color: "#f093fb", born: performance.now() });
     playSupernovaSound();
   }, []);
 
@@ -7729,6 +7754,9 @@ function App() {
         case ";":
           handleFinale();
           break;
+        case "-":
+          handleWaveMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -7736,7 +7764,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleFinale, handleTrailsMode, handleVolatileMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleFinale, handleTrailsMode, handleVolatileMode, handleWaveMode, paletteIndex, setShowHelp]);
 
 
   return (
@@ -7804,6 +7832,7 @@ function App() {
           {pulseMode && <ModePill $color="#667eea">heartbeat</ModePill>}
           {trailsMode && <ModePill $color="#f97316">trails</ModePill>}
           {volatileMode && <ModePill $color="#ef4444">volatile</ModePill>}
+          {waveMode && <ModePill $color="#38bdf8">wave</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -7946,20 +7975,11 @@ function App() {
         <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
           n-body
         </ModeToggle>
-        <ModeToggle onClick={handleLinksMode} $active={linksMode} $color="#f0abfc" title="Plasma links — connect nearby orbs (6)">
-          links
-        </ModeToggle>
-        <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain mode — continuous orb rain (5)">
-          rain
-        </ModeToggle>
-        <ModeToggle onClick={handlePulseMode} $active={pulseMode} $color="#667eea" title="Heartbeat — rhythmic gravity pulse (7)">
-          heartbeat
-        </ModeToggle>
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#f97316" title="Light trails — orbs leave glowing trails (8)">
           trails
         </ModeToggle>
-        <ModeToggle onClick={handleVolatileMode} $active={volatileMode} $color="#ef4444" title="Volatile — orbs shatter on hard collisions (9)">
-          volatile
+        <ModeToggle onClick={handleWaveMode} $active={waveMode} $color="#38bdf8" title="Wave — orbs undulate in sine waves (-)">
+          wave
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
@@ -8024,6 +8044,7 @@ function App() {
               <Shortcut><Key>5</Key><span>Rain mode</span></Shortcut>
               <Shortcut><Key>7</Key><span>Heartbeat pulse</span></Shortcut>
               <Shortcut><Key>8</Key><span>Light trails</span></Shortcut>
+              <Shortcut><Key>-</Key><span>Wave mode</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
             </ShortcutList>
