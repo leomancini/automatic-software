@@ -8535,6 +8535,12 @@ function App() {
         <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body mode">
           n-body
         </ModeToggle>
+        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce mode — elastic collisions (.)">
+          bounce
+        </ModeToggle>
+        <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain mode — continuous orb rain (5)">
+          rain
+        </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
