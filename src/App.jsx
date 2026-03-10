@@ -4689,6 +4689,72 @@ function App() {
               ctx.fill();
             }
           }
+          // ── tiny mouth: emotional expression ──
+          if (r > 7) {
+            const mx = cx0 * 0.35;
+            const my = cy0 * 0.35;
+            const mW = r * 0.13;
+            ctx.save();
+            ctx.translate(mx, my);
+            ctx.rotate(lookAng);
+            if (isSurprised) {
+              // shocked "O"
+              ctx.beginPath();
+              ctx.arc(0, 0, r * 0.07, 0, Math.PI * 2);
+              ctx.strokeStyle = "rgba(255,255,255,0.55)";
+              ctx.lineWidth = Math.max(r * 0.04, 0.5);
+              ctx.stroke();
+            } else if (isScared) {
+              // worried "o"
+              ctx.beginPath();
+              ctx.arc(0, 0, r * 0.055, 0, Math.PI * 2);
+              ctx.strokeStyle = "rgba(255,255,255,0.5)";
+              ctx.lineWidth = Math.max(r * 0.035, 0.5);
+              ctx.stroke();
+            } else if (isSatisfied) {
+              // big grin after merge
+              ctx.beginPath();
+              ctx.moveTo(0, -mW);
+              ctx.quadraticCurveTo(r * 0.12, 0, 0, mW);
+              ctx.strokeStyle = "rgba(255,255,255,0.6)";
+              ctx.lineWidth = Math.max(r * 0.05, 0.5);
+              ctx.stroke();
+            } else if (isFrozen) {
+              // neutral straight line
+              ctx.beginPath();
+              ctx.moveTo(0, -mW * 0.55);
+              ctx.lineTo(0, mW * 0.55);
+              ctx.strokeStyle = "rgba(255,255,255,0.35)";
+              ctx.lineWidth = Math.max(r * 0.04, 0.5);
+              ctx.stroke();
+            } else if (isDrowsy) {
+              // peaceful, fading with sleep
+              const mAlpha = 0.35 * (1 - drowsyT * 0.5);
+              ctx.beginPath();
+              ctx.moveTo(0, -mW * 0.4);
+              ctx.quadraticCurveTo(r * 0.02, 0, 0, mW * 0.4);
+              ctx.strokeStyle = `rgba(255,255,255,${mAlpha})`;
+              ctx.lineWidth = Math.max(r * 0.04, 0.5);
+              ctx.stroke();
+            } else if (isZooming) {
+              // determined grimace
+              ctx.beginPath();
+              ctx.moveTo(0, -mW * 0.45);
+              ctx.quadraticCurveTo(-r * 0.03, 0, 0, mW * 0.45);
+              ctx.strokeStyle = "rgba(255,255,255,0.35)";
+              ctx.lineWidth = Math.max(r * 0.04, 0.5);
+              ctx.stroke();
+            } else {
+              // default gentle smile
+              ctx.beginPath();
+              ctx.moveTo(0, -mW * 0.6);
+              ctx.quadraticCurveTo(r * 0.05, 0, 0, mW * 0.6);
+              ctx.strokeStyle = "rgba(255,255,255,0.3)";
+              ctx.lineWidth = Math.max(r * 0.04, 0.5);
+              ctx.stroke();
+            }
+            ctx.restore();
+          }
           // Snoring z's for deeply sleeping orbs
           if (drowsyT > 0.8) {
             const zBase = (drowsyT - 0.8) * 5;
@@ -8384,12 +8450,6 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor — orbs orbit your finger (O)">
           magnet
-        </ModeToggle>
-        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce mode — elastic walls (.)">
-          bounce
-        </ModeToggle>
-        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
-          n-body
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
