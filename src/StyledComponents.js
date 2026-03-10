@@ -131,6 +131,23 @@ export const NextCombo = styled.div`
   }
 `;
 
+const newBestPulse = keyframes`
+  0% { transform: scale(0.8); opacity: 0; }
+  20% { transform: scale(1.15); opacity: 1; }
+  70% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+`;
+
+export const BestStreak = styled.div`
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: ${(p) => p.$isNew ? "rgba(255, 215, 100, 0.9)" : "rgba(140, 140, 160, 0.35)"};
+  margin-top: 2px;
+  transition: color 0.3s ease;
+  ${(p) => p.$isNew && `animation: ${newBestPulse} 2.5s ease-out forwards;`}
+`;
+
 export const ButtonGroup = styled.div`
   position: fixed;
   bottom: 24px;

@@ -103,7 +103,7 @@ import {
 } from './utils.js';
 import {
   Wrapper, Canvas, HUD, Title, Hint, Count, PaletteLink, ModeIndicators, ModePill,
-  StreakCounter, NextCombo, ButtonGroup, ButtonRow, ActionButton,
+  StreakCounter, NextCombo, BestStreak, ButtonGroup, ButtonRow, ActionButton,
   HelpButton, MuteButton, SaveFlash, ModeStrip, ModeToggle,
   HelpOverlay, HelpPanel, HelpTitle, ShortcutList, Shortcut, Key, HelpClose,
 } from './StyledComponents.js';
@@ -186,6 +186,8 @@ function App() {
   const flockingModeRef = useRef(false);
   const [trailsMode, setTrailsMode] = useState(false);
   const trailsModeRef = useRef(false);
+  const [chainReactMode, setChainReactMode] = useState(false);
+  const chainReactModeRef = useRef(false);
   // constellation lines are always-on ambient visual (no toggle needed)
   const gravityDotsRef = useRef([]);
   const dominoRef = useRef(null); // {queue, index, nextTime, respawnCount, phase}
@@ -197,6 +199,11 @@ function App() {
   const lastTapTimeRef = useRef(0);
   const [streakDisplay, setStreakDisplay] = useState(0);
   const streakFadeRef = useRef(null);
+  const [bestStreak, setBestStreak] = useState(() => {
+    try { return parseInt(localStorage.getItem('bestStreak')) || 0; } catch { return 0; }
+  });
+  const [newBest, setNewBest] = useState(false);
+  const newBestTimerRef = useRef(null);
   const [tipCycle, setTipCycle] = useState(0);
   const [tipFading, setTipFading] = useState(false);
   const comboFlashRef = useRef([]); // [{text, x, y, born, color}]
@@ -739,6 +746,15 @@ function App() {
         setStreakDisplay(0);
         streakRef.current = 0;
       }, STREAK_DECAY_DELAY);
+
+      // Personal best tracking
+      if (streak > bestStreak) {
+        setBestStreak(streak);
+        try { localStorage.setItem('bestStreak', streak.toString()); } catch {}
+        setNewBest(true);
+        if (newBestTimerRef.current) clearTimeout(newBestTimerRef.current);
+        newBestTimerRef.current = setTimeout(() => setNewBest(false), 2500);
+      }
 
       // ── Scale effects by streak ──
       const spawnCount = streak >= 8 ? 4 : streak >= 5 ? 3 : streak >= 3 ? 2 : 1;
@@ -3454,6 +3470,14 @@ function App() {
               }
               // play musical chime on orb-orb collision (pentatonic note mapped to Y)
               if (relSpeed > 2) playCollisionChime(cy, H, Math.min(relSpeed / 6, 1));
+              // chain react: energetic bounces emit mini-shockwaves
+              if (chainReactModeRef.current && relSpeed > 5) {
+                wavesRef.current.push({
+                  cx, cy, radius: 0, color: sparkColors[0],
+                  generation: 3, hitOrbs: new Set([a.id, b.id]),
+                  delay: 3,
+                });
+              }
               // volatile mode: high-energy bounces shatter orbs into fragments
               if (volatileModeRef.current && relSpeed > 3) {
                 const candidates = [a, b];
@@ -3557,6 +3581,15 @@ function App() {
               }
               ripplesRef.current.push({ x: bigger.x, y: bigger.y, color: bigger.color, born: now });
               shakeRef.current = Math.max(shakeRef.current, Math.floor(3 + intensity * 5));
+              // chain react: energetic merges spawn a small shockwave ring
+              if (chainReactModeRef.current && collisionSpeed > 4) {
+                wavesRef.current.push({
+                  cx: bigger.x, cy: bigger.y,
+                  radius: 0, color: bigger.color,
+                  generation: 2, hitOrbs: new Set([bigger.id]),
+                  delay: 4,
+                });
+              }
             }
             toRemove.add(a === bigger ? j : i);
           }
@@ -3643,7 +3676,8 @@ function App() {
         }
         wave.radius += WAVE_SPEED;
         const gen = wave.generation || 0;
-        const genForceMultiplier = Math.pow(CASCADE_FORCE_DECAY, gen);
+        const crDecay = chainReactModeRef.current ? 0.7 : CASCADE_FORCE_DECAY;
+        const genForceMultiplier = Math.pow(crDecay, gen);
         const genWidth = WAVE_WIDTH * Math.pow(0.8, gen);
         // push orbs that fall within the ring
         for (const orb of orbs) {
@@ -3661,9 +3695,11 @@ function App() {
             if (!wave.hitOrbs.has(orb.id)) {
               wave.hitOrbs.add(orb.id);
               orb.waveHit = now;
-              if (gen < CASCADE_MAX_GEN) {
+              const crMaxGen = chainReactModeRef.current ? 5 : CASCADE_MAX_GEN;
+              const crThreshold = chainReactModeRef.current ? 1.5 : CASCADE_SPEED_THRESHOLD;
+              if (gen < crMaxGen) {
                 const orbSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
-                if (orbSpeed > CASCADE_SPEED_THRESHOLD) {
+                if (orbSpeed > crThreshold) {
                   pendingCascades.push({
                     cx: orb.x,
                     cy: orb.y,
@@ -3686,7 +3722,7 @@ function App() {
             const dx = portal.x - wave.cx;
             const dy = portal.y - wave.cy;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > wave.radius - genWidth && dist < wave.radius + genWidth && gen < CASCADE_MAX_GEN) {
+            if (dist > wave.radius - genWidth && dist < wave.radius + genWidth && gen < (chainReactModeRef.current ? 5 : CASCADE_MAX_GEN)) {
               if (!wave._portalHits) wave._portalHits = new Set();
               if (!wave._portalHits.has(pi)) {
                 wave._portalHits.add(pi);
@@ -7141,6 +7177,13 @@ function App() {
     });
   }, []);
 
+  const handleChainReact = useCallback(() => {
+    setChainReactMode((prev) => {
+      chainReactModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleSparklerMode = useCallback(() => {
     setSparklerMode((prev) => {
       sparklerModeRef.current = !prev;
@@ -8547,7 +8590,15 @@ function App() {
                streakDisplay < 40 ? `${STREAK_SUPERMASSIVE}x supermassive` :
                "MAX COMBO"}
             </NextCombo>
+            {bestStreak >= 5 && (
+              <BestStreak key={newBest ? `best-${bestStreak}` : 'best'} $isNew={newBest}>
+                {newBest ? `NEW BEST! ${bestStreak}x` : `best: ${bestStreak}x`}
+              </BestStreak>
+            )}
           </>
+        )}
+        {!streakDisplay && bestStreak >= 5 && (
+          <BestStreak $isNew={false}>best: {bestStreak}x</BestStreak>
         )}
         <ModeIndicators>
           {frozen && <ModePill $color="#4facfe">frozen</ModePill>}
@@ -8718,8 +8769,8 @@ function App() {
         <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce mode — billiard-ball collisions (.)">
           bounce
         </ModeToggle>
-        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails mode — orbs leave glowing light trails (T)">
-          trails
+        <ModeToggle onClick={handleChainReact} $active={chainReactMode} $color="#f97316" title="Chain react — explosions cascade through orbs">
+          chain
         </ModeToggle>
         <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
           n-body
