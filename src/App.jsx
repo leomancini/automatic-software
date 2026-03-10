@@ -8539,6 +8539,7 @@ function App() {
           {fissionMode && <ModePill $color="#f43f5e">fission</ModePill>}
           {waveMode && <ModePill $color="#38bdf8">wave</ModePill>}
           {bounceMode && <ModePill $color="#34d399">bounce</ModePill>}
+          {trailsMode && <ModePill $color="#c084fc">trails</ModePill>}
           {tiltMode && <ModePill $color="#e879f9">tilt</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -8691,8 +8692,8 @@ function App() {
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor — orbs orbit your finger (O)">
           magnet
         </ModeToggle>
-        <ModeToggle onClick={handleAutoplay} $active={autoPlay} $color="#e879f9" title="Auto mode — sit back and watch the show (8)">
-          auto
+        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails mode — orbs leave glowing trails">
+          trails
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
