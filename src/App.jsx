@@ -8137,7 +8137,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try heartbeat mode for a rhythmic pulse", "try links mode for plasma webs", "bounce mode \u00b7 elastic walls for perpetual motion"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "crossfire \u00b7 opposing volleys collide mid-screen", "tide \u00b7 sweeping wave pushes all orbs", "bounce mode \u00b7 elastic walls for perpetual motion"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -8240,7 +8240,16 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleFinale} title="Finale">
+          <ActionButton onClick={handleCrossfire} title="Crossfire (4)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="2" y1="12" x2="10" y2="12" />
+              <polyline points="7 9 10 12 7 15" />
+              <line x1="22" y1="12" x2="14" y2="12" />
+              <polyline points="17 9 14 12 17 15" />
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleFinale} title="Finale (;)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor" opacity="0.3" />
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -8288,6 +8297,12 @@ function App() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 12a9 9 0 1 1-6.22-8.56" />
                 <polyline points="21 3 21 9 15 9" />
+              </svg>
+            </ActionButton>
+            <ActionButton onClick={handleTide} title="Tide (2)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 10c2-3 4-3 6 0s4 3 6 0 4-3 6 0" />
+                <path d="M2 16c2-3 4-3 6 0s4 3 6 0 4-3 6 0" opacity="0.5" />
               </svg>
             </ActionButton>
             <ActionButton onClick={() => { handlePlaceWell(); }} title="Place gravity well">
@@ -8385,6 +8400,8 @@ function App() {
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Comet</span></Shortcut>
+              <Shortcut><Key>4</Key><span>Crossfire</span></Shortcut>
+              <Shortcut><Key>2</Key><span>Tide</span></Shortcut>
               <Shortcut><Key>;</Key><span>Finale (chains all effects!)</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
