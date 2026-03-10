@@ -251,6 +251,8 @@ function App() {
   const volatileModeRef = useRef(false);
   const [waveMode, setWaveMode] = useState(false);
   const waveModeRef = useRef(false);
+  const [bounceMode, setBounceMode] = useState(false);
+  const bounceModeRef = useRef(false);
   const barriersRef = useRef([]); // user-drawn bounce walls [{x1, y1, x2, y2, color}]
   const [barrierMode, setBarrierMode] = useState(false);
   const barrierModeRef = useRef(false);
@@ -2638,8 +2640,9 @@ function App() {
           orb.vy += fy * CURRENT_STRENGTH;
         }
 
-        orb.vx *= FRICTION;
-        orb.vy *= FRICTION;
+        const fric = bounceModeRef.current ? 0.997 : FRICTION;
+        orb.vx *= fric;
+        orb.vy *= fric;
         const speed_factor = slowMoRef.current ? 0.3 : 1;
         orb.x += orb.vx * speed_factor;
         orb.y += orb.vy * speed_factor;
@@ -2706,7 +2709,7 @@ function App() {
               }
             }
             orb.x = orb.radius;
-            orb.vx *= -0.6;
+            orb.vx *= bounceModeRef.current ? -1.0 : -0.6;
           }
           if (orb.x > W - orb.radius) {
             if (Math.abs(orb.vx) > WALL_HIT_SPEED_THRESHOLD) {
@@ -2722,7 +2725,7 @@ function App() {
               }
             }
             orb.x = W - orb.radius;
-            orb.vx *= -0.6;
+            orb.vx *= bounceModeRef.current ? -1.0 : -0.6;
           }
           if (orb.y < orb.radius) {
             if (Math.abs(orb.vy) > WALL_HIT_SPEED_THRESHOLD) {
@@ -2738,7 +2741,7 @@ function App() {
               }
             }
             orb.y = orb.radius;
-            orb.vy *= -0.6;
+            orb.vy *= bounceModeRef.current ? -1.0 : -0.6;
           }
           if (orb.y > H - orb.radius) {
             if (Math.abs(orb.vy) > WALL_HIT_SPEED_THRESHOLD) {
@@ -2754,7 +2757,7 @@ function App() {
               }
             }
             orb.y = H - orb.radius;
-            orb.vy *= -0.6;
+            orb.vy *= bounceModeRef.current ? -1.0 : -0.6;
           }
 
           // wall shatter — high-speed impacts break the orb into smaller pieces
@@ -3242,7 +3245,8 @@ function App() {
               const massA = a.radius * a.radius;
               const massB = b.radius * b.radius;
               const totalMass = massA + massB;
-              const impulse = (2 * dvn * BOUNCE_RESTITUTION) / totalMass;
+              const restitution = bounceModeRef.current ? 1.0 : BOUNCE_RESTITUTION;
+              const impulse = (2 * dvn * restitution) / totalMass;
               a.vx -= impulse * massB * nx;
               a.vy -= impulse * massB * ny;
               b.vx += impulse * massA * nx;
@@ -7039,6 +7043,13 @@ function App() {
     });
   }, []);
 
+  const handleBounceMode = useCallback(() => {
+    setBounceMode((prev) => {
+      bounceModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleAutoplay = useCallback(() => {
     setAutoPlay((prev) => {
       autoplayModeRef.current = !prev;
@@ -7987,6 +7998,9 @@ function App() {
         case "-":
           handleWaveMode();
           break;
+        case ".":
+          handleBounceMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -7994,7 +8008,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleFinale, handleTrailsMode, handleVolatileMode, handleWaveMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleFinale, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, paletteIndex, setShowHelp]);
 
 
   return (
@@ -8020,7 +8034,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try heartbeat mode for a rhythmic pulse", "try links mode for plasma webs"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try heartbeat mode for a rhythmic pulse", "try links mode for plasma webs", "bounce mode \u00b7 elastic walls for perpetual motion"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -8063,6 +8077,7 @@ function App() {
           {trailsMode && <ModePill $color="#f97316">trails</ModePill>}
           {volatileMode && <ModePill $color="#ef4444">volatile</ModePill>}
           {waveMode && <ModePill $color="#38bdf8">wave</ModePill>}
+          {bounceMode && <ModePill $color="#34d399">bounce</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -8217,6 +8232,9 @@ function App() {
         <ModeToggle onClick={handleLinksMode} $active={linksMode} $color="#f0abfc" title="Plasma links — energy lines between nearby orbs (6)">
           links
         </ModeToggle>
+        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce mode — elastic walls, orbs never lose energy (.)">
+          bounce
+        </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
@@ -8281,6 +8299,7 @@ function App() {
               <Shortcut><Key>5</Key><span>Rain mode</span></Shortcut>
               <Shortcut><Key>7</Key><span>Heartbeat pulse</span></Shortcut>
               <Shortcut><Key>-</Key><span>Wave mode</span></Shortcut>
+              <Shortcut><Key>.</Key><span>Bounce mode</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
             </ShortcutList>
