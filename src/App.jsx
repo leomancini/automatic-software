@@ -8281,6 +8281,18 @@ function App() {
                 <polyline points="19 13 19 19 13 19" />
               </svg>
             </ActionButton>
+            <ActionButton onClick={handleGather} title="Gather orbs">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="5" x2="12" y2="12" />
+                <polyline points="8 5 5 5 5 8" />
+                <line x1="19" y1="5" x2="12" y2="12" />
+                <polyline points="19 8 19 5 16 5" />
+                <line x1="5" y1="19" x2="12" y2="12" />
+                <polyline points="5 16 5 19 8 19" />
+                <line x1="19" y1="19" x2="12" y2="12" />
+                <polyline points="16 19 19 19 19 16" />
+              </svg>
+            </ActionButton>
 <ActionButton onClick={handleSpin} title="Spin orbs">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 12a9 9 0 1 1-6.22-8.56" />
@@ -8323,12 +8335,6 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor — orbs orbit your finger (O)">
           magnet
-        </ModeToggle>
-        <ModeToggle onClick={handleWrapMode} $active={wrapMode} $color="#38bdf8" title="Wrap mode — orbs wrap around edges (I)">
-          wrap
-        </ModeToggle>
-        <ModeToggle onClick={handleTiltMode} $active={tiltMode} $color="#e879f9" title="Tilt gravity — phone gyroscope or mouse position controls gravity direction">
-          tilt
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
