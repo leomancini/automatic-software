@@ -2261,9 +2261,12 @@ function App() {
         }
       }
 
-      // precompute hue for color affinity
+      // precompute hue + RGB for color affinity & contagion
       for (const orb of orbs) {
         orb._hue = hexToHsl(orb.color)[0];
+        orb._r = parseInt(orb.color.slice(1, 3), 16);
+        orb._g = parseInt(orb.color.slice(3, 5), 16);
+        orb._b = parseInt(orb.color.slice(5, 7), 16);
       }
 
       // update physics
@@ -2286,6 +2289,14 @@ function App() {
             const force = (REPEL_FORCE * (REPEL_DIST - dist)) / REPEL_DIST * colorFactor;
             orb.vx += (dx / dist) * force;
             orb.vy += (dy / dist) * force;
+            // color contagion: nearby orbs gradually blend colors
+            if (!orb.spark && !other.spark) {
+              const blend = 0.003 * (1 - dist / REPEL_DIST);
+              orb._r += (other._r - orb._r) * blend;
+              orb._g += (other._g - orb._g) * blend;
+              orb._b += (other._b - orb._b) * blend;
+              orb.color = '#' + ((1 << 24) + (Math.round(orb._r) << 16) + (Math.round(orb._g) << 8) + Math.round(orb._b)).toString(16).slice(1);
+            }
           } else if (dist < COLOR_AFFINITY_DIST && isSimilar) {
             // gentle attraction between similar-colored orbs at medium range
             const t = (dist - REPEL_DIST) / (COLOR_AFFINITY_DIST - REPEL_DIST);
