@@ -8461,6 +8461,9 @@ function App() {
           handleSpiral();
           flashLabel("SPIRAL", "#c084fc");
           break;
+        case "/":
+          handleBarrierMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -8540,6 +8543,7 @@ function App() {
           {waveMode && <ModePill $color="#38bdf8">wave</ModePill>}
           {bounceMode && <ModePill $color="#34d399">bounce</ModePill>}
           {trailsMode && <ModePill $color="#c084fc">trails</ModePill>}
+          {barrierMode && <ModePill $color="#f59e0b">walls</ModePill>}
           {tiltMode && <ModePill $color="#e879f9">tilt</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -8695,6 +8699,9 @@ function App() {
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails mode — orbs leave glowing trails">
           trails
         </ModeToggle>
+        <ModeToggle onClick={handleBarrierMode} $active={barrierMode} $color="#f59e0b" title="Walls mode — drag to draw bounce walls (/)">
+          walls
+        </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
@@ -8753,6 +8760,7 @@ function App() {
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
               <Shortcut><Key>O</Key><span>Magnet cursor</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
+              <Shortcut><Key>/</Key><span>Walls mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>A</Key><span>N-body gravity</span></Shortcut>
