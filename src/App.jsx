@@ -206,6 +206,7 @@ function App() {
   const sprayStartRef = useRef({ x: 0, y: 0 });
   const lastSprayPosRef = useRef({ x: 0, y: 0 });
   // showMoreButtons state removed — rarely-used effects culled from UI (still accessible via keyboard)
+  const lastMilestoneRef = useRef(0); // last celebrated orb count milestone
   const bigBangRef = useRef(null); // {born, detonated, detonateTime}
   const slingshotRef = useRef(null); // {startX, startY} when flick-aiming
   const [sparklerMode, setSparklerMode] = useState(false);
@@ -1155,6 +1156,34 @@ function App() {
     }, 5000);
     return () => clearInterval(id);
   }, []);
+
+  // ── Orb count milestone celebrations ──────────────────────────
+  useEffect(() => {
+    const milestones = [25, 50, 100, 200, 300, 500, 1000];
+    const reached = milestones.filter(m => orbCount >= m).pop() || 0;
+    if (reached > lastMilestoneRef.current) {
+      lastMilestoneRef.current = reached;
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      const now = performance.now();
+      const color = reached >= 500 ? "#f59e0b" : reached >= 200 ? "#f093fb" : reached >= 100 ? "#43e97b" : "#4facfe";
+      comboFlashRef.current.push({
+        text: `${reached} ORBS!`, x: W / 2, y: H / 2, born: now, color,
+      });
+      screenFlashesRef.current.push({ cx: W / 2, cy: H / 2, color, born: now });
+      if (reached >= 100) {
+        wavesRef.current.push({
+          cx: W / 2, cy: H / 2, radius: 0,
+          color, generation: 0, hitOrbs: new Set(), delay: 0,
+        });
+        shakeRef.current = Math.max(shakeRef.current, 8 + reached * 0.02);
+      }
+      if (audioEnabledRef.current) {
+        playStreakTone(milestones.indexOf(reached));
+      }
+    }
+    if (orbCount < 25) lastMilestoneRef.current = 0;
+  }, [orbCount]);
 
   // ── Tilt/gyroscope gravity ─────────────────────────────────────
   useEffect(() => {
