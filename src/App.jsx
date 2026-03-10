@@ -7659,6 +7659,9 @@ function App() {
         case "6":
           handleLinksMode();
           break;
+        case "7":
+          handlePulseMode();
+          break;
         case ";":
           handleFinale();
           break;
@@ -7695,7 +7698,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "hit the star for a grand finale", "try links mode for plasma webs"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try heartbeat mode for a rhythmic pulse", "try links mode for plasma webs"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -7734,6 +7737,7 @@ function App() {
           {rainMode && <ModePill $color="#60a5fa">rain</ModePill>}
           {kaleidoscopeMode && <ModePill $color="#f0abfc">mirror</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
+          {pulseMode && <ModePill $color="#667eea">heartbeat</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -7791,12 +7795,6 @@ function App() {
               <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
               <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleFinale} title="Finale" $highlight>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor" opacity="0.3" />
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -7888,6 +7886,9 @@ function App() {
         <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain mode — continuous orb rain (5)">
           rain
         </ModeToggle>
+        <ModeToggle onClick={handlePulseMode} $active={pulseMode} $color="#667eea" title="Heartbeat — rhythmic gravity pulse (7)">
+          heartbeat
+        </ModeToggle>
         <ModeToggle onClick={handleCyclePalette} $color="#c084fc" title="Cycle color palette (Y)">
           {PALETTES[paletteIndex].name.toLowerCase()}
         </ModeToggle>
@@ -7952,6 +7953,7 @@ function App() {
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>A</Key><span>N-body gravity</span></Shortcut>
               <Shortcut><Key>5</Key><span>Rain mode</span></Shortcut>
+              <Shortcut><Key>7</Key><span>Heartbeat pulse</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
             </ShortcutList>
