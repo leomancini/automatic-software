@@ -37,7 +37,6 @@ import {
   IGNITE_SPREAD_DIST, IGNITE_BURN_MS, IGNITE_SPARK_COUNT, IGNITE_SPARK_SPEED,
   IGNITE_SPREAD_CHANCE, EMBER_LIFETIME,
   STORM_DURATION, STORM_ZAP_INTERVAL, STORM_SPIN_FORCE, STORM_RADIAL_FORCE, STORM_ARC_COUNT,
-  VOLATILE_POP_CHANCE, VOLATILE_MIN_RADIUS, VOLATILE_FRAG_COUNT, VOLATILE_FRAG_SPEED,
   BOUNCE_RESTITUTION, BOUNCE_SPARK_COUNT, BOUNCE_SPARK_SPEED, BOUNCE_SPARK_LIFETIME,
   BOUNCE_SPARK_SIZE, BOUNCE_SHAKE_THRESHOLD, BOUNCE_SHAKE_INTENSITY,
   MERGE_SPARK_COUNT, MERGE_SPARK_SPEED, MERGE_SPARK_LIFETIME, MERGE_SPARK_SIZE,
@@ -235,8 +234,8 @@ function App() {
   const kaleidoscopeModeRef = useRef(false);
   const [wrapMode, setWrapMode] = useState(false);
   const wrapModeRef = useRef(false);
-  const [volatileMode, setVolatileMode] = useState(false);
-  const volatileModeRef = useRef(false);
+  const [flowMode, setFlowMode] = useState(false);
+  const flowModeRef = useRef(false);
   const barriersRef = useRef([]); // user-drawn bounce walls [{x1, y1, x2, y2, color}]
   const [barrierMode, setBarrierMode] = useState(false);
   const barrierModeRef = useRef(false);
@@ -2334,6 +2333,23 @@ function App() {
           }
         }
 
+        // flow field: organic sine-based currents that create lava-lamp movement
+        if (flowModeRef.current) {
+          const t = now * 0.0003;
+          const s1 = 0.008, s2 = 0.015;
+          const a1 = Math.sin(orb.x * s1 + t) * Math.cos(orb.y * s1 + t * 0.7);
+          const a2 = Math.cos(orb.x * s2 - t * 0.5) * Math.sin(orb.y * s2 + t * 0.9);
+          const angle = (a1 + a2) * Math.PI;
+          orb.vx += Math.cos(angle) * 0.08;
+          orb.vy += Math.sin(angle) * 0.08;
+          // gentle speed cap for dreamy movement
+          const fSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+          if (fSpeed > 3.5) {
+            orb.vx *= 0.97;
+            orb.vy *= 0.97;
+          }
+        }
+
         // black hole gravity (much stronger, wider range)
         if (blackHoleRef.current) {
           const bh = blackHoleRef.current;
@@ -2983,7 +2999,6 @@ function App() {
 
       // merge overlapping orbs
       const toRemove = new Set();
-      const volatilePops = [];
       for (let i = 0; i < orbs.length; i++) {
         if (toRemove.has(i)) continue;
         for (let j = i + 1; j < orbs.length; j++) {
@@ -3060,15 +3075,6 @@ function App() {
               }
               // play musical chime on orb-orb collision (pentatonic note mapped to Y)
               if (relSpeed > 2) playCollisionChime(cy, H, Math.min(relSpeed / 6, 1));
-              // volatile mode: energetic collisions shatter the smaller orb
-              if (volatileModeRef.current && relSpeed > 2) {
-                const victim = a.radius <= b.radius ? i : j;
-                const victimOrb = orbs[victim];
-                if (victimOrb.radius >= VOLATILE_MIN_RADIUS && !toRemove.has(victim) && Math.random() < VOLATILE_POP_CHANCE) {
-                  toRemove.add(victim);
-                  volatilePops.push({ x: victimOrb.x, y: victimOrb.y, color: victimOrb.color, radius: victimOrb.radius });
-                }
-              }
             }
           } else if (dist < smaller * MERGE_DIST_FACTOR) {
             // merge b into a (conserve area)
@@ -3143,35 +3149,6 @@ function App() {
         playMergeSound();
       }
 
-      // volatile mode: spawn fragments from popped orbs
-      if (volatilePops.length > 0) {
-        for (const pop of volatilePops) {
-          const fragRadius = pop.radius * 0.5;
-          for (let f = 0; f < VOLATILE_FRAG_COUNT; f++) {
-            const angle = (Math.PI * 2 * f) / VOLATILE_FRAG_COUNT + (Math.random() - 0.5) * 0.5;
-            const child = createOrb(pop.x, pop.y);
-            child.radius = fragRadius * (0.7 + Math.random() * 0.6);
-            child.color = pop.color;
-            child.vx = Math.cos(angle) * VOLATILE_FRAG_SPEED * (0.7 + Math.random() * 0.6);
-            child.vy = Math.sin(angle) * VOLATILE_FRAG_SPEED * (0.7 + Math.random() * 0.6);
-            orbsRef.current.push(child);
-          }
-          ripplesRef.current.push({ x: pop.x, y: pop.y, color: pop.color, born: now });
-          for (let s = 0; s < 6; s++) {
-            const angle = Math.random() * Math.PI * 2;
-            mergeSparksRef.current.push({
-              x: pop.x, y: pop.y,
-              vx: Math.cos(angle) * 3 * (0.5 + Math.random()),
-              vy: Math.sin(angle) * 3 * (0.5 + Math.random()),
-              color: pop.color,
-              size: 2 * (0.5 + Math.random()),
-              born: now, lifetime: 400,
-            });
-          }
-        }
-        setOrbCount(orbsRef.current.length);
-        playBurstSound();
-      }
 
       // Mitosis: massive orbs split into two daughter orbs
       for (let i = orbsRef.current.length - 1; i >= 0; i--) {
@@ -6645,9 +6622,9 @@ function App() {
     });
   }, []);
 
-  const handleVolatileMode = useCallback(() => {
-    setVolatileMode((prev) => {
-      volatileModeRef.current = !prev;
+  const handleFlowMode = useCallback(() => {
+    setFlowMode((prev) => {
+      flowModeRef.current = !prev;
       return !prev;
     });
   }, []);
@@ -7503,7 +7480,7 @@ function App() {
           handleWrapMode();
           break;
         case "j":
-          handleVolatileMode();
+          handleFlowMode();
           break;
         case "?":
           setShowHelp((prev) => !prev);
@@ -7512,7 +7489,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleVolatileMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, paletteIndex, setShowHelp]);
 
 
   return (
@@ -7563,7 +7540,7 @@ function App() {
           {wrapMode && <ModePill $color="#38bdf8">wrap</ModePill>}
           {nbodyMode && <ModePill $color="#a78bfa">n-body</ModePill>}
           {flockingMode && <ModePill $color="#22d3ee">flock</ModePill>}
-          {volatileMode && <ModePill $color="#f59e0b">pop</ModePill>}
+          {flowMode && <ModePill $color="#38bdf8">flow</ModePill>}
           {kaleidoscopeMode && <ModePill $color="#f0abfc">mirror</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
         </ModeIndicators>
@@ -7708,8 +7685,8 @@ function App() {
         <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flocking swarm (K)">
           flock
         </ModeToggle>
-        <ModeToggle onClick={handleVolatileMode} $active={volatileMode} $color="#f59e0b" title="Pop mode — collisions shatter orbs (J)">
-          pop
+        <ModeToggle onClick={handleFlowMode} $active={flowMode} $color="#38bdf8" title="Flow field — organic currents (J)">
+          flow
         </ModeToggle>
         <ModeToggle onClick={handleCyclePalette} $color="#c084fc" title="Cycle color palette (Y)">
           {PALETTES[paletteIndex].name.toLowerCase()}
@@ -7767,7 +7744,7 @@ function App() {
               <hr />
               <Shortcut><Key>G</Key><span>Cycle gravity direction</span></Shortcut>
               <Shortcut><Key>K</Key><span>Flocking swarm</span></Shortcut>
-              <Shortcut><Key>J</Key><span>Pop mode (explosive collisions)</span></Shortcut>
+              <Shortcut><Key>J</Key><span>Flow field (organic currents)</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
               <Shortcut><Key>O</Key><span>Magnet cursor</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
