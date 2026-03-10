@@ -73,6 +73,9 @@ import {
   FLOCK_SEPARATION_FORCE, FLOCK_ALIGNMENT_FORCE, FLOCK_COHESION_FORCE,
   FLOCK_MAX_SPEED, FLOCK_CURSOR_FLEE_DIST, FLOCK_CURSOR_FLEE_FORCE,
   CURRENT_STRENGTH, CURRENT_SCALE, CURRENT_SPEED,
+  GALAXY_SPIRAL_MS, GALAXY_SPIN_MS, GALAXY_EXPLODE_MS, GALAXY_ARM_COUNT,
+  GALAXY_PULL_FORCE, GALAXY_SPIN_ACCEL, GALAXY_MAX_SPIN, GALAXY_DAMPING,
+  GALAXY_EXPLODE_SPEED, GALAXY_RING_COUNT,
   EDGE_GLOW_RANGE, EDGE_GLOW_DEPTH, EDGE_GLOW_ALPHA,
   TIDE_SPEED, TIDE_FORCE, TIDE_WIDTH, TIDE_SINE_AMP, TIDE_SINE_FREQ,
   IDLE_DRIFT_DELAY, IDLE_DRIFT_INTERVAL, IDLE_DRIFT_MAX, IDLE_DRIFT_SPEED,
@@ -138,6 +141,7 @@ function App() {
   const tsunamiDirRef = useRef(1); // alternates direction each trigger
   const tidesRef = useRef([]); // horizontal sweep waves [{x, dir, born, color}]
   const tideDirRef = useRef(1); // alternates direction each trigger
+  const galaxyRef = useRef(null); // active galaxy {cx, cy, born, phase, spinSpeed, arms}
   const tapWavesRef = useRef([]); // concentric pulse waves from taps [{x, y, born, color, streak}]
   const shatterRef = useRef([]); // chain-shatter waves [{x, y, radius, generation, hitOrbs, color, delay}]
   const fountainsRef = useRef([]); // persistent orb spawners [{x, y, color, born, lastSpawn}]
@@ -5419,6 +5423,206 @@ function App() {
         }
       }
 
+      // ── Galaxy effect (spiral arms → spin → detonate) ──
+      if (galaxyRef.current) {
+        const gx = galaxyRef.current;
+        const age = now - gx.born;
+
+        if (gx.phase === "spiral") {
+          const progress = Math.min(age / GALAXY_SPIRAL_MS, 1);
+          // Pull orbs into spiral arm positions
+          for (const orb of orbs) {
+            if (orb === dragRef.current) continue;
+            const arm = orb._galaxyArm || 0;
+            const idx = orb._galaxyIndex || 0;
+            const armAngle = (Math.PI * 2 * arm) / GALAXY_ARM_COUNT;
+            // Target: spiral position (arm angle + offset by index)
+            const targetDist = 40 + idx * 22 * (1 - progress * 0.3);
+            const targetAngle = armAngle + idx * 0.35 + gx.spinSpeed * age * 0.02;
+            const tx = gx.cx + Math.cos(targetAngle) * targetDist;
+            const ty = gx.cy + Math.sin(targetAngle) * targetDist;
+            const dx = tx - orb.x;
+            const dy = ty - orb.y;
+            const force = GALAXY_PULL_FORCE * (0.3 + progress * 0.7);
+            orb.vx += dx * force * 0.05;
+            orb.vy += dy * force * 0.05;
+            orb.vx *= GALAXY_DAMPING;
+            orb.vy *= GALAXY_DAMPING;
+          }
+          gx.spinSpeed = Math.min(gx.spinSpeed + GALAXY_SPIN_ACCEL * 30, GALAXY_MAX_SPIN * 0.5);
+          shakeRef.current = Math.max(shakeRef.current, 2 * progress);
+
+          if (age >= GALAXY_SPIRAL_MS) {
+            gx.phase = "spin";
+            gx.spinBorn = now;
+          }
+        }
+
+        if (gx.phase === "spin") {
+          const spinAge = now - gx.spinBorn;
+          const progress = Math.min(spinAge / GALAXY_SPIN_MS, 1);
+          // Accelerate spin and tighten spiral
+          gx.spinSpeed = Math.min(gx.spinSpeed + GALAXY_SPIN_ACCEL * (60 + progress * 200), GALAXY_MAX_SPIN);
+          for (const orb of orbs) {
+            if (orb === dragRef.current) continue;
+            const dx = gx.cx - orb.x;
+            const dy = gx.cy - orb.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            // Radial pull (tightening)
+            const pull = GALAXY_PULL_FORCE * (0.5 + progress * 1.5);
+            orb.vx += (dx / dist) * pull * 0.1;
+            orb.vy += (dy / dist) * pull * 0.1;
+            // Tangential spin force
+            const tx = -dy / dist;
+            const ty = dx / dist;
+            orb.vx += tx * gx.spinSpeed * 3;
+            orb.vy += ty * gx.spinSpeed * 3;
+            orb.vx *= GALAXY_DAMPING;
+            orb.vy *= GALAXY_DAMPING;
+          }
+          shakeRef.current = Math.max(shakeRef.current, 4 + progress * 16);
+
+          if (spinAge >= GALAXY_SPIN_MS) {
+            gx.phase = "explode";
+            gx.explodeBorn = now;
+            // Fling all orbs outward with tangential + radial velocity
+            for (const orb of orbs) {
+              const dx = orb.x - gx.cx;
+              const dy = orb.y - gx.cy;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+              orb.vx = (dx / dist) * GALAXY_EXPLODE_SPEED * (0.7 + Math.random() * 0.6);
+              orb.vy = (dy / dist) * GALAXY_EXPLODE_SPEED * (0.7 + Math.random() * 0.6);
+              // Add tangential kick for spiral-out look
+              orb.vx += (-dy / dist) * GALAXY_EXPLODE_SPEED * 0.3;
+              orb.vy += (dx / dist) * GALAXY_EXPLODE_SPEED * 0.3;
+              // Burst particles from each orb
+              for (let b = 0; b < 3; b++) {
+                const angle = Math.random() * Math.PI * 2;
+                burstsRef.current.push({
+                  x: orb.x, y: orb.y,
+                  vx: Math.cos(angle) * (1 + Math.random() * 2),
+                  vy: Math.sin(angle) * (1 + Math.random() * 2),
+                  color: orb.color, radius: orb.radius * 0.25, born: now,
+                });
+              }
+            }
+            // Spawn ring of new orbs from center
+            for (let i = 0; i < GALAXY_RING_COUNT; i++) {
+              const angle = (Math.PI * 2 * i) / GALAXY_RING_COUNT;
+              const orb = createOrb(gx.cx, gx.cy);
+              orb.radius = 6 + Math.random() * 8;
+              orb.vx = Math.cos(angle) * (GALAXY_EXPLODE_SPEED * 0.8 + Math.random() * 3);
+              orb.vy = Math.sin(angle) * (GALAXY_EXPLODE_SPEED * 0.8 + Math.random() * 3);
+              orbsRef.current.push(orb);
+            }
+            // Massive shockwave
+            wavesRef.current.push({
+              cx: gx.cx, cy: gx.cy, radius: 0,
+              color: "#c084fc", generation: 0,
+              hitOrbs: new Set(), delay: 0,
+            });
+            flashesRef.current.push({ x: gx.cx, y: gx.cy, color: "#c084fc", radius: 70, born: now });
+            shakeRef.current = 40;
+            setOrbCount(orbsRef.current.length);
+            playSupernovaSound();
+          }
+        }
+
+        // Visual rendering for spiral and spin phases
+        if (gx.phase === "spiral" || gx.phase === "spin") {
+          const totalAge = now - gx.born;
+          const coreProgress = Math.min(totalAge / (GALAXY_SPIRAL_MS + GALAXY_SPIN_MS), 1);
+          // Draw spiral arms
+          const armOrbs = [];
+          for (let a = 0; a < GALAXY_ARM_COUNT; a++) armOrbs.push([]);
+          for (const orb of orbs) {
+            const arm = orb._galaxyArm || 0;
+            if (arm < armOrbs.length) armOrbs[arm].push(orb);
+          }
+          for (let a = 0; a < GALAXY_ARM_COUNT; a++) {
+            const ao = armOrbs[a];
+            if (ao.length < 2) continue;
+            // Sort by distance from center for smooth line
+            ao.sort((p, q) => {
+              const da = (p.x - gx.cx) ** 2 + (p.y - gx.cy) ** 2;
+              const db = (q.x - gx.cx) ** 2 + (q.y - gx.cy) ** 2;
+              return da - db;
+            });
+            ctx.beginPath();
+            ctx.moveTo(ao[0].x, ao[0].y);
+            for (let i = 1; i < ao.length; i++) {
+              ctx.lineTo(ao[i].x, ao[i].y);
+            }
+            ctx.strokeStyle = `rgba(192, 132, 252, ${0.15 + coreProgress * 0.2})`;
+            ctx.lineWidth = 1.5 + coreProgress * 2;
+            ctx.stroke();
+          }
+          // Glowing core
+          const coreR = 15 + coreProgress * 45;
+          const coreAlpha = 0.15 + coreProgress * 0.4;
+          const coreGrad = ctx.createRadialGradient(gx.cx, gx.cy, 0, gx.cx, gx.cy, coreR);
+          coreGrad.addColorStop(0, `rgba(255, 255, 255, ${coreAlpha})`);
+          coreGrad.addColorStop(0.3, `rgba(192, 132, 252, ${coreAlpha * 0.6})`);
+          coreGrad.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(gx.cx, gx.cy, coreR, 0, Math.PI * 2);
+          ctx.fillStyle = coreGrad;
+          ctx.fill();
+          // Rotating light rays during spin phase
+          if (gx.phase === "spin") {
+            const spinAge = now - gx.spinBorn;
+            const sp = Math.min(spinAge / GALAXY_SPIN_MS, 1);
+            const rayCount = 6;
+            for (let r = 0; r < rayCount; r++) {
+              const rayAngle = (Math.PI * 2 * r) / rayCount + totalAge * gx.spinSpeed * 0.5;
+              const rayLen = coreR * (1.5 + sp * 2);
+              const rayAlpha = sp * 0.12;
+              ctx.beginPath();
+              ctx.moveTo(gx.cx, gx.cy);
+              ctx.lineTo(gx.cx + Math.cos(rayAngle) * rayLen, gx.cy + Math.sin(rayAngle) * rayLen);
+              ctx.strokeStyle = `rgba(192, 132, 252, ${rayAlpha})`;
+              ctx.lineWidth = 2 + sp * 3;
+              ctx.lineCap = "round";
+              ctx.stroke();
+            }
+          }
+        }
+
+        // Explosion glow
+        if (gx.phase === "explode") {
+          const explodeAge = now - gx.explodeBorn;
+          if (explodeAge < GALAXY_EXPLODE_MS) {
+            const progress = explodeAge / GALAXY_EXPLODE_MS;
+            const glowR = 40 + progress * Math.min(W, H) * 0.5;
+            const glowAlpha = (1 - progress) * 0.35;
+            const glowGrad = ctx.createRadialGradient(gx.cx, gx.cy, 0, gx.cx, gx.cy, glowR);
+            glowGrad.addColorStop(0, `rgba(255, 255, 255, ${glowAlpha * 0.8})`);
+            glowGrad.addColorStop(0.15, `rgba(192, 132, 252, ${glowAlpha * 0.5})`);
+            glowGrad.addColorStop(0.4, `rgba(139, 92, 246, ${glowAlpha * 0.3})`);
+            glowGrad.addColorStop(1, "transparent");
+            ctx.beginPath();
+            ctx.arc(gx.cx, gx.cy, glowR, 0, Math.PI * 2);
+            ctx.fillStyle = glowGrad;
+            ctx.fill();
+            // Spiral debris rays
+            const rayCount = GALAXY_ARM_COUNT * 4;
+            for (let r = 0; r < rayCount; r++) {
+              const rayAngle = (Math.PI * 2 * r) / rayCount + progress * 1.5;
+              const rayLen = glowR * (0.4 + 0.6 * Math.sin(progress * 8 + r * 2));
+              ctx.beginPath();
+              ctx.moveTo(gx.cx, gx.cy);
+              ctx.lineTo(gx.cx + Math.cos(rayAngle) * rayLen, gx.cy + Math.sin(rayAngle) * rayLen);
+              ctx.strokeStyle = `rgba(192, 132, 252, ${(1 - progress) * 0.15})`;
+              ctx.lineWidth = 2.5 * (1 - progress);
+              ctx.lineCap = "round";
+              ctx.stroke();
+            }
+          } else {
+            galaxyRef.current = null;
+          }
+        }
+      }
+
       // ── Pulsar effect (rhythmic pulse waves → detonation) ──
 
       // ── Implode effect (gravity bomb — pull in then explode out) ──
@@ -6734,6 +6938,25 @@ function App() {
     playCometSound();
   }, []);
 
+  const handleGalaxy = useCallback(() => {
+    if (galaxyRef.current) return;
+    const orbs = orbsRef.current;
+    if (orbs.length < 3) return;
+    // Center of mass
+    let cx = 0, cy = 0;
+    for (const o of orbs) { cx += o.x; cy += o.y; }
+    cx /= orbs.length; cy /= orbs.length;
+    // Assign each orb to a spiral arm
+    for (let i = 0; i < orbs.length; i++) {
+      orbs[i]._galaxyArm = i % GALAXY_ARM_COUNT;
+      orbs[i]._galaxyIndex = Math.floor(i / GALAXY_ARM_COUNT);
+    }
+    galaxyRef.current = {
+      cx, cy, born: performance.now(), phase: "spiral", spinSpeed: 0.008,
+    };
+    playGalaxySound();
+  }, []);
+
   const handleBlackHole = useCallback(() => {
     // toggle: if one exists, remove it
     if (blackHoleRef.current) {
@@ -6801,6 +7024,7 @@ function App() {
       { fn: handleSpin, label: "VORTEX", color: "#f093fb" },
       { fn: handleScatter, label: "SCATTER", color: "#fa709a" },
       { fn: handleTide, label: "TIDE", color: "#00f2fe" },
+      { fn: handleGalaxy, label: "GALAXY", color: "#c084fc" },
     ];
 
     // Always start with the title flash
@@ -6829,7 +7053,7 @@ function App() {
         setTimeout(() => bonus.fn(), delay + 150);
       }
     });
-  }, [handleBurst, handleWave, handleFirework, handleLightning, handleMeteorShower, handleSupernova, handleStarburst, handleSpin, handleScatter, handleTide]);
+  }, [handleBurst, handleWave, handleFirework, handleLightning, handleMeteorShower, handleSupernova, handleStarburst, handleSpin, handleScatter, handleTide, handleGalaxy]);
 
   const handleStarburst = useCallback(() => {
     const orbs = orbsRef.current;
@@ -6989,6 +7213,10 @@ function App() {
           handleTide();
           flashLabel("TIDE", "#00f2fe");
           break;
+        case "3":
+          handleGalaxy();
+          if (orbsRef.current.length >= 3) flashLabel("GALAXY", "#c084fc");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -6996,7 +7224,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handleStarburst, handleShowtime, handleTide, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handleStarburst, handleShowtime, handleTide, handleGalaxy, paletteIndex, setShowHelp]);
 
 
   return (
@@ -7102,6 +7330,13 @@ function App() {
               <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
               <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={() => { handleGalaxy(); if (orbsRef.current.length >= 3) comboFlashRef.current.push({ text: "GALAXY", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#c084fc" }); }} title="Galaxy (3)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
+              <path d="M12 2c4 4 4 6 0 10s-4 6 0 10" />
+              <path d="M2 12c4-4 6-4 10 0s6 4 10 0" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleShowtime} title="Showtime">
@@ -7243,6 +7478,7 @@ function App() {
               <hr />
               <Shortcut><Key>1</Key><span>Showtime (effect chain)</span></Shortcut>
               <Shortcut><Key>2</Key><span>Tide wave</span></Shortcut>
+              <Shortcut><Key>3</Key><span>Galaxy spiral</span></Shortcut>
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>

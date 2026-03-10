@@ -457,6 +457,18 @@ export const IDLE_DRIFT_INTERVAL = 900;  // ms between idle orb spawns
 export const IDLE_DRIFT_MAX = 15;        // max orbs spawned by drift
 export const IDLE_DRIFT_SPEED = 0.6;     // base inward velocity
 
+// ── Galaxy effect ──
+export const GALAXY_SPIRAL_MS = 2000;     // time to form spiral
+export const GALAXY_SPIN_MS = 1500;       // accelerating spin phase
+export const GALAXY_EXPLODE_MS = 1200;    // explosion visual duration
+export const GALAXY_ARM_COUNT = 2;        // number of spiral arms
+export const GALAXY_PULL_FORCE = 0.12;    // radial inward pull
+export const GALAXY_SPIN_ACCEL = 0.00002; // angular acceleration per frame
+export const GALAXY_MAX_SPIN = 0.045;     // max angular velocity
+export const GALAXY_DAMPING = 0.93;       // velocity damping during spiral
+export const GALAXY_EXPLODE_SPEED = 14;   // outward explosion speed
+export const GALAXY_RING_COUNT = 16;      // new orbs spawned on explosion
+
 // ── Reactive edge glow ──
 export const EDGE_GLOW_RANGE = 150;    // px from edge to detect orbs
 export const EDGE_GLOW_DEPTH = 60;     // how far glow extends inward from edge
