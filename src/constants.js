@@ -353,9 +353,9 @@ export const HARP_PLUCK_COOLDOWN = 50;           // ms between pluck sounds
 export const SPAWN_DURATION = 400; // ms for materialization
 
 // ── Autoplay ────────────────────────────────────────────────────────
-export const AUTOPLAY_SPAWN_INTERVAL = 2000; // ms between autoplay spawns
-export const AUTOPLAY_SPAWN_COUNT = 3;       // orbs per autoplay spawn
-export const AUTOPLAY_EFFECT_INTERVAL = 5000; // ms between random autoplay effects
+export const AUTOPLAY_SPAWN_INTERVAL = 1500; // ms between autoplay spawns
+export const AUTOPLAY_SPAWN_COUNT = 4;       // orbs per autoplay spawn
+export const AUTOPLAY_EFFECT_INTERVAL = 3500; // ms between random autoplay effects
 
 // ── Black hole ──────────────────────────────────────────────────────
 export const BLACK_HOLE_RANGE = 200;           // gravitational pull range

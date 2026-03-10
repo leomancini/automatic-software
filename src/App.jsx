@@ -2105,8 +2105,47 @@ function App() {
               shakeRef.current = Math.max(shakeRef.current, 8);
             },
           ];
-          effects[Math.floor(Math.random() * effects.length)]();
-          ap.lastEffect = now + (Math.random() - 0.5) * 1000; // vary timing
+          // Every ~25s trigger a supernova finale, otherwise pick random
+          const sinceStart = now - (ap.finaleTime || 0);
+          if (sinceStart > 25000 && orbs.length >= 6) {
+            ap.finaleTime = now;
+            // supernova finale
+            const cx2 = W / 2, cy2 = H / 2;
+            for (const o of orbs) {
+              const dx = o.x - cx2, dy = o.y - cy2;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+              o.vx -= (dx / dist) * 3;
+              o.vy -= (dy / dist) * 3;
+            }
+            setTimeout(() => {
+              const n2 = performance.now();
+              for (const o of orbsRef.current) {
+                const dx = o.x - cx2, dy = o.y - cy2;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                o.vx += (dx / dist) * 8;
+                o.vy += (dy / dist) * 8;
+              }
+              const ringCount = 16;
+              for (let i = 0; i < ringCount; i++) {
+                const angle = (Math.PI * 2 * i) / ringCount;
+                const orb2 = createOrb(cx2, cy2);
+                orb2.vx = Math.cos(angle) * 6;
+                orb2.vy = Math.sin(angle) * 6;
+                orbsRef.current.push(orb2);
+                ripplesRef.current.push({ x: cx2, y: cy2, color: orb2.color, born: n2 });
+              }
+              setOrbCount(orbsRef.current.length);
+              wavesRef.current.push({ cx: cx2, cy: cy2, radius: 0, color: "#fff", generation: 0, hitOrbs: new Set(), delay: 0 });
+              shakeRef.current = Math.max(shakeRef.current, 25);
+              screenFlashesRef.current.push({ cx: cx2, cy: cy2, color: "#f0abfc", born: n2 });
+              playBoom();
+            }, 600);
+            shakeRef.current = Math.max(shakeRef.current, 8);
+            playSwoosh();
+          } else {
+            effects[Math.floor(Math.random() * effects.length)]();
+          }
+          ap.lastEffect = now + (Math.random() - 0.5) * 800; // vary timing
         }
       }
 
@@ -8360,7 +8399,7 @@ function App() {
           handlePulseMode();
           break;
         case "8":
-          handleTrailsMode();
+          handleAutoplay();
           break;
         case "9":
           handleVolatileMode();
@@ -8415,7 +8454,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "bounce mode \u00b7 elastic walls for perpetual motion"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try auto mode \u00b7 sit back and watch the show"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -8455,7 +8494,7 @@ function App() {
           {kaleidoscopeMode && <ModePill $color="#f0abfc">mirror</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {pulseMode && <ModePill $color="#667eea">heartbeat</ModePill>}
-          {trailsMode && <ModePill $color="#f97316">trails</ModePill>}
+          {autoPlay && <ModePill $color="#e879f9">auto</ModePill>}
           {volatileMode && <ModePill $color="#ef4444">volatile</ModePill>}
           {fissionMode && <ModePill $color="#f43f5e">fission</ModePill>}
           {waveMode && <ModePill $color="#38bdf8">wave</ModePill>}
@@ -8606,8 +8645,8 @@ function App() {
         <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce mode — elastic collisions (.)">
           bounce
         </ModeToggle>
-        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#f97316" title="Light trails — orbs leave glowing trails (8)">
-          trails
+        <ModeToggle onClick={handleAutoplay} $active={autoPlay} $color="#e879f9" title="Auto mode — sit back and watch the show (8)">
+          auto
         </ModeToggle>
         <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
           n-body
@@ -8681,6 +8720,7 @@ function App() {
               <Shortcut><Key>7</Key><span>Heartbeat pulse</span></Shortcut>
               <Shortcut><Key>-</Key><span>Wave mode</span></Shortcut>
               <Shortcut><Key>.</Key><span>Bounce mode</span></Shortcut>
+              <Shortcut><Key>8</Key><span>Auto mode</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
             </ShortcutList>
