@@ -1623,6 +1623,79 @@ function App() {
         }
       }
 
+      // ── Comet projectiles: move, spawn trail orbs, render ──
+      cometsRef.current = cometsRef.current.filter((c) => {
+        const age = now - c.born;
+        // move comet
+        c.x += c.vx;
+        c.y += c.vy;
+        // record trail
+        c.trail.push({ x: c.x, y: c.y, t: now });
+        if (c.trail.length > COMET_TAIL_POINTS) c.trail.shift();
+        // spawn orbs along path
+        if (c.spawned < COMET_ORB_COUNT && now - c.lastSpawn > COMET_TRAIL_INTERVAL) {
+          c.lastSpawn = now;
+          c.spawned++;
+          const spread = (Math.random() - 0.5) * 1.5;
+          const perpX = -c.vy / COMET_SPEED * spread;
+          const perpY = c.vx / COMET_SPEED * spread;
+          orbs.push({
+            x: c.x + perpX * 8, y: c.y + perpY * 8,
+            vx: c.vx * 0.15 + perpX * 2, vy: c.vy * 0.15 + perpY * 2,
+            radius: 3 + Math.random() * 3, color: c.color,
+            opacity: 1, pulsePhase: Math.random() * Math.PI * 2,
+            trail: [],
+          });
+          // trail sparks
+          for (let sp = 0; sp < 3; sp++) {
+            burstsRef.current.push({
+              x: c.x, y: c.y,
+              vx: (Math.random() - 0.5) * 3 - c.vx * 0.1,
+              vy: (Math.random() - 0.5) * 3 - c.vy * 0.1,
+              color: c.color, radius: 0.8 + Math.random(), born: now,
+            });
+          }
+        }
+        // despawn when off-screen
+        return c.x > -60 && c.x < W + 60 && c.y > -60 && c.y < H + 60;
+      });
+      // render comets
+      for (const c of cometsRef.current) {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        // tail
+        if (c.trail.length > 1) {
+          for (let t = 1; t < c.trail.length; t++) {
+            const progress = t / c.trail.length;
+            const alpha = progress * progress * 0.6;
+            const width = progress * COMET_HEAD_RADIUS * 0.8;
+            ctx.beginPath();
+            ctx.moveTo(c.trail[t - 1].x, c.trail[t - 1].y);
+            ctx.lineTo(c.trail[t].x, c.trail[t].y);
+            ctx.strokeStyle = c.color + hexAlpha(alpha * 255);
+            ctx.lineWidth = Math.max(0.5, width);
+            ctx.lineCap = "round";
+            ctx.stroke();
+          }
+        }
+        // bright head glow
+        const headGrad = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, COMET_HEAD_RADIUS * 2.5);
+        headGrad.addColorStop(0, "#ffffff" + hexAlpha(220));
+        headGrad.addColorStop(0.2, c.color + hexAlpha(180));
+        headGrad.addColorStop(0.6, c.color + hexAlpha(60));
+        headGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, COMET_HEAD_RADIUS * 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = headGrad;
+        ctx.fill();
+        // solid core
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, COMET_HEAD_RADIUS * 0.5, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.restore();
+      }
+
       // update and draw ambient motes (reactive to nearby orbs)
       for (const mote of motesRef.current) {
         // orb proximity push — motes get swept aside by passing orbs
@@ -7287,6 +7360,10 @@ function App() {
         case "a":
           handleNbodyMode();
           break;
+        case "z":
+          handleComet();
+          flashLabel("COMET", "#f59e0b");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -7405,6 +7482,14 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleComet} title="Comet (Z)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="17" cy="7" r="3" fill="currentColor" />
+              <path d="M14 10L3 21" />
+              <path d="M14 10L8 16" opacity="0.5" />
+              <path d="M12 12L5 19" opacity="0.3" />
+            </svg>
+          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handleShuffle} title="Shuffle colors">
@@ -7488,8 +7573,8 @@ function App() {
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails mode">
           trails
         </ModeToggle>
-        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#f59e0b" title="N-body gravity (A)">
-          n-body
+        <ModeToggle onClick={handleOrbitMode} $active={orbitMode} $color="#f59e0b" title="Orbit mode (O)">
+          orbit
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
@@ -7539,6 +7624,7 @@ function App() {
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
+              <Shortcut><Key>Z</Key><span>Comet</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
