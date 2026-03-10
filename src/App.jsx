@@ -7662,6 +7662,9 @@ function App() {
         case "7":
           handlePulseMode();
           break;
+        case "8":
+          handleTrailsMode();
+          break;
         case ";":
           handleFinale();
           break;
@@ -7672,7 +7675,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleFinale, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleFinale, handleTrailsMode, paletteIndex, setShowHelp]);
 
 
   return (
@@ -7738,6 +7741,7 @@ function App() {
           {kaleidoscopeMode && <ModePill $color="#f0abfc">mirror</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {pulseMode && <ModePill $color="#667eea">heartbeat</ModePill>}
+          {trailsMode && <ModePill $color="#f97316">trails</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -7889,8 +7893,8 @@ function App() {
         <ModeToggle onClick={handlePulseMode} $active={pulseMode} $color="#667eea" title="Heartbeat — rhythmic gravity pulse (7)">
           heartbeat
         </ModeToggle>
-        <ModeToggle onClick={handleCyclePalette} $color="#c084fc" title="Cycle color palette (Y)">
-          {PALETTES[paletteIndex].name.toLowerCase()}
+        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#f97316" title="Light trails — orbs leave glowing trails (8)">
+          trails
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
@@ -7954,6 +7958,7 @@ function App() {
               <Shortcut><Key>A</Key><span>N-body gravity</span></Shortcut>
               <Shortcut><Key>5</Key><span>Rain mode</span></Shortcut>
               <Shortcut><Key>7</Key><span>Heartbeat pulse</span></Shortcut>
+              <Shortcut><Key>8</Key><span>Light trails</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
             </ShortcutList>
