@@ -3046,6 +3046,45 @@ function App() {
         if (novaDetonated) setOrbCount(orbsRef.current.length);
       }
 
+      // ── Cascade pop: burst-spawned orbs spawn mini-orbs after a delay ──
+      {
+        let popped = false;
+        for (const orb of orbs) {
+          if (orb.popAt && now > orb.popAt) {
+            orb.popAt = null;
+            const count = 2 + Math.floor(Math.random() * 2); // 2-3 sub-orbs
+            for (let i = 0; i < count; i++) {
+              const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+              const spd = 2 + Math.random() * 2;
+              const sub = createOrb(orb.x, orb.y);
+              sub.radius = Math.max(4, orb.radius * 0.55);
+              sub.color = orb.color;
+              sub.vx = orb.vx * 0.3 + Math.cos(angle) * spd;
+              sub.vy = orb.vy * 0.3 + Math.sin(angle) * spd;
+              orbsRef.current.push(sub);
+            }
+            ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+            for (let s = 0; s < 3; s++) {
+              const sAngle = Math.random() * Math.PI * 2;
+              mergeSparksRef.current.push({
+                x: orb.x, y: orb.y,
+                vx: Math.cos(sAngle) * 3,
+                vy: Math.sin(sAngle) * 3,
+                color: orb.color,
+                size: 1.5 + Math.random(),
+                born: now,
+              });
+            }
+            shakeRef.current = Math.max(shakeRef.current, 2);
+            popped = true;
+          }
+        }
+        if (popped) {
+          setOrbCount(orbsRef.current.length);
+          playFirePop();
+        }
+      }
+
       // merge overlapping orbs
       const toRemove = new Set();
       const volatileFrags = [];
@@ -6894,6 +6933,10 @@ function App() {
       const orb = createOrb(cx, cy);
       orb.vx = Math.cos(angle) * (speed * (0.7 + Math.random() * 0.6));
       orb.vy = Math.sin(angle) * (speed * (0.7 + Math.random() * 0.6));
+      // cascade pop: some burst orbs will mini-burst after a delay
+      if (Math.random() < 0.4) {
+        orb.popAt = now + 350 + Math.random() * 350;
+      }
       orbsRef.current.push(orb);
     }
     ripplesRef.current.push({ x: cx, y: cy, color: randomColor(), born: now });
