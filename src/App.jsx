@@ -8622,8 +8622,8 @@ function App() {
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor — orbs orbit your finger (O)">
           magnet
         </ModeToggle>
-        <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain mode — continuous orb rain (5)">
-          rain
+        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce mode — elastic collisions (.)">
+          bounce
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
