@@ -6751,9 +6751,10 @@ function App() {
     setTimeout(() => handleWave(), 350);
     setTimeout(() => handleFirework(), 700);
     setTimeout(() => { handleFirework(); handleWave(); }, 1100);
-    setTimeout(() => handleMeteorShower(), 1500);
-    setTimeout(() => handleSupernova(), 2100);
-  }, [handleBurst, handleWave, handleFirework, handleMeteorShower, handleSupernova]);
+    setTimeout(() => handleLightning(), 1500);
+    setTimeout(() => handleMeteorShower(), 1800);
+    setTimeout(() => handleSupernova(), 2500);
+  }, [handleBurst, handleWave, handleFirework, handleLightning, handleMeteorShower, handleSupernova]);
 
   const handleStarburst = useCallback(() => {
     const orbs = orbsRef.current;
@@ -6892,6 +6893,9 @@ function App() {
           handleBlackHole();
           flashLabel("BLACK HOLE", "#a855f7");
           break;
+        case "1":
+          handleShowtime();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -6899,7 +6903,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handleStarburst, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handleStarburst, handleShowtime, paletteIndex, setShowHelp]);
 
 
   return (
@@ -7005,6 +7009,11 @@ function App() {
               <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
               <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleShowtime} title="Showtime">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
             </svg>
           </ActionButton>
           <ActionButton onClick={() => { handleCyclePalette(); comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#f093fb" }); }} title="Cycle palette">
@@ -7135,6 +7144,7 @@ function App() {
               <Shortcut><Key>overlap</Key><span>Merge (big ones split!)</span></Shortcut>
               <Shortcut><Key>rapid taps</Key><span>Combo streaks → bonus effects</span></Shortcut>
               <hr />
+              <Shortcut><Key>1</Key><span>Showtime (effect chain)</span></Shortcut>
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
