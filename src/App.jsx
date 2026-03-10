@@ -8545,13 +8545,16 @@ function App() {
           </ActionButton>
           {orbCount > 0 && (
             <>
-            <ActionButton onClick={handleGalaxy} title="Galaxy">
+            <ActionButton onClick={handleFireworkShow} title="Firework show">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="2" fill="currentColor" />
-                <path d="M12 12 C8 6, 3 8, 5 12 C7 16, 12 18, 16 14" opacity="0.8" />
-                <path d="M12 12 C16 18, 21 16, 19 12 C17 8, 12 6, 8 10" opacity="0.8" />
-                <circle cx="5" cy="12" r="1" fill="currentColor" opacity="0.4" />
-                <circle cx="19" cy="12" r="1" fill="currentColor" opacity="0.4" />
+                <line x1="12" y1="22" x2="12" y2="12" />
+                <line x1="12" y1="8" x2="12" y2="4" />
+                <line x1="12" y1="8" x2="8" y2="4" />
+                <line x1="12" y1="8" x2="16" y2="4" />
+                <line x1="12" y1="8" x2="6" y2="8" />
+                <line x1="12" y1="8" x2="18" y2="8" />
+                <circle cx="5" cy="5" r="1.5" fill="currentColor" opacity="0.5" />
+                <circle cx="20" cy="6" r="1.5" fill="currentColor" opacity="0.5" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleLightning} title="Chain lightning">
@@ -8625,12 +8628,6 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor — orbs orbit your finger (O)">
           magnet
-        </ModeToggle>
-        <ModeToggle onClick={handleFissionMode} $active={fissionMode} $color="#f43f5e" title="Fission mode — fast orbs auto-split (=)">
-          fission
-        </ModeToggle>
-        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce mode — elastic collisions (.)">
-          bounce
         </ModeToggle>
         <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain mode — continuous orb rain (5)">
           rain
