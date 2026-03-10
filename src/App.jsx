@@ -7003,80 +7003,38 @@ function App() {
   }, []);
 
 
-  const handleShowtime = useCallback(() => {
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const flash = (text, color, delay) => {
-      setTimeout(() => {
-        comboFlashRef.current.push({ text, x: W / 2, y: H / 2, born: performance.now(), color });
-      }, delay);
-    };
+  const handleFireworkShow = useCallback(() => {
+    const count = 5 + Math.floor(Math.random() * 3); // 5-7 fireworks
+    comboFlashRef.current.push({ text: "FIREWORK SHOW", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#fa709a" });
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => handleFirework(), i * 180 + Math.random() * 80);
+    }
+  }, [handleFirework]);
 
-    // Pool of effects with their labels, colors, and handlers
-    const pool = [
-      { fn: handleBurst, label: "BURST", color: "#667eea" },
-      { fn: handleWave, label: "SHOCKWAVE", color: "#4facfe" },
-      { fn: handleFirework, label: "FIREWORK", color: "#fa709a" },
-      { fn: handleLightning, label: "LIGHTNING", color: "#4facfe" },
-      { fn: handleMeteorShower, label: "METEORS", color: "#43e97b" },
-      { fn: handleSupernova, label: "SUPERNOVA", color: "#f093fb" },
-      { fn: handleStarburst, label: "STARBURST", color: "#fbbf24" },
-      { fn: handleSpin, label: "VORTEX", color: "#f093fb" },
-      { fn: handleScatter, label: "SCATTER", color: "#fa709a" },
-      { fn: handleTide, label: "TIDE", color: "#00f2fe" },
-      { fn: handleGalaxy, label: "GALAXY", color: "#c084fc" },
-      { fn: handleCrossfire, label: "CROSSFIRE", color: "#fa709a" },
-    ];
-
-    // Always start with the title flash
-    comboFlashRef.current.push({ text: "SHOWTIME", x: W / 2, y: H / 2, born: performance.now(), color: "#fbbf24" });
-
-    // Compose a random choreography: 5-7 steps from the pool
-    const stepCount = 5 + Math.floor(Math.random() * 3);
-    const shuffled = [...pool].sort(() => Math.random() - 0.5);
-    const steps = shuffled.slice(0, stepCount);
-
-    // Always open with burst to seed orbs, and close with supernova as the finale
-    const opener = pool[0]; // burst
-    const closer = pool[5]; // supernova
-    const middle = steps.filter(s => s !== opener && s !== closer).slice(0, stepCount - 2);
-
-    const sequence = [opener, ...middle, closer];
-    const baseGap = 400;
-
-    sequence.forEach((step, i) => {
-      const delay = i === 0 ? 0 : i * baseGap + Math.random() * 100;
-      setTimeout(() => step.fn(), delay);
-      if (i > 0) flash(step.label, step.color, delay);
-      // Occasionally double up an effect for extra drama
-      if (i > 0 && i < sequence.length - 1 && Math.random() < 0.25) {
-        const bonus = pool[Math.floor(Math.random() * pool.length)];
-        setTimeout(() => bonus.fn(), delay + 150);
-      }
-    });
-  }, [handleBurst, handleWave, handleFirework, handleLightning, handleMeteorShower, handleSupernova, handleStarburst, handleSpin, handleScatter, handleTide, handleGalaxy, handleCrossfire]);
-
-  const handleStarburst = useCallback(() => {
+  const handlePulse = useCallback(() => {
     const orbs = orbsRef.current;
     if (orbs.length < 2) return;
-    const now = performance.now();
-    for (const orb of orbs) {
-      for (let i = 0; i < 6; i++) {
-        const angle = (Math.PI * 2 * i) / 6;
-        burstsRef.current.push({
-          x: orb.x, y: orb.y,
-          vx: Math.cos(angle) * (1.5 + Math.random() * 2),
-          vy: Math.sin(angle) * (1.5 + Math.random() * 2),
-          color: orb.color,
-          radius: orb.radius * 0.3,
-          born: now,
-        });
-      }
-      ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
-      orb.vx += (Math.random() - 0.5) * 8;
-      orb.vy += (Math.random() - 0.5) * 8;
+    const W = window.innerWidth, H = window.innerHeight;
+    const cx = W / 2, cy = H / 2;
+    const maxDist = Math.sqrt(cx * cx + cy * cy) || 1;
+    // Cap at 25 waves for performance; pick random subset if too many
+    const subset = orbs.length > 25
+      ? [...orbs].sort(() => Math.random() - 0.5).slice(0, 25)
+      : orbs;
+    for (const orb of subset) {
+      const dx = orb.x - cx, dy = orb.y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const delayFrames = Math.round((dist / maxDist) * 12);
+      wavesRef.current.push({
+        cx: orb.x, cy: orb.y,
+        radius: 0,
+        color: orb.color,
+        generation: 1,
+        hitOrbs: new Set([orb.id]),
+        delay: delayFrames,
+      });
     }
-    shakeRef.current = 20;
+    shakeRef.current = Math.max(shakeRef.current, 12);
     playBoom();
   }, []);
 
@@ -7228,8 +7186,8 @@ function App() {
           handleOrbitMode();
           break;
         case "t":
-          handleStarburst();
-          flashLabel("STARBURST", "#fbbf24");
+          handlePulse();
+          flashLabel("PULSE", "#4facfe");
           break;
         case "n":
           handlePlaceWell();
@@ -7259,7 +7217,7 @@ function App() {
           flashLabel("BLACK HOLE", "#a855f7");
           break;
         case "1":
-          handleShowtime();
+          handleFireworkShow();
           break;
         case "2":
           handleTide();
@@ -7280,7 +7238,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handleStarburst, handleShowtime, handleTide, handleGalaxy, handleCrossfire, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, paletteIndex, setShowHelp]);
 
 
   return (
@@ -7325,6 +7283,7 @@ function App() {
           {frozen && <ModePill $color="#4facfe">frozen</ModePill>}
           {gravityOn && <ModePill $color="#43e97b">gravity {gravityDirRef.current === "down" ? "↓" : gravityDirRef.current === "up" ? "↑" : gravityDirRef.current === "right" ? "→" : "←"}</ModePill>}
           {orbitMode && <ModePill $color="#f093fb">orbit</ModePill>}
+          {attractMode && <ModePill $color="#f093fb">attract</ModePill>}
           {repelMode && <ModePill $color="#fa709a">repel</ModePill>}
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
@@ -7395,9 +7354,20 @@ function App() {
               <path d="M2 12c4-4 6-4 10 0s6 4 10 0" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleShowtime} title="Showtime">
+          <ActionButton onClick={handleFireworkShow} title="Firework show (1)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              <line x1="6" y1="22" x2="6" y2="14" />
+              <line x1="6" y1="10" x2="3" y2="6" />
+              <line x1="6" y1="10" x2="9" y2="6" />
+              <line x1="6" y1="10" x2="6" y2="4" />
+              <line x1="18" y1="22" x2="18" y2="16" />
+              <line x1="18" y1="12" x2="15" y2="8" />
+              <line x1="18" y1="12" x2="21" y2="8" />
+              <line x1="18" y1="12" x2="18" y2="6" />
+              <line x1="12" y1="22" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="9" y2="3" />
+              <line x1="12" y1="8" x2="15" y2="3" />
+              <line x1="12" y1="8" x2="12" y2="2" />
             </svg>
           </ActionButton>
           <ActionButton onClick={() => { handleCrossfire(); comboFlashRef.current.push({ text: "CROSSFIRE", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#fa709a" }); }} title="Crossfire (4)">
@@ -7409,17 +7379,14 @@ function App() {
               <circle cx="12" cy="12" r="2" fill="currentColor" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={() => { handleStarburst(); comboFlashRef.current.push({ text: "STARBURST", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#fbbf24" }); }} title="Starburst (T)">
+          <ActionButton onClick={() => { handlePulse(); comboFlashRef.current.push({ text: "PULSE", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#4facfe" }); }} title="Pulse (T)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="2" x2="12" y2="8" />
-              <line x1="12" y1="16" x2="12" y2="22" />
-              <line x1="2" y1="12" x2="8" y2="12" />
-              <line x1="16" y1="12" x2="22" y2="12" />
-              <line x1="5.64" y1="5.64" x2="9.17" y2="9.17" />
-              <line x1="14.83" y1="14.83" x2="18.36" y2="18.36" />
-              <line x1="5.64" y1="18.36" x2="9.17" y2="14.83" />
-              <line x1="14.83" y1="9.17" x2="18.36" y2="5.64" />
-              <circle cx="12" cy="12" r="2" fill="currentColor" />
+              <circle cx="6" cy="12" r="2" />
+              <circle cx="6" cy="12" r="5" opacity="0.4" />
+              <circle cx="18" cy="12" r="2" />
+              <circle cx="18" cy="12" r="5" opacity="0.4" />
+              <circle cx="12" cy="6" r="2" />
+              <circle cx="12" cy="6" r="5" opacity="0.4" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -7496,6 +7463,9 @@ function App() {
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode">
           paint
         </ModeToggle>
+        <ModeToggle onClick={handleAttractMode} $active={attractMode} $color="#f093fb" title="Attract mode">
+          attract
+        </ModeToggle>
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
@@ -7553,7 +7523,7 @@ function App() {
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
-              <Shortcut><Key>T</Key><span>Starburst</span></Shortcut>
+              <Shortcut><Key>T</Key><span>Pulse (all orbs shockwave)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>N</Key><span>Gravity well</span></Shortcut>
               <hr />
