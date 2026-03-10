@@ -275,6 +275,9 @@ function App() {
   const lastIdleDriftSpawnRef = useRef(0);  // last idle drift spawn time
   const pinchRef = useRef(null); // multi-touch pinch {startDist, lastDist, startAngle, lastAngle, cx, cy}
   const bgTintRef = useRef({ r: 0, g: 0, b: 0 }); // mood lighting: smoothed dominant orb color
+  const [gyroMode, setGyroMode] = useState(false);
+  const gyroModeRef = useRef(false);
+  const gyroAngleRef = useRef(0);
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1242,6 +1245,11 @@ function App() {
       cursorSpeed = Math.sqrt(cdx * cdx + cdy * cdy);
       prevCursorX = cmx;
       prevCursorY = cmy;
+
+      // ── Gyro mode: rotate gravity direction continuously ──
+      if (gyroModeRef.current) {
+        gyroAngleRef.current += 0.012; // full rotation ~8.7s at 60fps
+      }
 
       // ── Age and expire sparks ──
       orbsRef.current = orbsRef.current.filter(o => {
@@ -2443,13 +2451,18 @@ function App() {
           orb.vy -= (mdy / mDist) * wakePush;
         }
 
-        // gravity (directional)
+        // gravity (directional or gyro-rotating)
         if (gravityRef.current) {
-          const gDir = gravityDirRef.current;
-          if (gDir === "down") orb.vy += GRAVITY;
-          else if (gDir === "up") orb.vy -= GRAVITY;
-          else if (gDir === "right") orb.vx += GRAVITY;
-          else if (gDir === "left") orb.vx -= GRAVITY;
+          if (gyroModeRef.current) {
+            orb.vx += Math.sin(gyroAngleRef.current) * GRAVITY;
+            orb.vy += Math.cos(gyroAngleRef.current) * GRAVITY;
+          } else {
+            const gDir = gravityDirRef.current;
+            if (gDir === "down") orb.vy += GRAVITY;
+            else if (gDir === "up") orb.vy -= GRAVITY;
+            else if (gDir === "right") orb.vx += GRAVITY;
+            else if (gDir === "left") orb.vx -= GRAVITY;
+          }
         }
 
         // tilt gravity: directional gravity from device tilt or mouse position
@@ -6824,11 +6837,16 @@ function App() {
           const steps = 90;
           for (let i = 0; i < steps; i++) {
             if (gravityRef.current) {
-              const gDir = gravityDirRef.current;
-              if (gDir === "down") svy += GRAVITY;
-              else if (gDir === "up") svy -= GRAVITY;
-              else if (gDir === "right") svx += GRAVITY;
-              else if (gDir === "left") svx -= GRAVITY;
+              if (gyroModeRef.current) {
+                svx += Math.sin(gyroAngleRef.current + i * 0.012) * GRAVITY;
+                svy += Math.cos(gyroAngleRef.current + i * 0.012) * GRAVITY;
+              } else {
+                const gDir = gravityDirRef.current;
+                if (gDir === "down") svy += GRAVITY;
+                else if (gDir === "up") svy -= GRAVITY;
+                else if (gDir === "right") svx += GRAVITY;
+                else if (gDir === "left") svx -= GRAVITY;
+              }
             }
             for (const well of wellsRef.current) {
               const wdx = well.x - sx, wdy = well.y - sy;
@@ -7109,6 +7127,10 @@ function App() {
         // after left → off
         gravityRef.current = false;
         setGravityOn(false);
+        if (gyroModeRef.current) {
+          gyroModeRef.current = false;
+          setGyroMode(false);
+        }
       }
     }
   }, []);
@@ -7196,6 +7218,19 @@ function App() {
     setNbodyMode((prev) => {
       nbodyModeRef.current = !prev;
       return !prev;
+    });
+  }, []);
+
+  const handleGyroMode = useCallback(() => {
+    setGyroMode((prev) => {
+      const next = !prev;
+      gyroModeRef.current = next;
+      if (next && !gravityRef.current) {
+        gravityRef.current = true;
+        gravityDirRef.current = "down";
+        setGravityOn(true);
+      }
+      return next;
     });
   }, []);
 
@@ -8602,7 +8637,7 @@ function App() {
         )}
         <ModeIndicators>
           {frozen && <ModePill $color="#4facfe">frozen</ModePill>}
-          {gravityOn && <ModePill $color="#43e97b">gravity {gravityDirRef.current === "down" ? "↓" : gravityDirRef.current === "up" ? "↑" : gravityDirRef.current === "right" ? "→" : "←"}</ModePill>}
+          {gravityOn && <ModePill $color="#43e97b">gravity {gyroMode ? "↻" : gravityDirRef.current === "down" ? "↓" : gravityDirRef.current === "up" ? "↑" : gravityDirRef.current === "right" ? "→" : "←"}</ModePill>}
           {magnetCursorMode && <ModePill $color="#f59e0b">magnet</ModePill>}
           {attractMode && <ModePill $color="#f093fb">attract</ModePill>}
           {repelMode && <ModePill $color="#fa709a">repel</ModePill>}
@@ -8772,8 +8807,8 @@ function App() {
         <ModeToggle onClick={handleChainReact} $active={chainReactMode} $color="#f97316" title="Chain react — explosions cascade through orbs">
           chain
         </ModeToggle>
-        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
-          n-body
+        <ModeToggle onClick={handleGyroMode} $active={gyroMode} $color="#f472b6" title="Gyro — gravity rotates continuously">
+          gyro
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
