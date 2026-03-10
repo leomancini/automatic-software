@@ -171,6 +171,8 @@ function App() {
   const magnetCursorRef = useRef(false);
   const [attractMode, setAttractMode] = useState(false);
   const attractModeRef = useRef(false);
+  const [echoMode, setEchoMode] = useState(false);
+  const echoModeRef = useRef(false);
   const [gravityPaintMode, setGravityPaintMode] = useState(false);
   const gravityPaintModeRef = useRef(false);
   const [meshMode, setMeshMode] = useState(false);
@@ -4057,6 +4059,32 @@ function App() {
         ctx.restore();
       }
 
+      // echo mode: stroboscopic afterimages at recent positions
+      if (echoModeRef.current) {
+        for (const orb of orbs) {
+          const trail = orb.trail;
+          if (!trail || trail.length < 3 || !trail[0].x) continue;
+          const speed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+          if (speed < 0.5) continue;
+          const step = Math.max(1, Math.floor(trail.length / 7));
+          for (let i = 0; i < trail.length - 1; i += step) {
+            const t = trail[i];
+            const progress = i / trail.length;
+            const alpha = progress * progress * 0.25;
+            const scale = 0.4 + progress * 0.5;
+            const r = orb.radius * scale;
+            const echoGrad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, r * 1.8);
+            echoGrad.addColorStop(0, orb.color + hexAlpha(alpha * 255));
+            echoGrad.addColorStop(0.5, orb.color + hexAlpha(alpha * 100));
+            echoGrad.addColorStop(1, "transparent");
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, r * 1.8, 0, Math.PI * 2);
+            ctx.fillStyle = echoGrad;
+            ctx.fill();
+          }
+        }
+      }
+
       // draw orbs
       for (const orb of orbs) {
         const pulse = 1 + 0.12 * Math.sin(time * 1.5 + orb.pulsePhase);
@@ -6484,6 +6512,13 @@ function App() {
     });
   }, []);
 
+  const handleEchoMode = useCallback(() => {
+    setEchoMode((prev) => {
+      echoModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleGravityPulse = useCallback(() => {
     if (orbsRef.current.length < 2) return;
     const W = window.innerWidth;
@@ -7595,8 +7630,8 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleAttractMode} $active={attractMode} $color="#f093fb" title="Attract mode">
-          attract
+        <ModeToggle onClick={handleEchoMode} $active={echoMode} $color="#f093fb" title="Echo mode">
+          echo
         </ModeToggle>
         <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity (A)">
           n-body
