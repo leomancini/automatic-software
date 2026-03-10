@@ -7962,6 +7962,40 @@ function App() {
     playGalaxySound();
   }, []);
 
+  const handleVolley = useCallback(() => {
+    ensureAudio();
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const now = performance.now();
+    const count = 14;
+    screenFlashesRef.current.push({ cx: W / 2, cy: H * 0.8, color: "#43e97b", born: now });
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => {
+        const x = W * 0.1 + Math.random() * W * 0.8;
+        const speed = 6 + Math.random() * 5;
+        const spread = (Math.random() - 0.5) * 3;
+        const orb = createOrb(x, H + 20);
+        orb.radius = 6 + Math.random() * 8;
+        orb.vx = spread;
+        orb.vy = -(speed + 2);
+        orbsRef.current.push(orb);
+        ripplesRef.current.push({ x, y: H, color: orb.color, born: performance.now() });
+        meteorTrailsRef.current.push({
+          x: x + (Math.random() - 0.5) * 40,
+          y: H + 60 + Math.random() * 40,
+          dx: orb.vx * 20,
+          dy: orb.vy * 20,
+          color: orb.color,
+          born: performance.now(),
+        });
+        setOrbCount(orbsRef.current.length);
+      }, i * 60 + Math.random() * 30);
+    }
+    shakeRef.current = Math.max(shakeRef.current, 10);
+    playMeteorSound();
+    comboFlashRef.current.push({ text: "VOLLEY", x: W / 2, y: H / 2 - 30, born: now, color: "#43e97b" });
+  }, []);
+
   const handleComet = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -8578,6 +8612,16 @@ function App() {
                 <polyline points="19 13 19 19 13 19" />
               </svg>
             </ActionButton>
+            <ActionButton onClick={handleVolley} title="Volley">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="6" y1="20" x2="6" y2="10" />
+                <polyline points="3 13 6 10 9 13" />
+                <line x1="12" y1="20" x2="12" y2="7" />
+                <polyline points="9 10 12 7 15 10" />
+                <line x1="18" y1="20" x2="18" y2="10" />
+                <polyline points="15 13 18 10 21 13" />
+              </svg>
+            </ActionButton>
             <ActionButton onClick={handleGather} title="Gather orbs">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="5" y1="5" x2="12" y2="12" />
@@ -8642,17 +8686,8 @@ function App() {
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor — orbs orbit your finger (O)">
           magnet
         </ModeToggle>
-        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce mode — elastic collisions (.)">
-          bounce
-        </ModeToggle>
         <ModeToggle onClick={handleAutoplay} $active={autoPlay} $color="#e879f9" title="Auto mode — sit back and watch the show (8)">
           auto
-        </ModeToggle>
-        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
-          n-body
-        </ModeToggle>
-        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flocking — boid swarm behavior (K)">
-          flock
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
