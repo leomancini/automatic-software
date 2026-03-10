@@ -49,6 +49,19 @@ export const Count = styled.p`
   font-variant-numeric: tabular-nums;
 `;
 
+export const PaletteLink = styled.span`
+  cursor: pointer;
+  border-bottom: 1px dotted rgba(102, 126, 234, 0.35);
+  transition: color 0.2s, border-color 0.2s;
+  &:hover {
+    color: rgba(240, 147, 251, 0.8);
+    border-color: rgba(240, 147, 251, 0.5);
+  }
+  &:active {
+    color: rgba(240, 147, 251, 1);
+  }
+`;
+
 export const ModeIndicators = styled.div`
   display: flex;
   gap: 6px;

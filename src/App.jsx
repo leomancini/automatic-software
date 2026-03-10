@@ -102,7 +102,7 @@ import {
   blendHexColors, easeOutElastic, createOrb,
 } from './utils.js';
 import {
-  Wrapper, Canvas, HUD, Title, Hint, Count, ModeIndicators, ModePill,
+  Wrapper, Canvas, HUD, Title, Hint, Count, PaletteLink, ModeIndicators, ModePill,
   StreakCounter, NextCombo, ButtonGroup, ButtonRow, ActionButton,
   HelpButton, MuteButton, SaveFlash, ModeStrip, ModeToggle,
   HelpOverlay, HelpPanel, HelpTitle, ShortcutList, Shortcut, Key, HelpClose,
@@ -8419,7 +8419,7 @@ function App() {
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
-        <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""} · {PALETTES[paletteIndex].name}</Count>
+        <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""} · <PaletteLink onClick={handleCyclePaletteButton} title="Tap to change palette">{PALETTES[paletteIndex].name}</PaletteLink></Count>
         {streakDisplay >= 2 && (
           <>
             <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -8665,6 +8665,7 @@ function App() {
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
+              <Shortcut><Key>Y</Key><span>Cycle palette</span></Shortcut>
               <Shortcut><Key>N</Key><span>Gravity well</span></Shortcut>
               <hr />
               <Shortcut><Key>G</Key><span>Cycle gravity direction</span></Shortcut>
