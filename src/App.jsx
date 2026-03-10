@@ -6755,24 +6755,29 @@ function App() {
     setTimeout(() => handleSupernova(), 2100);
   }, [handleBurst, handleWave, handleFirework, handleMeteorShower, handleSupernova]);
 
-  const handleRandomEffect = useCallback(() => {
+  const handleStarburst = useCallback(() => {
     const orbs = orbsRef.current;
-    const alwaysAvailable = [
-      [handleBurst, "BURST"], [handleMeteorShower, "METEOR SHOWER"], [handleFirework, "FIREWORK"],
-      [handleComet, "COMET"], [handleSpiral, "SPIRAL"],
-    ];
-    const needsOrbs = [
-      [handleWave, "SHOCKWAVE"], [handleLightning, "LIGHTNING"], [handleScatter, "SCATTER"],
-      [handleSpin, "SPIN"], [handleGather, "GATHER"], [handleSupernova, "SUPERNOVA"],
-      [handleBlackHole, "BLACK HOLE"],
-    ];
-    const pool = orbs.length > 0 ? [...alwaysAvailable, ...needsOrbs] : alwaysAvailable;
-    const [fn, label] = pool[Math.floor(Math.random() * pool.length)];
-    fn();
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    comboFlashRef.current.push({ text: label, x: W / 2, y: H / 2, born: performance.now(), color: "#f093fb" });
-  }, [handleBurst, handleMeteorShower, handleFirework, handleComet, handleSpiral, handleWave, handleLightning, handleScatter, handleSpin, handleGather, handleSupernova, handleBlackHole]);
+    if (orbs.length < 2) return;
+    const now = performance.now();
+    for (const orb of orbs) {
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI * 2 * i) / 6;
+        burstsRef.current.push({
+          x: orb.x, y: orb.y,
+          vx: Math.cos(angle) * (1.5 + Math.random() * 2),
+          vy: Math.sin(angle) * (1.5 + Math.random() * 2),
+          color: orb.color,
+          radius: orb.radius * 0.3,
+          born: now,
+        });
+      }
+      ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+      orb.vx += (Math.random() - 0.5) * 8;
+      orb.vy += (Math.random() - 0.5) * 8;
+    }
+    shakeRef.current = 20;
+    playBoom();
+  }, []);
 
   const handleAutoPlay = useCallback(() => {
     setAutoPlay(prev => !prev);
@@ -6856,8 +6861,9 @@ function App() {
         case "o":
           handleOrbitMode();
           break;
-        case "a":
-          handleAttractMode();
+        case "t":
+          handleStarburst();
+          flashLabel("STARBURST", "#fbbf24");
           break;
         case "n":
           handlePlaceWell();
@@ -6878,48 +6884,13 @@ function App() {
         case "v":
           handleToggleAudio();
           break;
-        case "z":
-          handleAutoPlay();
-          break;
-        case "k":
-          handleSaveCanvas();
-          break;
-        case "j":
-          handleLongExposure();
-          break;
         case "y":
           handleCyclePalette();
           flashLabel(PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), "#f093fb");
           break;
-        case "1":
-          handleSpiral();
-          flashLabel("SPIRAL", "#667eea");
-          break;
-        case "u":
-          handleMeshMode();
-          break;
-        case "8":
-          handleFlockingMode();
-          break;
-        case "i":
-          handleKaleidoscopeMode();
-          break;
-        case "2":
-          handleComet();
-          flashLabel("COMET", "#66d9ef");
-          break;
         case "0":
           handleBlackHole();
           flashLabel("BLACK HOLE", "#a855f7");
-          break;
-        case "3":
-          handleTrailsMode();
-          break;
-        case "4":
-          handleShowtime();
-          break;
-        case "9":
-          handlePulseMode();
           break;
         case "?":
           setShowHelp((prev) => !prev);
@@ -6928,27 +6899,8 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handleAttractMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleAutoPlay, handleSaveCanvas, handleLongExposure, handleCyclePalette, handleSpiral, handleBarrierMode, handleCascade, handleOrbitLock, handleImplode, handleRicochet, handleGravityPulse, handleComet, handleMeshMode, handleFlockingMode, handleKaleidoscopeMode, handleTrailsMode, handleShowtime, handlePulseMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handleStarburst, paletteIndex, setShowHelp]);
 
-  // ── Autoplay timer ──
-  useEffect(() => {
-    if (!autoPlay) return;
-    let timeoutId;
-    const scheduleNext = () => {
-      const delay = 2000 + Math.random() * 2500;
-      timeoutId = setTimeout(() => {
-        if (orbsRef.current.length < 5) {
-          handleBurst();
-        } else {
-          handleRandomEffect();
-        }
-        scheduleNext();
-      }, delay);
-    };
-    if (orbsRef.current.length === 0) handleBurst();
-    scheduleNext();
-    return () => clearTimeout(timeoutId);
-  }, [autoPlay, handleRandomEffect, handleBurst]);
 
   return (
     <Wrapper>
@@ -6993,15 +6945,8 @@ function App() {
           {gravityOn && <ModePill $color="#43e97b">gravity {gravityDirRef.current === "down" ? "↓" : gravityDirRef.current === "up" ? "↑" : gravityDirRef.current === "right" ? "→" : "←"}</ModePill>}
           {orbitMode && <ModePill $color="#f093fb">orbit</ModePill>}
           {repelMode && <ModePill $color="#fa709a">repel</ModePill>}
-          {attractMode && <ModePill $color="#f093fb">magnet</ModePill>}
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
-          {barrierMode && <ModePill $color="#4facfe">walls</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
-          {longExposure && <ModePill $color="#feb47b">long exposure</ModePill>}
-          {autoPlay && <ModePill $color="#43e97b">autoplay</ModePill>}
-          {trailsMode && <ModePill $color="#667eea">trails</ModePill>}
-          {pulseMode && <ModePill $color="#f093fb">heartbeat</ModePill>}
-          {kaleidoscopeMode && <ModePill $color="#00f2fe">kaleidoscope</ModePill>}
           {paletteIndex !== 0 && <ModePill $color="#f093fb">{PALETTES[paletteIndex].name.toLowerCase()}</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -7198,6 +7143,7 @@ function App() {
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
+              <Shortcut><Key>T</Key><span>Starburst</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>N</Key><span>Gravity well</span></Shortcut>
               <hr />
