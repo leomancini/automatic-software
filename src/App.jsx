@@ -8181,6 +8181,7 @@ function App() {
           {volatileMode && <ModePill $color="#ef4444">volatile</ModePill>}
           {waveMode && <ModePill $color="#38bdf8">wave</ModePill>}
           {bounceMode && <ModePill $color="#34d399">bounce</ModePill>}
+          {tiltMode && <ModePill $color="#e879f9">tilt</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -8284,15 +8285,6 @@ function App() {
                 <polyline points="19 13 19 19 13 19" />
               </svg>
             </ActionButton>
-            <ActionButton onClick={handleGather} title="Gather orbs">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="4" y1="4" x2="10" y2="10" />
-                <line x1="20" y1="4" x2="14" y2="10" />
-                <line x1="4" y1="20" x2="10" y2="14" />
-                <line x1="20" y1="20" x2="14" y2="14" />
-                <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-              </svg>
-            </ActionButton>
 <ActionButton onClick={handleSpin} title="Spin orbs">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 12a9 9 0 1 1-6.22-8.56" />
@@ -8344,6 +8336,9 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleWrapMode} $active={wrapMode} $color="#38bdf8" title="Wrap mode — orbs wrap around edges (I)">
           wrap
+        </ModeToggle>
+        <ModeToggle onClick={handleTiltMode} $active={tiltMode} $color="#e879f9" title="Tilt gravity — phone gyroscope or mouse position controls gravity direction">
+          tilt
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
