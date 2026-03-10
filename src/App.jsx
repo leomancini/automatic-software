@@ -7452,10 +7452,8 @@ function App() {
           {repelMode && <ModePill $color="#fa709a">repel</ModePill>}
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
           {wrapMode && <ModePill $color="#38bdf8">wrap</ModePill>}
-          {flockingMode && <ModePill $color="#c084fc">flock</ModePill>}
-          {nbodyMode && <ModePill $color="#f59e0b">n-body</ModePill>}
+          {nbodyMode && <ModePill $color="#a78bfa">n-body</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
-          {paletteIndex !== 0 && <ModePill $color="#f093fb">{PALETTES[paletteIndex].name.toLowerCase()}</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -7597,14 +7595,11 @@ function App() {
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode">
           paint
         </ModeToggle>
-        <ModeToggle onClick={handleCyclePalette} $active={paletteIndex !== 0} $color="#f093fb" title="Cycle color palette (Y)">
-          {PALETTES[paletteIndex].name.toLowerCase()}
-        </ModeToggle>
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#c084fc" title="Flock mode (K)">
-          flock
+        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity (A)">
+          n-body
         </ModeToggle>
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor (O)">
           magnet
@@ -7675,9 +7670,7 @@ function App() {
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>A</Key><span>N-body gravity</span></Shortcut>
-              <Shortcut><Key>K</Key><span>Flock mode</span></Shortcut>
               <Shortcut><Key>I</Key><span>Wrap edges</span></Shortcut>
-              <Shortcut><Key>Y</Key><span>Cycle color palette</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
             </ShortcutList>
