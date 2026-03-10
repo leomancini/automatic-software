@@ -132,6 +132,7 @@ function App() {
   const portalsRef = useRef([]);
   const meteorTrailsRef = useRef([]);
   const shakeRef = useRef(0); // screen shake intensity (decays each frame)
+  const bulletTimeRef = useRef(0); // timestamp when bullet-time ends (brief slow-mo on combo milestones)
   const bloomRef = useRef(null); // offscreen canvas for bloom post-process
   const supernovaRef = useRef(null); // active supernova {cx, cy, born, phase}
   const implodeRef = useRef(null); // active implode {cx, cy, born, phase}
@@ -822,6 +823,15 @@ function App() {
       tapWebRef.current.push({ x: pos.x, y: pos.y, color: rippleColor, born: now });
       if (tapWebRef.current.length > 30) tapWebRef.current.shift();
 
+      // ── Bullet time: brief slow-mo before big combo effects ──
+      if (streak === STREAK_FIREWORK || streak === STREAK_LIGHTNING) {
+        bulletTimeRef.current = now + 350;
+      } else if (streak === STREAK_METEOR || streak === STREAK_SUPERNOVA) {
+        bulletTimeRef.current = now + 500;
+      } else if (streak >= STREAK_CASCADE) {
+        bulletTimeRef.current = now + 650;
+      }
+
       // Streak 5+: auto-shockwave from tap point
       if (streak >= 5) {
         wavesRef.current.push({
@@ -1313,6 +1323,19 @@ function App() {
           ctx.fillStyle = `rgba(102, 126, 234, ${pulseAlpha})`;
           ctx.fillRect(0, 0, W, H);
         }
+      }
+
+      // ── Bullet time vignette: radial darkening at edges during combo slow-mo ──
+      if (bulletTimeRef.current > now) {
+        const btRemaining = bulletTimeRef.current - now;
+        const btMax = 650; // max bullet time duration
+        const btProgress = Math.min(btRemaining / btMax, 1);
+        const btAlpha = btProgress * 0.35;
+        const vignetteGrad = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.max(W, H) * 0.75);
+        vignetteGrad.addColorStop(0, "rgba(0, 0, 0, 0)");
+        vignetteGrad.addColorStop(1, `rgba(102, 126, 234, ${btAlpha})`);
+        ctx.fillStyle = vignetteGrad;
+        ctx.fillRect(0, 0, W, H);
       }
 
       // ── Reactive edge glow: screen borders light up from nearby orbs ──
@@ -2782,7 +2805,8 @@ function App() {
         const fric = bounceModeRef.current ? 0.997 : FRICTION;
         orb.vx *= fric;
         orb.vy *= fric;
-        const speed_factor = slowMoRef.current ? 0.3 : 1;
+        const inBulletTime = bulletTimeRef.current > now;
+        const speed_factor = slowMoRef.current ? 0.3 : inBulletTime ? 0.18 : 1;
         orb.x += orb.vx * speed_factor;
         orb.y += orb.vy * speed_factor;
 
@@ -8803,6 +8827,9 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce mode — billiard-ball collisions (.)">
           bounce
+        </ModeToggle>
+        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails mode — orbs leave glowing trails (T)">
+          trails
         </ModeToggle>
         <ModeToggle onClick={handleChainReact} $active={chainReactMode} $color="#f97316" title="Chain react — explosions cascade through orbs">
           chain
