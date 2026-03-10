@@ -8493,10 +8493,6 @@ function App() {
     playSwoosh();
   }, []);
 
-  const handleAutoPlay = useCallback(() => {
-    setAutoPlay(prev => !prev);
-  }, []);
-
   const handleSaveCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -8905,17 +8901,11 @@ function App() {
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor — orbs orbit your finger (O)">
           magnet
         </ModeToggle>
-        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce mode — billiard-ball collisions (.)">
-          bounce
-        </ModeToggle>
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails mode — orbs leave glowing trails (T)">
           trails
         </ModeToggle>
-        <ModeToggle onClick={handleChainReact} $active={chainReactMode} $color="#f97316" title="Chain react — explosions cascade through orbs">
-          chain
-        </ModeToggle>
-        <ModeToggle onClick={handleGyroMode} $active={gyroMode} $color="#f472b6" title="Gyro — gravity rotates continuously">
-          gyro
+        <ModeToggle onClick={handleAutoplay} $active={autoPlay} $color="#e879f9" title="Auto mode — sit back and watch (8)">
+          auto
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
