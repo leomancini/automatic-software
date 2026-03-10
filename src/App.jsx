@@ -4564,6 +4564,10 @@ function App() {
           // drowsy: orb has been idle for a while
           const isDrowsy = !isScared && !isFrozen && !isSatisfied && !isSurprised && (orb.idleFrames || 0) > 120;
           const drowsyT = isDrowsy ? Math.min(((orb.idleFrames || 0) - 120) / 90, 1) : 0;
+          // dizzy after being spun
+          const dizzyAge = orb.spunAt ? now - orb.spunAt : Infinity;
+          const isDizzy = !isScared && !isFrozen && !isSatisfied && !isSurprised && dizzyAge > 300 && dizzyAge < 4000 && speed < 5;
+          const dizzyIntensity = isDizzy ? Math.max(0, 1 - (dizzyAge - 300) / 3700) : 0;
           let lookAng;
           if (speed > 0.8) {
             lookAng = Math.atan2(orb.vy, orb.vx);
@@ -4624,6 +4628,18 @@ function App() {
               ctx.arc(ex, ey, pupilR * 0.45, 0, Math.PI * 2);
               ctx.fillStyle = "rgba(8,8,24,0.9)";
               ctx.fill();
+            } else if (isDizzy) {
+              // dizzy: spiral eyes spinning in opposite directions per eye
+              ctx.beginPath();
+              for (let t = 0; t < 5 * Math.PI; t += 0.2) {
+                const sr = (t / (5 * Math.PI)) * eyeR * 0.95;
+                const sx = ex + sr * Math.cos(t + time * 6 * s);
+                const sy = ey + sr * Math.sin(t + time * 6 * s);
+                if (t === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+              }
+              ctx.strokeStyle = `rgba(255,255,255,${(0.5 + dizzyIntensity * 0.4).toFixed(2)})`;
+              ctx.lineWidth = Math.max(eyeR * 0.22, 0.6);
+              ctx.stroke();
             } else if (isScared) {
               // scared: wide eyes with pinpoint pupils staring at approaching wave
               ctx.beginPath();
@@ -4711,6 +4727,17 @@ function App() {
               ctx.strokeStyle = "rgba(255,255,255,0.5)";
               ctx.lineWidth = Math.max(r * 0.035, 0.5);
               ctx.stroke();
+            } else if (isDizzy) {
+              // wobbly confused squiggle
+              ctx.beginPath();
+              ctx.moveTo(0, -mW * 0.7);
+              for (let wt = -0.6; wt <= 0.6; wt += 0.15) {
+                ctx.lineTo(Math.sin(time * 8 + wt * 5) * r * 0.035, mW * wt);
+              }
+              ctx.lineTo(0, mW * 0.7);
+              ctx.strokeStyle = `rgba(255,255,255,${(0.3 + dizzyIntensity * 0.2).toFixed(2)})`;
+              ctx.lineWidth = Math.max(r * 0.04, 0.5);
+              ctx.stroke();
             } else if (isSatisfied) {
               // big grin after merge
               ctx.beginPath();
@@ -4769,6 +4796,25 @@ function App() {
               ctx.font = `bold ${zSz}px sans-serif`;
               ctx.fillStyle = orb.color;
               ctx.fillText("z", zX, zY);
+            }
+            ctx.globalAlpha = 1;
+          }
+          // floating cartoon stars orbiting above dizzy orbs
+          if (isDizzy && dizzyIntensity > 0.15) {
+            const starCount = 3;
+            const orbitR = r * 0.65;
+            const orbitY = -r - r * 0.35;
+            for (let si = 0; si < starCount; si++) {
+              const angle = time * 3.5 + si * (Math.PI * 2 / starCount);
+              const sx = Math.cos(angle) * orbitR;
+              const sy = orbitY + Math.sin(angle) * orbitR * 0.3;
+              const starSize = Math.max(4, r * 0.22);
+              ctx.globalAlpha = dizzyIntensity * 0.75;
+              ctx.font = `${starSize}px sans-serif`;
+              ctx.fillStyle = '#ffd700';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText('\u2605', sx, sy);
             }
             ctx.globalAlpha = 1;
           }
@@ -7015,7 +7061,9 @@ function App() {
     const cx = W / 2;
     const cy = H / 2;
     const dir = Math.random() > 0.5 ? 1 : -1;
+    const spinNow = performance.now();
     for (const orb of orbsRef.current) {
+      orb.spunAt = spinNow;
       const dx = orb.x - cx;
       const dy = orb.y - cy;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1;
