@@ -8234,9 +8234,9 @@ function App() {
               <line x1="12" y1="8" x2="16" y2="12" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleSpiral} title="Spiral">
+          <ActionButton onClick={handleFinale} title="Finale">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 12c0-1.5 1.2-2.7 2.7-2.7 2.2 0 4 1.8 4 4 0 3-2.4 5.4-5.4 5.4C9.5 18.7 6.3 15.5 6.3 11.7c0-4.5 3.7-8.2 8.2-8.2" />
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleSupernova} title="Supernova">
@@ -8388,7 +8388,6 @@ function App() {
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Comet</span></Shortcut>
-              <Shortcut><Key>,</Key><span>Spiral</span></Shortcut>
               <Shortcut><Key>;</Key><span>Finale (chains all effects!)</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
