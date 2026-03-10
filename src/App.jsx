@@ -2404,10 +2404,12 @@ function App() {
           }
         }
 
-        // record position for comet trails (always-on)
-        if (!orb.trail) orb.trail = [];
-        orb.trail.push({ x: orb.x, y: orb.y });
-        if (orb.trail.length > LIGHT_TRAIL_LENGTH) orb.trail.shift();
+        // record position for comet trails (skip when trails mode uses its own format)
+        if (!trailsModeRef.current) {
+          if (!orb.trail) orb.trail = [];
+          orb.trail.push({ x: orb.x, y: orb.y });
+          if (orb.trail.length > LIGHT_TRAIL_LENGTH) orb.trail.shift();
+        }
 
         // bounce off walls (or wrap around in wrap mode)
         if (wrapModeRef.current) {
@@ -7286,6 +7288,7 @@ function App() {
           {attractMode && <ModePill $color="#f093fb">attract</ModePill>}
           {repelMode && <ModePill $color="#fa709a">repel</ModePill>}
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
+          {trailsMode && <ModePill $color="#c084fc">trails</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {paletteIndex !== 0 && <ModePill $color="#f093fb">{PALETTES[paletteIndex].name.toLowerCase()}</ModePill>}
         </ModeIndicators>
@@ -7427,8 +7430,8 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleOrbitMode} $active={orbitMode} $color="#f093fb" title="Orbit mode (O)">
-          orbit
+        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails mode">
+          trails
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
