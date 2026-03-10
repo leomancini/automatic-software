@@ -167,8 +167,8 @@ function App() {
   const longExposureRef = useRef(false);
   const [repelMode, setRepelMode] = useState(false);
   const repelModeRef = useRef(false);
-  const [orbitMode, setOrbitMode] = useState(false);
-  const orbitModeRef = useRef(false);
+  const [magnetCursorMode, setMagnetCursorMode] = useState(false);
+  const magnetCursorRef = useRef(false);
   const [attractMode, setAttractMode] = useState(false);
   const attractModeRef = useRef(false);
   const [gravityPaintMode, setGravityPaintMode] = useState(false);
@@ -2205,19 +2205,18 @@ function App() {
           orb.vy += gy * TILT_GRAVITY_FORCE;
         }
 
-        // orbit mode: continuous tangential force around screen center
-        if (orbitModeRef.current) {
-          const ocx = W / 2;
-          const ocy = H / 2;
-          const odx = orb.x - ocx;
-          const ody = orb.y - ocy;
-          const oDist = Math.sqrt(odx * odx + ody * ody) || 1;
-          // tangential push (perpendicular to radial)
-          orb.vx += (-ody / oDist) * 0.15;
-          orb.vy += (odx / oDist) * 0.15;
-          // gentle inward pull to prevent escape
-          orb.vx -= (odx / oDist) * 0.05;
-          orb.vy -= (ody / oDist) * 0.05;
+        // magnet cursor: cursor/finger acts as gravity source
+        if (magnetCursorRef.current && mouseRef.current.onCanvas) {
+          const mcx = mouseRef.current.x;
+          const mcy = mouseRef.current.y;
+          const mdx = mcx - orb.x;
+          const mdy = mcy - orb.y;
+          const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+          if (mDist > 5 && mDist < 300) {
+            const strength = 0.12 * (1 - mDist / 300);
+            orb.vx += (mdx / mDist) * strength;
+            orb.vy += (mdy / mDist) * strength;
+          }
         }
 
         // pulse mode: gentle center-pull between heartbeat pulses (inhale phase)
@@ -4028,6 +4027,33 @@ function App() {
           }
           ctx.restore();
         }
+      }
+
+      // ── Magnet cursor field indicator ──
+      if (magnetCursorRef.current && mouseRef.current.onCanvas) {
+        const mcx = mouseRef.current.x;
+        const mcy = mouseRef.current.y;
+        const pulse = 0.5 + 0.5 * Math.sin(time * 3);
+        const fieldR = 60 + pulse * 20;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const mg = ctx.createRadialGradient(mcx, mcy, 0, mcx, mcy, fieldR);
+        mg.addColorStop(0, `rgba(245, 158, 11, ${0.08 + pulse * 0.04})`);
+        mg.addColorStop(0.6, `rgba(245, 158, 11, ${0.03 + pulse * 0.02})`);
+        mg.addColorStop(1, 'rgba(245, 158, 11, 0)');
+        ctx.beginPath();
+        ctx.arc(mcx, mcy, fieldR, 0, Math.PI * 2);
+        ctx.fillStyle = mg;
+        ctx.fill();
+        // thin ring at range boundary
+        const ringAlpha = 0.1 + pulse * 0.06;
+        ctx.beginPath();
+        ctx.arc(mcx, mcy, 300, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(245, 158, 11, ${ringAlpha})`;
+        ctx.lineWidth = 0.5;
+        ctx.setLineDash([4, 8]);
+        ctx.stroke();
+        ctx.restore();
       }
 
       // draw orbs
@@ -6410,9 +6436,9 @@ function App() {
     });
   }, []);
 
-  const handleOrbitMode = useCallback(() => {
-    setOrbitMode((prev) => {
-      orbitModeRef.current = !prev;
+  const handleMagnetCursor = useCallback(() => {
+    setMagnetCursorMode((prev) => {
+      magnetCursorRef.current = !prev;
       return !prev;
     });
   }, []);
@@ -7309,7 +7335,7 @@ function App() {
           handleRepelMode();
           break;
         case "o":
-          handleOrbitMode();
+          handleMagnetCursor();
           break;
         case "t":
           handlePulse();
@@ -7374,7 +7400,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, paletteIndex, setShowHelp]);
 
 
   return (
@@ -7418,7 +7444,7 @@ function App() {
         <ModeIndicators>
           {frozen && <ModePill $color="#4facfe">frozen</ModePill>}
           {gravityOn && <ModePill $color="#43e97b">gravity {gravityDirRef.current === "down" ? "↓" : gravityDirRef.current === "up" ? "↑" : gravityDirRef.current === "right" ? "→" : "←"}</ModePill>}
-          {orbitMode && <ModePill $color="#f093fb">orbit</ModePill>}
+          {magnetCursorMode && <ModePill $color="#f59e0b">magnet</ModePill>}
           {attractMode && <ModePill $color="#f093fb">attract</ModePill>}
           {repelMode && <ModePill $color="#fa709a">repel</ModePill>}
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
@@ -7576,8 +7602,8 @@ function App() {
         <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#c084fc" title="Flock mode (K)">
           flock
         </ModeToggle>
-        <ModeToggle onClick={handleOrbitMode} $active={orbitMode} $color="#f59e0b" title="Orbit mode (O)">
-          orbit
+        <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor (O)">
+          magnet
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
@@ -7637,7 +7663,7 @@ function App() {
               <hr />
               <Shortcut><Key>G</Key><span>Cycle gravity direction</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
-              <Shortcut><Key>O</Key><span>Orbit mode</span></Shortcut>
+              <Shortcut><Key>O</Key><span>Magnet cursor</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
