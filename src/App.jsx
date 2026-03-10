@@ -4556,10 +4556,31 @@ function App() {
           let lookAng;
           if (speed > 0.8) {
             lookAng = Math.atan2(orb.vy, orb.vx);
-          } else if (mouseRef.current.onCanvas) {
-            lookAng = Math.atan2(mouseRef.current.y - orb.y, mouseRef.current.x - orb.x);
           } else {
-            lookAng = time * 0.3 + orb.pulsePhase;
+            // Social gazing: orbs near cursor watch it; far orbs watch nearest neighbor
+            let cursorNear = false;
+            if (mouseRef.current.onCanvas) {
+              const cdx = mouseRef.current.x - orb.x, cdy = mouseRef.current.y - orb.y;
+              cursorNear = cdx * cdx + cdy * cdy < 250 * 250;
+            }
+            if (cursorNear) {
+              lookAng = Math.atan2(mouseRef.current.y - orb.y, mouseRef.current.x - orb.x);
+            } else if (orbs.length < 250) {
+              let bestDist = 200 * 200;
+              lookAng = time * 0.3 + orb.pulsePhase;
+              for (let ni = 0; ni < orbs.length; ni++) {
+                const other = orbs[ni];
+                if (other === orb) continue;
+                const ndx = other.x - orb.x, ndy = other.y - orb.y;
+                const nd2 = ndx * ndx + ndy * ndy;
+                if (nd2 < bestDist) {
+                  bestDist = nd2;
+                  lookAng = Math.atan2(ndy, ndx);
+                }
+              }
+            } else {
+              lookAng = time * 0.3 + orb.pulsePhase;
+            }
           }
           const perp = lookAng + Math.PI * 0.5;
           const fwd = r * 0.1;
@@ -4656,6 +4677,23 @@ function App() {
               ctx.fillStyle = "rgba(8,8,24,0.85)";
               ctx.fill();
             }
+          }
+          // Snoring z's for deeply sleeping orbs
+          if (drowsyT > 0.8) {
+            const zBase = (drowsyT - 0.8) * 5;
+            const zT = time * 0.5 + orb.pulsePhase * 7;
+            for (let zi = 0; zi < 3; zi++) {
+              const zCycle = ((zT + zi * 2.1) % 3) / 3;
+              const zFade = zCycle < 0.7 ? 1 : (1 - zCycle) / 0.3;
+              const zSz = (5 + zi * 2) * (0.6 + zCycle * 0.4);
+              const zX = -r * 0.3 + zi * r * 0.35 + Math.sin(zT + zi) * 3;
+              const zY = -r - 4 - zCycle * 18 - zi * 5;
+              ctx.globalAlpha = zFade * zBase * 0.5;
+              ctx.font = `bold ${zSz}px sans-serif`;
+              ctx.fillStyle = orb.color;
+              ctx.fillText("z", zX, zY);
+            }
+            ctx.globalAlpha = 1;
           }
         }
 
