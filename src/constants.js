@@ -216,6 +216,12 @@ export const STORM_RADIAL_FORCE = 0.2; // oscillating push/pull
 export const STORM_ARC_COUNT = 6; // visual energy arcs from epicenter
 
 
+// ── Volatile / Pop mode (collisions shatter orbs) ───────────────────
+export const VOLATILE_POP_CHANCE = 0.35;   // probability per bounce to pop
+export const VOLATILE_MIN_RADIUS = 10;     // orbs smaller than this won't pop
+export const VOLATILE_FRAG_COUNT = 3;      // fragments per pop
+export const VOLATILE_FRAG_SPEED = 3.5;    // outward velocity of fragments
+
 // ── Elastic bounce (orb-to-orb billiard collisions) ─────────────────
 export const BOUNCE_RESTITUTION = 0.82;    // energy retained per bounce (1 = perfectly elastic)
 export const BOUNCE_SPARK_COUNT = 4;       // small sparks at contact point
