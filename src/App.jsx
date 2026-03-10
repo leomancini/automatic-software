@@ -8079,6 +8079,12 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleFinale} title="Finale">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor" opacity="0.3" />
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handleShuffle} title="Shuffle colors">
@@ -8214,7 +8220,7 @@ function App() {
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Comet</span></Shortcut>
-              <Shortcut><Key>;</Key><span>Finale (chain all effects)</span></Shortcut>
+              <Shortcut><Key>;</Key><span>Finale (chains all effects!)</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
