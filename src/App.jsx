@@ -8623,16 +8623,7 @@ function App() {
                 <polyline points="19 13 19 19 13 19" />
               </svg>
             </ActionButton>
-            <ActionButton onClick={handleSlam} title="Slam">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="3" x2="12" y2="15" />
-                <polyline points="8 11 12 15 16 11" />
-                <line x1="4" y1="20" x2="20" y2="20" />
-                <line x1="6" y1="18" x2="6" y2="20" opacity="0.5" />
-                <line x1="18" y1="18" x2="18" y2="20" opacity="0.5" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleGather} title="Gather orbs">
+<ActionButton onClick={handleGather} title="Gather orbs">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="5" y1="5" x2="12" y2="12" />
                 <polyline points="8 5 5 5 5 8" />
@@ -8696,11 +8687,14 @@ function App() {
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor — orbs orbit your finger (O)">
           magnet
         </ModeToggle>
-        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails mode — orbs leave glowing trails">
-          trails
+        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce mode — billiard-ball collisions (.)">
+          bounce
         </ModeToggle>
         <ModeToggle onClick={handleBarrierMode} $active={barrierMode} $color="#f59e0b" title="Walls mode — drag to draw bounce walls (/)">
           walls
+        </ModeToggle>
+        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
+          n-body
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
