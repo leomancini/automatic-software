@@ -85,6 +85,7 @@ import {
   LENS_WELL_RANGE, LENS_WELL_STRENGTH,
   LENS_BH_RANGE, LENS_BH_STRENGTH,
   LENS_HOLD_RANGE, LENS_HOLD_STRENGTH,
+  VOLATILE_POP_CHANCE, VOLATILE_MIN_RADIUS, VOLATILE_FRAG_COUNT, VOLATILE_FRAG_SPEED,
 } from './constants.js';
 import {
   PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce, playCollisionChime,
@@ -244,6 +245,8 @@ function App() {
   const flowModeRef = useRef(false);
   const [linksMode, setLinksMode] = useState(false);
   const linksModeRef = useRef(false);
+  const [volatileMode, setVolatileMode] = useState(false);
+  const volatileModeRef = useRef(false);
   const barriersRef = useRef([]); // user-drawn bounce walls [{x1, y1, x2, y2, color}]
   const [barrierMode, setBarrierMode] = useState(false);
   const barrierModeRef = useRef(false);
@@ -3033,6 +3036,8 @@ function App() {
 
       // merge overlapping orbs
       const toRemove = new Set();
+      const volatileFrags = [];
+      const volatileRemove = new Set();
       for (let i = 0; i < orbs.length; i++) {
         if (toRemove.has(i)) continue;
         for (let j = i + 1; j < orbs.length; j++) {
@@ -3109,6 +3114,45 @@ function App() {
               }
               // play musical chime on orb-orb collision (pentatonic note mapped to Y)
               if (relSpeed > 2) playCollisionChime(cy, H, Math.min(relSpeed / 6, 1));
+              // volatile mode: high-energy bounces shatter orbs into fragments
+              if (volatileModeRef.current && relSpeed > 3) {
+                const candidates = [a, b];
+                for (const orb of candidates) {
+                  if (orb.radius > VOLATILE_MIN_RADIUS && Math.random() < VOLATILE_POP_CHANCE && orbsRef.current.length < 500) {
+                    const fragRadius = orb.radius / Math.sqrt(VOLATILE_FRAG_COUNT);
+                    for (let f = 0; f < VOLATILE_FRAG_COUNT; f++) {
+                      const angle = (Math.PI * 2 * f) / VOLATILE_FRAG_COUNT + (Math.random() - 0.5) * 0.8;
+                      const spd = VOLATILE_FRAG_SPEED * (0.7 + Math.random() * 0.6);
+                      volatileFrags.push({
+                        id: Date.now() + Math.random() + f,
+                        x: orb.x + Math.cos(angle) * fragRadius,
+                        y: orb.y + Math.sin(angle) * fragRadius,
+                        vx: orb.vx + Math.cos(angle) * spd,
+                        vy: orb.vy + Math.sin(angle) * spd,
+                        radius: fragRadius,
+                        color: orb.color,
+                        pulsePhase: Math.random() * Math.PI * 2,
+                        polarity: Math.random() < 0.5 ? 1 : -1,
+                      });
+                    }
+                    // flash + sparks at pop point
+                    flashesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, radius: orb.radius * 1.3, born: now });
+                    for (let s = 0; s < 6; s++) {
+                      const sAngle = Math.random() * Math.PI * 2;
+                      mergeSparksRef.current.push({
+                        x: orb.x, y: orb.y,
+                        vx: Math.cos(sAngle) * VOLATILE_FRAG_SPEED * 1.2,
+                        vy: Math.sin(sAngle) * VOLATILE_FRAG_SPEED * 1.2,
+                        color: orb.color,
+                        size: 2 + Math.random() * 2,
+                        born: now,
+                      });
+                    }
+                    shakeRef.current = Math.max(shakeRef.current, 3);
+                    volatileRemove.add(orb);
+                  }
+                }
+              }
             }
           } else if (dist < smaller * MERGE_DIST_FACTOR) {
             // merge b into a (conserve area)
@@ -3181,6 +3225,12 @@ function App() {
         orbsRef.current = orbs.filter((_, idx) => !toRemove.has(idx));
         setOrbCount(orbsRef.current.length);
         playMergeSound();
+      }
+      // volatile mode: apply deferred fission (remove popped orbs, add fragments)
+      if (volatileRemove.size > 0) {
+        orbsRef.current = orbsRef.current.filter((o) => !volatileRemove.has(o));
+        orbsRef.current.push(...volatileFrags);
+        setOrbCount(orbsRef.current.length);
       }
 
 
@@ -6720,6 +6770,13 @@ function App() {
     });
   }, []);
 
+  const handleVolatileMode = useCallback(() => {
+    setVolatileMode((prev) => {
+      volatileModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleRainMode = useCallback(() => {
     setRainMode((prev) => {
       rainModeRef.current = !prev;
@@ -7665,6 +7722,10 @@ function App() {
         case "8":
           handleTrailsMode();
           break;
+        case "9":
+          handleVolatileMode();
+          flashLabel(volatileModeRef.current ? "VOLATILE OFF" : "VOLATILE ON", "#ef4444");
+          break;
         case ";":
           handleFinale();
           break;
@@ -7675,7 +7736,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleFinale, handleTrailsMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleFinale, handleTrailsMode, handleVolatileMode, paletteIndex, setShowHelp]);
 
 
   return (
@@ -7742,6 +7803,7 @@ function App() {
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {pulseMode && <ModePill $color="#667eea">heartbeat</ModePill>}
           {trailsMode && <ModePill $color="#f97316">trails</ModePill>}
+          {volatileMode && <ModePill $color="#ef4444">volatile</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -7895,6 +7957,9 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#f97316" title="Light trails — orbs leave glowing trails (8)">
           trails
+        </ModeToggle>
+        <ModeToggle onClick={handleVolatileMode} $active={volatileMode} $color="#ef4444" title="Volatile — orbs shatter on hard collisions (9)">
+          volatile
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
