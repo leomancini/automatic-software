@@ -7109,20 +7109,17 @@ function App() {
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={() => { handleTide(); comboFlashRef.current.push({ text: "TIDE", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#00f2fe" }); }} title="Tide wave (2)">
+          <ActionButton onClick={() => { handleStarburst(); comboFlashRef.current.push({ text: "STARBURST", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#fbbf24" }); }} title="Starburst (T)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 12c2-3 4-3 6 0s4 3 6 0 4-3 6 0" />
-              <path d="M2 17c2-3 4-3 6 0s4 3 6 0 4-3 6 0" opacity="0.5" />
-              <path d="M2 7c2-3 4-3 6 0s4 3 6 0 4-3 6 0" opacity="0.5" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={() => { handleCyclePalette(); comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#f093fb" }); }} title="Cycle palette">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="5" />
-              <path d="M12 1v2" /><path d="M12 21v2" />
-              <path d="M4.22 4.22l1.42 1.42" /><path d="M18.36 18.36l1.42 1.42" />
-              <path d="M1 12h2" /><path d="M21 12h2" />
-              <path d="M4.22 19.78l1.42-1.42" /><path d="M18.36 5.64l1.42-1.42" />
+              <line x1="12" y1="2" x2="12" y2="8" />
+              <line x1="12" y1="16" x2="12" y2="22" />
+              <line x1="2" y1="12" x2="8" y2="12" />
+              <line x1="16" y1="12" x2="22" y2="12" />
+              <line x1="5.64" y1="5.64" x2="9.17" y2="9.17" />
+              <line x1="14.83" y1="14.83" x2="18.36" y2="18.36" />
+              <line x1="5.64" y1="18.36" x2="9.17" y2="14.83" />
+              <line x1="14.83" y1="9.17" x2="18.36" y2="5.64" />
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
