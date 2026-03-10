@@ -8545,16 +8545,9 @@ function App() {
           </ActionButton>
           {orbCount > 0 && (
             <>
-            <ActionButton onClick={handleFireworkShow} title="Firework show">
+            <ActionButton onClick={handleSpiral} title="Spiral">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="22" x2="12" y2="12" />
-                <line x1="12" y1="8" x2="12" y2="4" />
-                <line x1="12" y1="8" x2="8" y2="4" />
-                <line x1="12" y1="8" x2="16" y2="4" />
-                <line x1="12" y1="8" x2="6" y2="8" />
-                <line x1="12" y1="8" x2="18" y2="8" />
-                <circle cx="5" cy="5" r="1.5" fill="currentColor" opacity="0.5" />
-                <circle cx="20" cy="6" r="1.5" fill="currentColor" opacity="0.5" />
+                <path d="M12 12c0-1.5 1.5-3 3-3s3 1.5 3 3-1.5 4.5-4.5 4.5S7 14.5 7 11s2.5-6 6-6 7 3 7 7" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleLightning} title="Chain lightning">
