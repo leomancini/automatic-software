@@ -2515,10 +2515,10 @@ function App() {
 
         // bounce off walls (or wrap around in wrap mode)
         if (wrapModeRef.current) {
-          if (orb.x < -orb.radius) orb.x = W + orb.radius;
-          else if (orb.x > W + orb.radius) orb.x = -orb.radius;
-          if (orb.y < -orb.radius) orb.y = H + orb.radius;
-          else if (orb.y > H + orb.radius) orb.y = -orb.radius;
+          if (orb.x < -orb.radius) { orb.x = W + orb.radius; ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now }); }
+          else if (orb.x > W + orb.radius) { orb.x = -orb.radius; ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now }); }
+          if (orb.y < -orb.radius) { orb.y = H + orb.radius; ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now }); }
+          else if (orb.y > H + orb.radius) { orb.y = -orb.radius; ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now }); }
         } else {
           if (orb.x < orb.radius) {
             if (Math.abs(orb.vx) > WALL_HIT_SPEED_THRESHOLD) {
@@ -7393,6 +7393,9 @@ function App() {
         case "k":
           handleFlockingMode();
           break;
+        case "i":
+          handleWrapMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -7400,7 +7403,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleWrapMode, paletteIndex, setShowHelp]);
 
 
   return (
@@ -7448,6 +7451,7 @@ function App() {
           {attractMode && <ModePill $color="#f093fb">attract</ModePill>}
           {repelMode && <ModePill $color="#fa709a">repel</ModePill>}
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
+          {wrapMode && <ModePill $color="#38bdf8">wrap</ModePill>}
           {flockingMode && <ModePill $color="#c084fc">flock</ModePill>}
           {nbodyMode && <ModePill $color="#f59e0b">n-body</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
@@ -7605,6 +7609,9 @@ function App() {
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor (O)">
           magnet
         </ModeToggle>
+        <ModeToggle onClick={handleWrapMode} $active={wrapMode} $color="#38bdf8" title="Wrap edges (I)">
+          wrap
+        </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
@@ -7669,6 +7676,7 @@ function App() {
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>A</Key><span>N-body gravity</span></Shortcut>
               <Shortcut><Key>K</Key><span>Flock mode</span></Shortcut>
+              <Shortcut><Key>I</Key><span>Wrap edges</span></Shortcut>
               <Shortcut><Key>Y</Key><span>Cycle color palette</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
