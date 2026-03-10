@@ -8421,9 +8421,12 @@ function App() {
               <line x1="12" y1="8" x2="16" y2="12" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleFinale} title="Finale">
+          <ActionButton onClick={handleComet} title="Comet">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              <circle cx="18" cy="6" r="3" fill="currentColor" />
+              <path d="M16 8L3 21" />
+              <path d="M15 9L6 18" opacity="0.5" />
+              <path d="M17 9L10 20" opacity="0.3" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleSupernova} title="Supernova">
