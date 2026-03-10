@@ -6575,6 +6575,11 @@ function App() {
         attractModeRef.current = false;
         setAttractMode(false);
       }
+      // disable magnet cursor if enabling repel
+      if (!prev && magnetCursorRef.current) {
+        magnetCursorRef.current = false;
+        setMagnetCursorMode(false);
+      }
       return !prev;
     });
   }, []);
@@ -6582,6 +6587,11 @@ function App() {
   const handleMagnetCursor = useCallback(() => {
     setMagnetCursorMode((prev) => {
       magnetCursorRef.current = !prev;
+      // disable repel if enabling magnet
+      if (!prev && repelModeRef.current) {
+        repelModeRef.current = false;
+        setRepelMode(false);
+      }
       return !prev;
     });
   }, []);
@@ -7783,14 +7793,6 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleComet} title="Comet">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="17" cy="7" r="3" fill="currentColor" />
-              <line x1="14" y1="10" x2="3" y2="21" />
-              <line x1="14" y1="10" x2="5" y2="17" opacity="0.5" />
-              <line x1="14" y1="10" x2="7" y2="21" opacity="0.5" />
-            </svg>
-          </ActionButton>
           <ActionButton onClick={handleFinale} title="Finale" $highlight>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor" opacity="0.3" />
@@ -7873,6 +7875,9 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
+        </ModeToggle>
+        <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor — orbs orbit your finger (O)">
+          magnet
         </ModeToggle>
         <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
           n-body
