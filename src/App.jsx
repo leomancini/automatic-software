@@ -8703,7 +8703,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try trails mode \u00b7 everything looks better", "try auto mode \u00b7 sit back and watch the show"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try trails mode \u00b7 everything looks better", "try the finale button \u00b7 watch the fireworks"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -8751,7 +8751,6 @@ function App() {
           {kaleidoscopeMode && <ModePill $color="#f0abfc">mirror</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {pulseMode && <ModePill $color="#667eea">heartbeat</ModePill>}
-          {autoPlay && <ModePill $color="#e879f9">auto</ModePill>}
           {volatileMode && <ModePill $color="#ef4444">volatile</ModePill>}
           {fissionMode && <ModePill $color="#f43f5e">fission</ModePill>}
           {waveMode && <ModePill $color="#38bdf8">wave</ModePill>}
@@ -8816,6 +8815,11 @@ function App() {
               <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
               <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleFinale} title="Finale" $highlight>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12,2 15,9 22,9 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9 9,9" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -8904,9 +8908,6 @@ function App() {
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails mode — orbs leave glowing trails (T)">
           trails
         </ModeToggle>
-        <ModeToggle onClick={handleAutoplay} $active={autoPlay} $color="#e879f9" title="Auto mode — sit back and watch (8)">
-          auto
-        </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
@@ -8974,7 +8975,7 @@ function App() {
               <Shortcut><Key>7</Key><span>Heartbeat pulse</span></Shortcut>
               <Shortcut><Key>-</Key><span>Wave mode</span></Shortcut>
               <Shortcut><Key>.</Key><span>Bounce mode</span></Shortcut>
-              <Shortcut><Key>8</Key><span>Auto mode</span></Shortcut>
+              <Shortcut><Key>;</Key><span>Finale</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
             </ShortcutList>
