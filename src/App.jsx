@@ -4406,6 +4406,38 @@ function App() {
         ctx.fillStyle = coreGrad;
         ctx.fill();
 
+        // ── living eyes: pupils track velocity / cursor ──
+        if (r > 5) {
+          const eyeR = Math.max(r * 0.14, 1.3);
+          const eyeGap = r * 0.3;
+          const pupilR = eyeR * 0.55;
+          let lookAng;
+          if (speed > 0.8) {
+            lookAng = Math.atan2(orb.vy, orb.vx);
+          } else if (mouseRef.current.onCanvas) {
+            lookAng = Math.atan2(mouseRef.current.y - orb.y, mouseRef.current.x - orb.x);
+          } else {
+            lookAng = time * 0.3 + orb.pulsePhase;
+          }
+          const perp = lookAng + Math.PI * 0.5;
+          const fwd = r * 0.1;
+          const cx0 = Math.cos(lookAng) * fwd;
+          const cy0 = Math.sin(lookAng) * fwd;
+          for (const s of [-1, 1]) {
+            const ex = cx0 + Math.cos(perp) * eyeGap * s;
+            const ey = cy0 + Math.sin(perp) * eyeGap * s;
+            ctx.beginPath();
+            ctx.arc(ex, ey, eyeR, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(255,255,255,0.9)";
+            ctx.fill();
+            const pOff = eyeR * 0.25;
+            ctx.beginPath();
+            ctx.arc(ex + Math.cos(lookAng) * pOff, ey + Math.sin(lookAng) * pOff, pupilR, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(8,8,24,0.85)";
+            ctx.fill();
+          }
+        }
+
         // firefly blink: brief additive flash at pulse peak — mesmerizing when orbs sync
         const blinkRaw = Math.max(0, Math.sin(time * 1.5 + orb.pulsePhase) - 0.96) / 0.04;
         if (blinkRaw > 0.01) {
