@@ -444,6 +444,13 @@ export const LENS_HOLD_STRENGTH = 16;     // displacement at peak
 export const COLOR_AFFINITY_DIST = 120;   // range for color-based attraction
 export const COLOR_AFFINITY_FORCE = 0.06; // gentle pull between similar hues
 
+// ── Tide (horizontal sweep wave) ──
+export const TIDE_SPEED = 7;          // px per frame horizontal movement
+export const TIDE_FORCE = 5;          // upward impulse on orbs
+export const TIDE_WIDTH = 100;        // width of the force zone
+export const TIDE_SINE_AMP = 3;       // sine modulation amplitude
+export const TIDE_SINE_FREQ = 0.015;  // sine frequency based on orb Y position
+
 // ── Ambient drift (idle auto-spawn) ──
 export const IDLE_DRIFT_DELAY = 3000;    // ms of empty canvas before drift starts
 export const IDLE_DRIFT_INTERVAL = 900;  // ms between idle orb spawns

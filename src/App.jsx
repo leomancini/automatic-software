@@ -74,6 +74,7 @@ import {
   FLOCK_MAX_SPEED, FLOCK_CURSOR_FLEE_DIST, FLOCK_CURSOR_FLEE_FORCE,
   CURRENT_STRENGTH, CURRENT_SCALE, CURRENT_SPEED,
   EDGE_GLOW_RANGE, EDGE_GLOW_DEPTH, EDGE_GLOW_ALPHA,
+  TIDE_SPEED, TIDE_FORCE, TIDE_WIDTH, TIDE_SINE_AMP, TIDE_SINE_FREQ,
   IDLE_DRIFT_DELAY, IDLE_DRIFT_INTERVAL, IDLE_DRIFT_MAX, IDLE_DRIFT_SPEED,
   VELOCITY_STRETCH_THRESHOLD, VELOCITY_STRETCH_MAX, VELOCITY_STRETCH_RAMP,
   LENS_ORB_MIN_RADIUS, LENS_ORB_RANGE_FACTOR, LENS_ORB_STRENGTH,
@@ -135,6 +136,8 @@ function App() {
   const tsunamisRef = useRef([]); // active tsunami waves [{x, dir, born, color, foam}]
   const colorWavesRef = useRef([]); // active color waves [{cx, cy, radius, born, hitOrbs}]
   const tsunamiDirRef = useRef(1); // alternates direction each trigger
+  const tidesRef = useRef([]); // horizontal sweep waves [{x, dir, born, color}]
+  const tideDirRef = useRef(1); // alternates direction each trigger
   const tapWavesRef = useRef([]); // concentric pulse waves from taps [{x, y, born, color, streak}]
   const shatterRef = useRef([]); // chain-shatter waves [{x, y, radius, generation, hitOrbs, color, delay}]
   const fountainsRef = useRef([]); // persistent orb spawners [{x, y, color, born, lastSpawn}]
@@ -3164,6 +3167,42 @@ function App() {
         }
       }
 
+
+      // ── Tide (horizontal sweep wave) ────────────────────────────────
+      tidesRef.current = tidesRef.current.filter((t) => {
+        return t.dir === 1 ? t.x < W + TIDE_WIDTH : t.x > -TIDE_WIDTH;
+      });
+      for (const tide of tidesRef.current) {
+        tide.x += TIDE_SPEED * tide.dir;
+        // Apply force to orbs within the sweep band
+        for (const orb of orbs) {
+          if (orb === dragRef.current) continue;
+          const dx = orb.x - tide.x;
+          if (Math.abs(dx) < TIDE_WIDTH) {
+            const proximity = 1 - Math.abs(dx) / TIDE_WIDTH;
+            // Sine modulation based on Y position for wave shape
+            const sinMod = Math.sin(orb.y * TIDE_SINE_FREQ + tide.x * 0.02);
+            const lift = TIDE_FORCE * proximity * proximity;
+            orb.vy -= lift * (0.7 + sinMod * TIDE_SINE_AMP * 0.3);
+            orb.vx += tide.dir * lift * 0.3;
+          }
+        }
+        // Draw the sweep band
+        const progress = tide.dir === 1 ? tide.x / W : 1 - tide.x / W;
+        const alpha = 0.4 * (1 - progress * 0.5);
+        if (alpha > 0.01) {
+          const grad = ctx.createLinearGradient(
+            tide.x - TIDE_WIDTH, 0, tide.x + TIDE_WIDTH, 0
+          );
+          grad.addColorStop(0, "transparent");
+          grad.addColorStop(0.3, tide.color + hexAlpha(alpha * 0.4 * 255));
+          grad.addColorStop(0.5, tide.color + hexAlpha(alpha * 255));
+          grad.addColorStop(0.7, tide.color + hexAlpha(alpha * 0.4 * 255));
+          grad.addColorStop(1, "transparent");
+          ctx.fillStyle = grad;
+          ctx.fillRect(tide.x - TIDE_WIDTH, 0, TIDE_WIDTH * 2, H);
+        }
+      }
 
       // ── Shatter chain reaction ──────────────────────────────────────
       shatterRef.current = shatterRef.current.filter((s) => s.radius < SHATTER_WAVE_MAX_RADIUS);
@@ -6761,6 +6800,7 @@ function App() {
       { fn: handleStarburst, label: "STARBURST", color: "#fbbf24" },
       { fn: handleSpin, label: "VORTEX", color: "#f093fb" },
       { fn: handleScatter, label: "SCATTER", color: "#fa709a" },
+      { fn: handleTide, label: "TIDE", color: "#00f2fe" },
     ];
 
     // Always start with the title flash
@@ -6789,7 +6829,7 @@ function App() {
         setTimeout(() => bonus.fn(), delay + 150);
       }
     });
-  }, [handleBurst, handleWave, handleFirework, handleLightning, handleMeteorShower, handleSupernova, handleStarburst, handleSpin, handleScatter]);
+  }, [handleBurst, handleWave, handleFirework, handleLightning, handleMeteorShower, handleSupernova, handleStarburst, handleSpin, handleScatter, handleTide]);
 
   const handleStarburst = useCallback(() => {
     const orbs = orbsRef.current;
@@ -6813,6 +6853,20 @@ function App() {
     }
     shakeRef.current = 20;
     playBoom();
+  }, []);
+
+  const handleTide = useCallback(() => {
+    const dir = tideDirRef.current;
+    tideDirRef.current *= -1;
+    const W = window.innerWidth;
+    tidesRef.current.push({
+      x: dir === 1 ? 0 : W,
+      dir,
+      born: performance.now(),
+      color: randomColor(),
+    });
+    shakeRef.current = Math.max(shakeRef.current, 8);
+    playSwoosh();
   }, []);
 
   const handleAutoPlay = useCallback(() => {
@@ -6931,6 +6985,10 @@ function App() {
         case "1":
           handleShowtime();
           break;
+        case "2":
+          handleTide();
+          flashLabel("TIDE", "#00f2fe");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -6938,7 +6996,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handleStarburst, handleShowtime, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handleStarburst, handleShowtime, handleTide, paletteIndex, setShowHelp]);
 
 
   return (
@@ -7049,6 +7107,13 @@ function App() {
           <ActionButton onClick={handleShowtime} title="Showtime">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={() => { handleTide(); comboFlashRef.current.push({ text: "TIDE", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#00f2fe" }); }} title="Tide wave (2)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 12c2-3 4-3 6 0s4 3 6 0 4-3 6 0" />
+              <path d="M2 17c2-3 4-3 6 0s4 3 6 0 4-3 6 0" opacity="0.5" />
+              <path d="M2 7c2-3 4-3 6 0s4 3 6 0 4-3 6 0" opacity="0.5" />
             </svg>
           </ActionButton>
           <ActionButton onClick={() => { handleCyclePalette(); comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#f093fb" }); }} title="Cycle palette">
@@ -7180,6 +7245,7 @@ function App() {
               <Shortcut><Key>rapid taps</Key><span>Combo streaks → bonus effects</span></Shortcut>
               <hr />
               <Shortcut><Key>1</Key><span>Showtime (effect chain)</span></Shortcut>
+              <Shortcut><Key>2</Key><span>Tide wave</span></Shortcut>
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
