@@ -8415,7 +8415,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try finale \u00b7 chains every effect together", "bounce mode \u00b7 elastic walls for perpetual motion"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "bounce mode \u00b7 elastic walls for perpetual motion"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -8507,16 +8507,6 @@ function App() {
               <line x1="12" y1="8" x2="16" y2="12" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleFinale} title="Finale">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-              <line x1="12" y1="2" x2="12" y2="5" opacity="0.5" />
-              <line x1="22" y1="9.27" x2="19" y2="9.27" opacity="0.5" />
-              <line x1="2" y1="9.27" x2="5" y2="9.27" opacity="0.5" />
-              <line x1="18.18" y1="21.02" x2="16" y2="19" opacity="0.5" />
-              <line x1="5.82" y1="21.02" x2="8" y2="19" opacity="0.5" />
-            </svg>
-          </ActionButton>
           <ActionButton onClick={handleSupernova} title="Supernova">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" fill="currentColor" />
@@ -8532,11 +8522,6 @@ function App() {
           </ActionButton>
           {orbCount > 0 && (
             <>
-            <ActionButton onClick={handleSpiral} title="Spiral">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 12c0-1.5 1.5-3 3-3s3 1.5 3 3-1.5 4.5-4.5 4.5S7 14.5 7 11s2.5-6 6-6 7 3 7 7" />
-              </svg>
-            </ActionButton>
             <ActionButton onClick={handleLightning} title="Chain lightning">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -8662,7 +8647,6 @@ function App() {
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Comet</span></Shortcut>
               <Shortcut><Key>4</Key><span>Crossfire (4-way collision!)</span></Shortcut>
-              <Shortcut><Key>;</Key><span>Finale (chains all effects!)</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
