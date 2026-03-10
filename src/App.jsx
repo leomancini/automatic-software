@@ -7598,14 +7598,14 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
+        <ModeToggle onClick={handleAttractMode} $active={attractMode} $color="#f093fb" title="Attract mode">
+          attract
+        </ModeToggle>
         <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity (A)">
           n-body
         </ModeToggle>
-        <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor (O)">
-          magnet
-        </ModeToggle>
-        <ModeToggle onClick={handleWrapMode} $active={wrapMode} $color="#38bdf8" title="Wrap edges (I)">
-          wrap
+        <ModeToggle onClick={handleCyclePalette} $color="#c084fc" title="Cycle color palette (Y)">
+          {PALETTES[paletteIndex].name.toLowerCase()}
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
