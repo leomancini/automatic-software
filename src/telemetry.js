@@ -60,6 +60,13 @@ document.addEventListener("contextmenu", (e) => {
   }
 });
 
+// Track multi-touch pinch gestures
+document.addEventListener("touchstart", (e) => {
+  if (e.target.tagName === "CANVAS" && e.touches.length >= 2) {
+    trackInteraction("canvas:pinch");
+  }
+});
+
 // Track keyboard shortcuts
 document.addEventListener("keydown", (e) => {
   if (e.target !== document.body) return;

@@ -260,6 +260,7 @@ function App() {
   const idleDriftActiveRef = useRef(false); // ambient drift spawning flag
   const idleEmptySinceRef = useRef(0);      // timestamp when orbs first hit 0
   const lastIdleDriftSpawnRef = useRef(0);  // last idle drift spawn time
+  const pinchRef = useRef(null); // multi-touch pinch {startDist, lastDist, startAngle, lastAngle, cx, cy}
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -311,6 +312,25 @@ function App() {
 
   const handleDown = useCallback(
     (e) => {
+      // Multi-touch: start pinch gesture
+      if (e.touches && e.touches.length >= 2) {
+        if (dragRef.current) dragRef.current = null;
+        if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
+        if (holdChargeTimerRef.current) { clearTimeout(holdChargeTimerRef.current); holdChargeTimerRef.current = null; }
+        holdChargeRef.current = null;
+        slingshotRef.current = null;
+        sprayActiveRef.current = false;
+        mouseDownRef.current = false;
+        const rect = canvasRef.current.getBoundingClientRect();
+        const t0 = e.touches[0], t1 = e.touches[1];
+        const x0 = t0.clientX - rect.left, y0 = t0.clientY - rect.top;
+        const x1 = t1.clientX - rect.left, y1 = t1.clientY - rect.top;
+        const dx = x1 - x0, dy = y1 - y0;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
+        pinchRef.current = { startDist: dist, lastDist: dist, startAngle: angle, lastAngle: angle, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+        return;
+      }
       const pos = getPos(e);
       mouseDownRef.current = true;
       slingshotRef.current = null;
@@ -349,6 +369,44 @@ function App() {
 
   const handleMove = useCallback(
     (e) => {
+      // Multi-touch: apply pinch/spread/twist forces continuously
+      if (e.touches && e.touches.length >= 2 && pinchRef.current) {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const t0 = e.touches[0], t1 = e.touches[1];
+        const x0 = t0.clientX - rect.left, y0 = t0.clientY - rect.top;
+        const x1 = t1.clientX - rect.left, y1 = t1.clientY - rect.top;
+        const dx = x1 - x0, dy = y1 - y0;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
+        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+        const pinch = pinchRef.current;
+        // Radial force: spread pushes out, pinch pulls in
+        const radialForce = (dist - pinch.lastDist) * 0.12;
+        // Tangential force: twist spins orbs
+        let angleDelta = angle - pinch.lastAngle;
+        if (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
+        if (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
+        const spinForce = angleDelta * 4;
+        const orbs = orbsRef.current;
+        for (let i = 0; i < orbs.length; i++) {
+          const orb = orbs[i];
+          const odx = orb.x - cx, ody = orb.y - cy;
+          const oDist = Math.sqrt(odx * odx + ody * ody);
+          if (oDist < 1) continue;
+          orb.vx += (odx / oDist) * radialForce;
+          orb.vy += (ody / oDist) * radialForce;
+          if (Math.abs(spinForce) > 0.01) {
+            orb.vx += (-ody / oDist) * spinForce;
+            orb.vy += (odx / oDist) * spinForce;
+          }
+        }
+        pinch.lastDist = dist;
+        pinch.lastAngle = angle;
+        pinch.cx = cx;
+        pinch.cy = cy;
+        mouseRef.current = { x: cx, y: cy, onCanvas: true };
+        return;
+      }
       const pos = getPos(e);
       if (dragRef.current) {
         // cancel long-press if finger moves
@@ -461,6 +519,31 @@ function App() {
 
   const handleUp = useCallback(
     (e) => {
+      // Multi-touch: finalize pinch gesture
+      if (pinchRef.current) {
+        const pinch = pinchRef.current;
+        const now = performance.now();
+        const distRatio = pinch.lastDist / Math.max(pinch.startDist, 1);
+        if (distRatio > 1.6) {
+          // Big spread → shockwave burst
+          wavesRef.current.push({ cx: pinch.cx, cy: pinch.cy, radius: 0, color: randomColor(), generation: 0, hitOrbs: new Set(), delay: 0 });
+          shakeRef.current = Math.max(shakeRef.current, 12);
+          screenFlashesRef.current.push({ cx: pinch.cx, cy: pinch.cy, color: "#4facfe", born: now });
+          comboFlashRef.current.push({ text: "SPREAD", x: pinch.cx, y: pinch.cy - 30, born: now, color: "#4facfe" });
+          ensureAudio();
+          playBoom();
+        } else if (distRatio < 0.5) {
+          // Big pinch → gather implosion
+          ripplesRef.current.push({ x: pinch.cx, y: pinch.cy, color: "#43e97b", born: now });
+          comboFlashRef.current.push({ text: "GATHER", x: pinch.cx, y: pinch.cy - 30, born: now, color: "#43e97b" });
+          ensureAudio();
+          playSwoosh();
+        }
+        pinchRef.current = null;
+        if (e.touches && e.touches.length >= 1) return;
+        mouseDownRef.current = false;
+        return;
+      }
       mouseDownRef.current = false;
       if (longPressRef.current) {
         clearTimeout(longPressRef.current);
@@ -8123,6 +8206,7 @@ function App() {
               <Shortcut><Key>right-click</Key><span>Split orb</span></Shortcut>
               <Shortcut><Key>overlap</Key><span>Merge (big ones split!)</span></Shortcut>
               <Shortcut><Key>rapid taps</Key><span>Combo streaks → bonus effects</span></Shortcut>
+              <Shortcut><Key>pinch</Key><span>Gather / spread / spin orbs</span></Shortcut>
               <hr />
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
