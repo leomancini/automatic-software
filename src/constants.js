@@ -475,6 +475,13 @@ export const GALAXY_DAMPING = 0.93;       // velocity damping during spiral
 export const GALAXY_EXPLODE_SPEED = 14;   // outward explosion speed
 export const GALAXY_RING_COUNT = 16;      // new orbs spawned on explosion
 
+// ── Rain mode ──
+export const RAIN_SPAWN_INTERVAL = 180; // ms between rain drops
+export const RAIN_ORB_CAP = 100;        // stop spawning above this count
+export const RAIN_SPEED_MIN = 1.5;      // min downward velocity
+export const RAIN_SPEED_MAX = 3.5;      // max downward velocity
+export const RAIN_DRIFT = 0.8;          // max horizontal drift
+
 // ── Reactive edge glow ──
 export const EDGE_GLOW_RANGE = 150;    // px from edge to detect orbs
 export const EDGE_GLOW_DEPTH = 60;     // how far glow extends inward from edge

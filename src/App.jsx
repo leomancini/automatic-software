@@ -76,6 +76,7 @@ import {
   GALAXY_SPIRAL_MS, GALAXY_SPIN_MS, GALAXY_EXPLODE_MS, GALAXY_ARM_COUNT,
   GALAXY_PULL_FORCE, GALAXY_SPIN_ACCEL, GALAXY_MAX_SPIN, GALAXY_DAMPING,
   GALAXY_EXPLODE_SPEED, GALAXY_RING_COUNT,
+  RAIN_SPAWN_INTERVAL, RAIN_ORB_CAP, RAIN_SPEED_MIN, RAIN_SPEED_MAX, RAIN_DRIFT,
   EDGE_GLOW_RANGE, EDGE_GLOW_DEPTH, EDGE_GLOW_ALPHA,
   TIDE_SPEED, TIDE_FORCE, TIDE_WIDTH, TIDE_SINE_AMP, TIDE_SINE_FREQ,
   IDLE_DRIFT_DELAY, IDLE_DRIFT_INTERVAL, IDLE_DRIFT_MAX, IDLE_DRIFT_SPEED,
@@ -230,6 +231,9 @@ function App() {
   const hasTiltSensorRef = useRef(false);
   const blackHoleRef = useRef(null); // {x, y, born, absorbed, mass, diskDots}
   const autoplayTimersRef = useRef({ lastSpawn: 0, lastEffect: 0 });
+  const [rainMode, setRainMode] = useState(false);
+  const rainModeRef = useRef(false);
+  const rainTimerRef = useRef(0);
   const [colorCycle, setColorCycle] = useState(false);
   const colorCycleRef = useRef(false);
   const [kaleidoscopeMode, setKaleidoscopeMode] = useState(false);
@@ -1982,6 +1986,20 @@ function App() {
           ];
           effects[Math.floor(Math.random() * effects.length)]();
           ap.lastEffect = now + (Math.random() - 0.5) * 1000; // vary timing
+        }
+      }
+
+      // ── Rain mode: continuous gentle rain of orbs from top ──
+      if (rainModeRef.current && !frozenRef.current) {
+        if (now - rainTimerRef.current >= RAIN_SPAWN_INTERVAL && orbs.length < RAIN_ORB_CAP) {
+          const rx = Math.random() * W;
+          const orb = createOrb(rx, -10);
+          orb.radius = 4 + Math.random() * 5;
+          orb.vy = RAIN_SPEED_MIN + Math.random() * (RAIN_SPEED_MAX - RAIN_SPEED_MIN);
+          orb.vx = (Math.random() - 0.5) * RAIN_DRIFT;
+          orbsRef.current.push(orb);
+          rainTimerRef.current = now;
+          setOrbCount(orbsRef.current.length);
         }
       }
 
@@ -6644,6 +6662,22 @@ function App() {
   }, []);
 
 
+  const handleRainMode = useCallback(() => {
+    setRainMode((prev) => {
+      rainModeRef.current = !prev;
+      if (!prev) {
+        rainTimerRef.current = performance.now();
+        // auto-enable gravity so rain falls naturally
+        if (!gravityRef.current) {
+          gravityRef.current = true;
+          gravityDirRef.current = "down";
+          setGravityOn(true);
+        }
+      }
+      return !prev;
+    });
+  }, []);
+
   const handleAutoplay = useCallback(() => {
     setAutoPlay((prev) => {
       autoplayModeRef.current = !prev;
@@ -7545,6 +7579,9 @@ function App() {
         case "a":
           handleNbodyMode();
           break;
+        case "5":
+          handleRainMode();
+          break;
         case "z":
           handleComet();
           flashLabel("COMET", "#f59e0b");
@@ -7597,7 +7634,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "hit the star for a grand finale"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "hit the star for a grand finale", "try rain mode for ambient vibes"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -7632,6 +7669,7 @@ function App() {
           {nbodyMode && <ModePill $color="#a78bfa">n-body</ModePill>}
           {flockingMode && <ModePill $color="#22d3ee">flock</ModePill>}
           {flowMode && <ModePill $color="#38bdf8">flow</ModePill>}
+          {rainMode && <ModePill $color="#60a5fa">rain</ModePill>}
           {kaleidoscopeMode && <ModePill $color="#f0abfc">mirror</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
         </ModeIndicators>
@@ -7793,6 +7831,9 @@ function App() {
         <ModeToggle onClick={handleFlowMode} $active={flowMode} $color="#38bdf8" title="Flow field — organic currents (J)">
           flow
         </ModeToggle>
+        <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain mode — continuous orb rain (5)">
+          rain
+        </ModeToggle>
         <ModeToggle onClick={handleCyclePalette} $color="#c084fc" title="Cycle color palette (Y)">
           {PALETTES[paletteIndex].name.toLowerCase()}
         </ModeToggle>
@@ -7857,6 +7898,7 @@ function App() {
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>A</Key><span>N-body gravity</span></Shortcut>
+              <Shortcut><Key>5</Key><span>Rain mode</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
             </ShortcutList>
