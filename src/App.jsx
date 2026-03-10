@@ -7475,6 +7475,9 @@ function App() {
         case "k":
           handleFlockingMode();
           break;
+        case "u":
+          handleKaleidoscopeMode();
+          break;
         case "i":
           handleWrapMode();
           break;
@@ -7488,7 +7491,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleWrapMode, handleVolatileMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleVolatileMode, paletteIndex, setShowHelp]);
 
 
   return (
@@ -7540,6 +7543,7 @@ function App() {
           {nbodyMode && <ModePill $color="#a78bfa">n-body</ModePill>}
           {flockingMode && <ModePill $color="#22d3ee">flock</ModePill>}
           {volatileMode && <ModePill $color="#f59e0b">pop</ModePill>}
+          {kaleidoscopeMode && <ModePill $color="#f0abfc">mirror</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -7677,8 +7681,8 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleEchoMode} $active={echoMode} $color="#f093fb" title="Echo mode">
-          echo
+        <ModeToggle onClick={handleKaleidoscopeMode} $active={kaleidoscopeMode} $color="#f0abfc" title="Mirror mode — symmetric kaleidoscope">
+          mirror
         </ModeToggle>
         <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flocking swarm (K)">
           flock
@@ -7749,6 +7753,7 @@ function App() {
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>A</Key><span>N-body gravity</span></Shortcut>
+              <Shortcut><Key>U</Key><span>Mirror mode (kaleidoscope)</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
             </ShortcutList>
