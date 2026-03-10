@@ -8486,12 +8486,13 @@ function App() {
               <line x1="12" y1="8" x2="16" y2="12" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleComet} title="Comet">
+          <ActionButton onClick={handleShuffle} title="Shuffle colors">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="18" cy="6" r="3" fill="currentColor" />
-              <path d="M16 8L3 21" />
-              <path d="M15 9L6 18" opacity="0.5" />
-              <path d="M17 9L10 20" opacity="0.3" />
+              <polyline points="16 3 21 3 21 8" />
+              <line x1="4" y1="20" x2="21" y2="3" />
+              <polyline points="21 16 21 21 16 21" />
+              <line x1="15" y1="15" x2="21" y2="21" />
+              <line x1="4" y1="4" x2="9" y2="9" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleSupernova} title="Supernova">
@@ -8590,9 +8591,6 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor — orbs orbit your finger (O)">
           magnet
-        </ModeToggle>
-        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#f97316" title="Trails mode">
-          trails
         </ModeToggle>
         <ModeToggle onClick={handleFissionMode} $active={fissionMode} $color="#f43f5e" title="Fission mode — fast orbs auto-split (=)">
           fission
