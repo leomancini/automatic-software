@@ -8342,17 +8342,8 @@ function App() {
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor — orbs orbit your finger (O)">
           magnet
         </ModeToggle>
-        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
-          n-body
-        </ModeToggle>
-        <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain mode — orbs fall like rain (5)">
-          rain
-        </ModeToggle>
-        <ModeToggle onClick={handleLinksMode} $active={linksMode} $color="#f0abfc" title="Plasma links — energy lines between nearby orbs (6)">
-          links
-        </ModeToggle>
-        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce mode — elastic walls, orbs never lose energy (.)">
-          bounce
+        <ModeToggle onClick={handleWrapMode} $active={wrapMode} $color="#38bdf8" title="Wrap mode — orbs wrap around edges (I)">
+          wrap
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
