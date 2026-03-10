@@ -2081,14 +2081,30 @@ function App() {
         }
       }
 
-      // ── Rain mode: continuous gentle rain of orbs from top ──
+      // ── Rain mode: continuous gentle rain of orbs (follows gravity direction) ──
       if (rainModeRef.current && !frozenRef.current) {
         if (now - rainTimerRef.current >= RAIN_SPAWN_INTERVAL && orbs.length < RAIN_ORB_CAP) {
-          const rx = Math.random() * W;
-          const orb = createOrb(rx, -10);
+          const gDir = gravityDirRef.current;
+          const spd = RAIN_SPEED_MIN + Math.random() * (RAIN_SPEED_MAX - RAIN_SPEED_MIN);
+          const drift = (Math.random() - 0.5) * RAIN_DRIFT;
+          let rx, ry, rvx, rvy;
+          if (gDir === "up") {
+            rx = Math.random() * W; ry = H + 10;
+            rvx = drift; rvy = -spd;
+          } else if (gDir === "left") {
+            rx = W + 10; ry = Math.random() * H;
+            rvx = -spd; rvy = drift;
+          } else if (gDir === "right") {
+            rx = -10; ry = Math.random() * H;
+            rvx = spd; rvy = drift;
+          } else {
+            rx = Math.random() * W; ry = -10;
+            rvx = drift; rvy = spd;
+          }
+          const orb = createOrb(rx, ry);
           orb.radius = 4 + Math.random() * 5;
-          orb.vy = RAIN_SPEED_MIN + Math.random() * (RAIN_SPEED_MAX - RAIN_SPEED_MIN);
-          orb.vx = (Math.random() - 0.5) * RAIN_DRIFT;
+          orb.vx = rvx;
+          orb.vy = rvy;
           orbsRef.current.push(orb);
           rainTimerRef.current = now;
           setOrbCount(orbsRef.current.length);
@@ -8195,8 +8211,8 @@ function App() {
         <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
           n-body
         </ModeToggle>
-        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#f97316" title="Light trails — orbs leave glowing trails (8)">
-          trails
+        <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain mode — orbs fall like rain (5)">
+          rain
         </ModeToggle>
         <ModeToggle onClick={handleLinksMode} $active={linksMode} $color="#f0abfc" title="Plasma links — energy lines between nearby orbs (6)">
           links
@@ -8264,7 +8280,6 @@ function App() {
               <Shortcut><Key>A</Key><span>N-body gravity</span></Shortcut>
               <Shortcut><Key>5</Key><span>Rain mode</span></Shortcut>
               <Shortcut><Key>7</Key><span>Heartbeat pulse</span></Shortcut>
-              <Shortcut><Key>8</Key><span>Light trails</span></Shortcut>
               <Shortcut><Key>-</Key><span>Wave mode</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
