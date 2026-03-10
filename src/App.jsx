@@ -6417,27 +6417,48 @@ function App() {
   }, []);
 
   const handleClearAll = useCallback(() => {
+    const orbs = orbsRef.current;
+    if (orbs.length === 0) return;
     const now = performance.now();
-    for (const orb of orbsRef.current) {
-      for (let i = 0; i < BURST_PARTICLE_COUNT; i++) {
-        const angle = (Math.PI * 2 * i) / BURST_PARTICLE_COUNT;
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+
+    // Send implosion particles from each orb toward center
+    for (const orb of orbs) {
+      const dx = cx - orb.x;
+      const dy = cy - orb.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const count = Math.min(4, BURST_PARTICLE_COUNT);
+      for (let i = 0; i < count; i++) {
+        const speed = 8 + Math.random() * 6;
+        const spread = (Math.random() - 0.5) * 2;
         burstsRef.current.push({
-          x: orb.x,
-          y: orb.y,
-          vx: Math.cos(angle) * (2 + Math.random() * 2),
-          vy: Math.sin(angle) * (2 + Math.random() * 2),
+          x: orb.x, y: orb.y,
+          vx: (dx / dist) * speed + spread,
+          vy: (dy / dist) * speed + spread,
           color: orb.color,
-          radius: orb.radius * 0.4,
+          radius: orb.radius * 0.35,
           born: now,
         });
       }
     }
+
+    // Supernova at center for the grand detonation
+    if (!supernovaRef.current) {
+      supernovaRef.current = { cx, cy, born: now, phase: "implode" };
+    }
+
+    // Shockwave rings from center
+    wavesRef.current.push({ cx, cy, radius: 0, color: "#f093fb", generation: 0, hitOrbs: new Set(), delay: 0 });
+    wavesRef.current.push({ cx, cy, radius: 0, color: "#4facfe", generation: 0, hitOrbs: new Set(), delay: 4 });
+
     orbsRef.current = [];
     trailsRef.current = [];
     barriersRef.current = [];
     blackHoleRef.current = null;
     setOrbCount(0);
-    shakeRef.current = 20;
+    shakeRef.current = 30;
+    playSupernovaSound();
   }, []);
 
   const handleSpin = useCallback(() => {
