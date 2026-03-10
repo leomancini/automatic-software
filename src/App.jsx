@@ -7062,9 +7062,13 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleShowtime} title="Showtime" $highlight>
+          <ActionButton onClick={() => { handleCyclePalette(); comboFlashRef.current.push({ text: PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#f093fb" }); }} title="Cycle palette">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              <circle cx="12" cy="12" r="5" />
+              <path d="M12 1v2" /><path d="M12 21v2" />
+              <path d="M4.22 4.22l1.42 1.42" /><path d="M18.36 18.36l1.42 1.42" />
+              <path d="M1 12h2" /><path d="M21 12h2" />
+              <path d="M4.22 19.78l1.42-1.42" /><path d="M18.36 5.64l1.42-1.42" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -7144,6 +7148,9 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
+        <ModeToggle onClick={handleOrbitMode} $active={orbitMode} $color="#f093fb" title="Orbit mode (O)">
+          orbit
+        </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
@@ -7196,6 +7203,7 @@ function App() {
               <hr />
               <Shortcut><Key>G</Key><span>Cycle gravity direction</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
+              <Shortcut><Key>O</Key><span>Orbit mode</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
