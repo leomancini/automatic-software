@@ -7025,6 +7025,7 @@ function App() {
       { fn: handleScatter, label: "SCATTER", color: "#fa709a" },
       { fn: handleTide, label: "TIDE", color: "#00f2fe" },
       { fn: handleGalaxy, label: "GALAXY", color: "#c084fc" },
+      { fn: handleCrossfire, label: "CROSSFIRE", color: "#fa709a" },
     ];
 
     // Always start with the title flash
@@ -7053,7 +7054,7 @@ function App() {
         setTimeout(() => bonus.fn(), delay + 150);
       }
     });
-  }, [handleBurst, handleWave, handleFirework, handleLightning, handleMeteorShower, handleSupernova, handleStarburst, handleSpin, handleScatter, handleTide, handleGalaxy]);
+  }, [handleBurst, handleWave, handleFirework, handleLightning, handleMeteorShower, handleSupernova, handleStarburst, handleSpin, handleScatter, handleTide, handleGalaxy, handleCrossfire]);
 
   const handleStarburst = useCallback(() => {
     const orbs = orbsRef.current;
@@ -7077,6 +7078,57 @@ function App() {
     }
     shakeRef.current = 20;
     playBoom();
+  }, []);
+
+  const handleCrossfire = useCallback(() => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const now = performance.now();
+    const count = 6;
+    const cy = H / 2;
+    const spread = H * 0.35;
+    const speed = 5 + Math.random() * 3;
+
+    // Left volley → heading right
+    for (let i = 0; i < count; i++) {
+      const y = cy - spread / 2 + (spread * i) / (count - 1);
+      const orb = createOrb(-10, y);
+      orb.vx = speed + Math.random() * 2;
+      orb.vy = (Math.random() - 0.5) * 1.5;
+      orb.radius = 7 + Math.random() * 6;
+      orbsRef.current.push(orb);
+      ripplesRef.current.push({ x: 0, y, color: orb.color, born: now });
+    }
+
+    // Right volley → heading left
+    for (let i = 0; i < count; i++) {
+      const y = cy - spread / 2 + (spread * i) / (count - 1);
+      const orb = createOrb(W + 10, y);
+      orb.vx = -(speed + Math.random() * 2);
+      orb.vy = (Math.random() - 0.5) * 1.5;
+      orb.radius = 7 + Math.random() * 6;
+      orbsRef.current.push(orb);
+      ripplesRef.current.push({ x: W, y, color: orb.color, born: now });
+    }
+
+    // Delayed shockwave at impact center
+    const impactMs = (W / 2) / speed * (1000 / 60);
+    setTimeout(() => {
+      wavesRef.current.push({
+        cx: W / 2, cy: H / 2, radius: 0,
+        color: "#f093fb", generation: 0, hitOrbs: new Set(), delay: 0,
+      });
+      wavesRef.current.push({
+        cx: W / 2, cy: H / 2, radius: 0,
+        color: "#4facfe", generation: 0, hitOrbs: new Set(), delay: 3,
+      });
+      shakeRef.current = Math.max(shakeRef.current, 18);
+      playBoom();
+    }, impactMs);
+
+    setOrbCount(orbsRef.current.length);
+    shakeRef.current = Math.max(shakeRef.current, 6);
+    playBurstSound();
   }, []);
 
   const handleTide = useCallback(() => {
@@ -7217,6 +7269,10 @@ function App() {
           handleGalaxy();
           if (orbsRef.current.length >= 3) flashLabel("GALAXY", "#c084fc");
           break;
+        case "4":
+          handleCrossfire();
+          flashLabel("CROSSFIRE", "#fa709a");
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -7224,7 +7280,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handleStarburst, handleShowtime, handleTide, handleGalaxy, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handleStarburst, handleShowtime, handleTide, handleGalaxy, handleCrossfire, paletteIndex, setShowHelp]);
 
 
   return (
@@ -7342,6 +7398,15 @@ function App() {
           <ActionButton onClick={handleShowtime} title="Showtime">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={() => { handleCrossfire(); comboFlashRef.current.push({ text: "CROSSFIRE", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#fa709a" }); }} title="Crossfire (4)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="2" y1="12" x2="10" y2="12" />
+              <polyline points="7 9 10 12 7 15" />
+              <line x1="22" y1="12" x2="14" y2="12" />
+              <polyline points="17 9 14 12 17 15" />
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
             </svg>
           </ActionButton>
           <ActionButton onClick={() => { handleStarburst(); comboFlashRef.current.push({ text: "STARBURST", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#fbbf24" }); }} title="Starburst (T)">
@@ -7479,6 +7544,7 @@ function App() {
               <Shortcut><Key>1</Key><span>Showtime (effect chain)</span></Shortcut>
               <Shortcut><Key>2</Key><span>Tide wave</span></Shortcut>
               <Shortcut><Key>3</Key><span>Galaxy spiral</span></Shortcut>
+              <Shortcut><Key>4</Key><span>Crossfire</span></Shortcut>
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
