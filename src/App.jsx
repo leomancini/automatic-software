@@ -1325,6 +1325,54 @@ function App() {
         }
       }
 
+      // ── Aurora: subtle drifting light curtains in the upper sky ──
+      if (!paintModeRef.current) {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        // total kinetic energy drives aurora brightness
+        let _auroraEnergy = 0;
+        for (let ai = 0; ai < orbs.length; ai++) {
+          const o = orbs[ai];
+          if (!o.spark) _auroraEnergy += o.vx * o.vx + o.vy * o.vy;
+        }
+        const _auroraBoost = Math.min(_auroraEnergy / 80, 1);
+        const _auroraBands = [
+          { hue: 150, yFrac: 0.11, speed: 0.12, freq: 3.0 },
+          { hue: 190, yFrac: 0.19, speed: 0.16, freq: 2.5 },
+          { hue: 275, yFrac: 0.27, speed: 0.10, freq: 3.5 },
+        ];
+        const _aSegs = 24;
+        for (let _ab = 0; _ab < 3; _ab++) {
+          const a = _auroraBands[_ab];
+          const yCenter = H * a.yFrac + Math.sin(time * a.speed + _ab * 2.2) * H * 0.03;
+          const bh = H * 0.06;
+          const alpha = (0.012 + 0.006 * Math.sin(time * 0.35 + _ab * 1.9)) * (0.4 + _auroraBoost * 0.6);
+
+          ctx.beginPath();
+          for (let i = 0; i <= _aSegs; i++) {
+            const x = (i / _aSegs) * W;
+            const y = yCenter - bh + Math.sin(i / _aSegs * a.freq * Math.PI + time * a.speed * 2) * bh * 0.5;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          for (let i = _aSegs; i >= 0; i--) {
+            const x = (i / _aSegs) * W;
+            const y = yCenter + bh + Math.sin(i / _aSegs * (a.freq - 0.5) * Math.PI + time * a.speed * 1.5 + 1) * bh * 0.4;
+            ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+
+          const g = ctx.createLinearGradient(0, yCenter - bh * 1.5, 0, yCenter + bh * 1.5);
+          g.addColorStop(0, `hsla(${a.hue}, 70%, 55%, 0)`);
+          g.addColorStop(0.3, `hsla(${a.hue}, 70%, 58%, ${(alpha * 0.5).toFixed(4)})`);
+          g.addColorStop(0.5, `hsla(${a.hue}, 75%, 62%, ${alpha.toFixed(4)})`);
+          g.addColorStop(0.7, `hsla(${a.hue + 10}, 70%, 58%, ${(alpha * 0.5).toFixed(4)})`);
+          g.addColorStop(1, `hsla(${a.hue}, 70%, 55%, 0)`);
+          ctx.fillStyle = g;
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
       // ── Bullet time vignette: radial darkening at edges during combo slow-mo ──
       if (bulletTimeRef.current > now) {
         const btRemaining = bulletTimeRef.current - now;
