@@ -8336,6 +8336,12 @@ function App() {
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor — orbs orbit your finger (O)">
           magnet
         </ModeToggle>
+        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce mode — elastic walls (.)">
+          bounce
+        </ModeToggle>
+        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
+          n-body
+        </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
