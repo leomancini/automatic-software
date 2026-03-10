@@ -2647,6 +2647,12 @@ function App() {
         orb.x += orb.vx * speed_factor;
         orb.y += orb.vy * speed_factor;
 
+        // track idle time for drowsy eye expression
+        {
+          const spd = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+          orb.idleFrames = spd < 0.5 ? (orb.idleFrames || 0) + 1 : 0;
+        }
+
         // trails mode: record position history
         if (trailsModeRef.current) {
           if (!orb.trail) orb.trail = [];
@@ -3354,6 +3360,7 @@ function App() {
             bigger.x = (a.x * a.radius + b.x * b.radius) / totalR;
             bigger.y = (a.y * a.radius + b.y * b.radius) / totalR;
             bigger.pulsePhase = Math.random() * Math.PI * 2;
+            bigger.mergedAt = now;
             // merge color blending — absorb lesser orb's color proportionally
             const lesserRatio = lesser.radius / (bigger.radius + lesser.radius);
             bigger.color = blendHexColors(bigger.color, lesser.color, lesserRatio * 0.6);
@@ -3494,19 +3501,22 @@ function App() {
             orb.vy += (dy / dist) * force;
             // cascade chain reaction: if orb hit hard enough, spawn secondary wave
             if (!wave.hitOrbs) wave.hitOrbs = new Set();
-            if (!wave.hitOrbs.has(orb.id) && gen < CASCADE_MAX_GEN) {
+            if (!wave.hitOrbs.has(orb.id)) {
               wave.hitOrbs.add(orb.id);
-              const orbSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
-              if (orbSpeed > CASCADE_SPEED_THRESHOLD) {
-                pendingCascades.push({
-                  cx: orb.x,
-                  cy: orb.y,
-                  radius: 0,
-                  color: orb.color,
-                  generation: gen + 1,
-                  hitOrbs: new Set([orb.id]),
-                  delay: CASCADE_DELAY_FRAMES,
-                });
+              orb.waveHit = now;
+              if (gen < CASCADE_MAX_GEN) {
+                const orbSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+                if (orbSpeed > CASCADE_SPEED_THRESHOLD) {
+                  pendingCascades.push({
+                    cx: orb.x,
+                    cy: orb.y,
+                    radius: 0,
+                    color: orb.color,
+                    generation: gen + 1,
+                    hitOrbs: new Set([orb.id]),
+                    delay: CASCADE_DELAY_FRAMES,
+                  });
+                }
               }
             }
           }
@@ -4516,6 +4526,33 @@ function App() {
           const pupilR = eyeR * 0.55;
           const isFrozen = frozenRef.current;
           const isZooming = speed > 6;
+          // periodic eye blink for lifelike feel
+          const blinkPeriod = 3.5 + (orb.pulsePhase % 1) * 3.5;
+          const blinkT = (time + orb.pulsePhase * 37) % blinkPeriod;
+          const isBlinking = blinkT < 0.13 && !isFrozen && !isZooming;
+          // happy squint after absorbing another orb
+          const isSatisfied = orb.mergedAt && now - orb.mergedAt < 400;
+          // surprised wide eyes when hit by shockwave
+          const isSurprised = orb.waveHit && now - orb.waveHit < 350;
+          // scared: shockwave approaching but hasn't hit yet
+          let isScared = false;
+          let scareLookAng = 0;
+          if (!isFrozen && !isSatisfied && !isSurprised) {
+            for (let wi = 0; wi < wavesRef.current.length; wi++) {
+              const w = wavesRef.current[wi];
+              const wdx = orb.x - w.x;
+              const wdy = orb.y - w.y;
+              const wDist = Math.sqrt(wdx * wdx + wdy * wdy);
+              if (wDist > w.radius && wDist < w.radius + WAVE_SPEED * 14) {
+                isScared = true;
+                scareLookAng = Math.atan2(w.y - orb.y, w.x - orb.x);
+                break;
+              }
+            }
+          }
+          // drowsy: orb has been idle for a while
+          const isDrowsy = !isScared && !isFrozen && !isSatisfied && !isSurprised && (orb.idleFrames || 0) > 120;
+          const drowsyT = isDrowsy ? Math.min(((orb.idleFrames || 0) - 120) / 90, 1) : 0;
           let lookAng;
           if (speed > 0.8) {
             lookAng = Math.atan2(orb.vy, orb.vx);
@@ -4537,6 +4574,60 @@ function App() {
               ctx.arc(ex, ey, eyeR, 0.15 * Math.PI, 0.85 * Math.PI);
               ctx.strokeStyle = "rgba(255,255,255,0.8)";
               ctx.lineWidth = Math.max(eyeR * 0.4, 0.8);
+              ctx.stroke();
+            } else if (isSatisfied) {
+              // happy squint after merge: ^_^ upward arcs
+              ctx.beginPath();
+              ctx.arc(ex, ey, eyeR * 0.7, 1.15 * Math.PI, 1.85 * Math.PI);
+              ctx.strokeStyle = "rgba(255,255,255,0.85)";
+              ctx.lineWidth = Math.max(eyeR * 0.35, 0.8);
+              ctx.stroke();
+            } else if (isSurprised) {
+              // surprised: wide eyes with tiny pupils
+              ctx.beginPath();
+              ctx.arc(ex, ey, eyeR * 1.15, 0, Math.PI * 2);
+              ctx.fillStyle = "rgba(255,255,255,0.95)";
+              ctx.fill();
+              ctx.beginPath();
+              ctx.arc(ex, ey, pupilR * 0.45, 0, Math.PI * 2);
+              ctx.fillStyle = "rgba(8,8,24,0.9)";
+              ctx.fill();
+            } else if (isScared) {
+              // scared: wide eyes with pinpoint pupils staring at approaching wave
+              ctx.beginPath();
+              ctx.arc(ex, ey, eyeR * 1.25, 0, Math.PI * 2);
+              ctx.fillStyle = "rgba(255,255,255,0.95)";
+              ctx.fill();
+              const sPOff = eyeR * 0.3;
+              ctx.beginPath();
+              ctx.arc(ex + Math.cos(scareLookAng) * sPOff, ey + Math.sin(scareLookAng) * sPOff, pupilR * 0.3, 0, Math.PI * 2);
+              ctx.fillStyle = "rgba(8,8,24,0.9)";
+              ctx.fill();
+            } else if (isDrowsy) {
+              // drowsy: eyelid gradually closes from the top
+              const lidClose = drowsyT * eyeR * 1.4;
+              ctx.save();
+              ctx.beginPath();
+              ctx.rect(ex - eyeR - 1, ey - eyeR + lidClose, (eyeR + 1) * 2, eyeR * 2 + 2);
+              ctx.clip();
+              ctx.beginPath();
+              ctx.arc(ex, ey, eyeR, 0, Math.PI * 2);
+              ctx.fillStyle = "rgba(255,255,255,0.85)";
+              ctx.fill();
+              if (drowsyT < 0.9) {
+                const dPOff = eyeR * 0.15;
+                ctx.beginPath();
+                ctx.arc(ex, ey + dPOff, pupilR * (1 - drowsyT * 0.4), 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(8,8,24,0.8)";
+                ctx.fill();
+              }
+              ctx.restore();
+            } else if (isBlinking) {
+              // blink: curved closed-eye line
+              ctx.beginPath();
+              ctx.arc(ex, ey, eyeR * 0.7, 0.05 * Math.PI, 0.95 * Math.PI);
+              ctx.strokeStyle = "rgba(255,255,255,0.7)";
+              ctx.lineWidth = Math.max(eyeR * 0.3, 0.7);
               ctx.stroke();
             } else if (isZooming) {
               // squinting eyes: narrow horizontal ellipse
@@ -7101,6 +7192,18 @@ function App() {
     });
   }, []);
 
+  const handleCyclePaletteButton = useCallback(() => {
+    handleCyclePalette();
+    const nextIndex = (paletteIndex + 1) % PALETTES.length;
+    comboFlashRef.current.push({
+      text: PALETTES[nextIndex].name.toUpperCase(),
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+      born: performance.now(),
+      color: "#f093fb",
+    });
+  }, [handleCyclePalette, paletteIndex]);
+
   const handleBurst = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -8038,7 +8141,7 @@ function App() {
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
-        <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""}</Count>
+        <Count>{orbCount} orb{orbCount !== 1 ? "s" : ""} · {PALETTES[paletteIndex].name}</Count>
         {streakDisplay >= 2 && (
           <>
             <StreakCounter key={streakDisplay} $streak={streakDisplay}>
@@ -8145,13 +8248,14 @@ function App() {
           </ActionButton>
           {orbCount > 0 && (
             <>
-            <ActionButton onClick={handleShuffle} title="Shuffle colors">
+            <ActionButton onClick={handleCyclePaletteButton} title="Cycle palette" $highlight>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="16 3 21 3 21 8" />
-                <line x1="4" y1="20" x2="21" y2="3" />
-                <polyline points="21 16 21 21 16 21" />
-                <line x1="15" y1="15" x2="21" y2="21" />
-                <line x1="4" y1="4" x2="9" y2="9" />
+                <circle cx="12" cy="12" r="9" opacity="0.3" />
+                <circle cx="12" cy="5" r="2.5" fill="currentColor" />
+                <circle cx="17.5" cy="9" r="2.5" fill="currentColor" opacity="0.8" />
+                <circle cx="15.5" cy="16" r="2.5" fill="currentColor" opacity="0.6" />
+                <circle cx="8.5" cy="16" r="2.5" fill="currentColor" opacity="0.4" />
+                <circle cx="6.5" cy="9" r="2.5" fill="currentColor" opacity="0.2" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleLightning} title="Chain lightning">
