@@ -6744,17 +6744,52 @@ function App() {
   const handleShowtime = useCallback(() => {
     const W = window.innerWidth;
     const H = window.innerHeight;
+    const flash = (text, color, delay) => {
+      setTimeout(() => {
+        comboFlashRef.current.push({ text, x: W / 2, y: H / 2, born: performance.now(), color });
+      }, delay);
+    };
+
+    // Pool of effects with their labels, colors, and handlers
+    const pool = [
+      { fn: handleBurst, label: "BURST", color: "#667eea" },
+      { fn: handleWave, label: "SHOCKWAVE", color: "#4facfe" },
+      { fn: handleFirework, label: "FIREWORK", color: "#fa709a" },
+      { fn: handleLightning, label: "LIGHTNING", color: "#4facfe" },
+      { fn: handleMeteorShower, label: "METEORS", color: "#43e97b" },
+      { fn: handleSupernova, label: "SUPERNOVA", color: "#f093fb" },
+      { fn: handleStarburst, label: "STARBURST", color: "#fbbf24" },
+      { fn: handleSpin, label: "VORTEX", color: "#f093fb" },
+      { fn: handleScatter, label: "SCATTER", color: "#fa709a" },
+    ];
+
+    // Always start with the title flash
     comboFlashRef.current.push({ text: "SHOWTIME", x: W / 2, y: H / 2, born: performance.now(), color: "#fbbf24" });
 
-    // Choreographed chain of the most popular effects
-    handleBurst();
-    setTimeout(() => handleWave(), 350);
-    setTimeout(() => handleFirework(), 700);
-    setTimeout(() => { handleFirework(); handleWave(); }, 1100);
-    setTimeout(() => handleLightning(), 1500);
-    setTimeout(() => handleMeteorShower(), 1800);
-    setTimeout(() => handleSupernova(), 2500);
-  }, [handleBurst, handleWave, handleFirework, handleLightning, handleMeteorShower, handleSupernova]);
+    // Compose a random choreography: 5-7 steps from the pool
+    const stepCount = 5 + Math.floor(Math.random() * 3);
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    const steps = shuffled.slice(0, stepCount);
+
+    // Always open with burst to seed orbs, and close with supernova as the finale
+    const opener = pool[0]; // burst
+    const closer = pool[5]; // supernova
+    const middle = steps.filter(s => s !== opener && s !== closer).slice(0, stepCount - 2);
+
+    const sequence = [opener, ...middle, closer];
+    const baseGap = 400;
+
+    sequence.forEach((step, i) => {
+      const delay = i === 0 ? 0 : i * baseGap + Math.random() * 100;
+      setTimeout(() => step.fn(), delay);
+      if (i > 0) flash(step.label, step.color, delay);
+      // Occasionally double up an effect for extra drama
+      if (i > 0 && i < sequence.length - 1 && Math.random() < 0.25) {
+        const bonus = pool[Math.floor(Math.random() * pool.length)];
+        setTimeout(() => bonus.fn(), delay + 150);
+      }
+    });
+  }, [handleBurst, handleWave, handleFirework, handleLightning, handleMeteorShower, handleSupernova, handleStarburst, handleSpin, handleScatter]);
 
   const handleStarburst = useCallback(() => {
     const orbs = orbsRef.current;
