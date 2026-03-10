@@ -7364,6 +7364,9 @@ function App() {
           handleComet();
           flashLabel("COMET", "#f59e0b");
           break;
+        case "k":
+          handleFlockingMode();
+          break;
         case "?":
           setShowHelp((prev) => !prev);
           break;
@@ -7371,7 +7374,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleOrbitMode, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, paletteIndex, setShowHelp]);
 
 
   return (
@@ -7419,7 +7422,7 @@ function App() {
           {attractMode && <ModePill $color="#f093fb">attract</ModePill>}
           {repelMode && <ModePill $color="#fa709a">repel</ModePill>}
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
-          {trailsMode && <ModePill $color="#c084fc">trails</ModePill>}
+          {flockingMode && <ModePill $color="#c084fc">flock</ModePill>}
           {nbodyMode && <ModePill $color="#f59e0b">n-body</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {paletteIndex !== 0 && <ModePill $color="#f093fb">{PALETTES[paletteIndex].name.toLowerCase()}</ModePill>}
@@ -7570,8 +7573,8 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails mode">
-          trails
+        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#c084fc" title="Flock mode (K)">
+          flock
         </ModeToggle>
         <ModeToggle onClick={handleOrbitMode} $active={orbitMode} $color="#f59e0b" title="Orbit mode (O)">
           orbit
@@ -7639,6 +7642,7 @@ function App() {
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>A</Key><span>N-body gravity</span></Shortcut>
+              <Shortcut><Key>K</Key><span>Flock mode</span></Shortcut>
               <Shortcut><Key>Y</Key><span>Cycle color palette</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
