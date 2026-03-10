@@ -8609,6 +8609,12 @@ function App() {
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#f97316" title="Light trails — orbs leave glowing trails (8)">
           trails
         </ModeToggle>
+        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
+          n-body
+        </ModeToggle>
+        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flocking — boid swarm behavior (K)">
+          flock
+        </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
       <MuteButton onClick={handleToggleAudio} title="Toggle sound" $muted={!audioEnabled}>
@@ -8669,6 +8675,7 @@ function App() {
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>A</Key><span>N-body gravity</span></Shortcut>
+              <Shortcut><Key>K</Key><span>Flocking swarm</span></Shortcut>
               <Shortcut><Key>5</Key><span>Rain mode</span></Shortcut>
               <Shortcut><Key>7</Key><span>Heartbeat pulse</span></Shortcut>
               <Shortcut><Key>-</Key><span>Wave mode</span></Shortcut>
