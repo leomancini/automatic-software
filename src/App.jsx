@@ -185,6 +185,7 @@ function App() {
   const longPressRef = useRef(null);
   const [paletteIndex, setPaletteIndex] = useState(0);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const audioEnabledRef = useRef(true);
   const streakRef = useRef(0);
   const lastTapTimeRef = useRef(0);
   const [streakDisplay, setStreakDisplay] = useState(0);
@@ -6845,14 +6846,10 @@ function App() {
 
 
   const handleToggleAudio = useCallback(() => {
-    try {
-      setAudioEnabled((prev) => {
-        setAudioMuted(prev);
-        return !prev;
-      });
-    } catch (err) {
-      console.error("handleToggleAudio error:", err);
-    }
+    const next = !audioEnabledRef.current;
+    audioEnabledRef.current = next;
+    setAudioMuted(!next);
+    setAudioEnabled(next);
   }, []);
 
   const handlePlaceWell = useCallback(() => {
