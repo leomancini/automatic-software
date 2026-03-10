@@ -263,6 +263,7 @@ function App() {
   const idleEmptySinceRef = useRef(0);      // timestamp when orbs first hit 0
   const lastIdleDriftSpawnRef = useRef(0);  // last idle drift spawn time
   const pinchRef = useRef(null); // multi-touch pinch {startDist, lastDist, startAngle, lastAngle, cx, cy}
+  const bgTintRef = useRef({ r: 0, g: 0, b: 0 }); // mood lighting: smoothed dominant orb color
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -1205,6 +1206,28 @@ function App() {
 
       const orbs = orbsRef.current;
 
+      // ── Mood lighting: tint background toward dominant orb color ──
+      const bgTint = bgTintRef.current;
+      if (orbs.length > 0) {
+        let totalR = 0, totalG = 0, totalB = 0, count = 0;
+        for (let i = 0; i < orbs.length; i++) {
+          if (orbs[i].spark) continue;
+          const hex = orbs[i].color;
+          totalR += parseInt(hex.slice(1, 3), 16);
+          totalG += parseInt(hex.slice(3, 5), 16);
+          totalB += parseInt(hex.slice(5, 7), 16);
+          count++;
+        }
+        if (count > 0) {
+          const sm = 0.02;
+          bgTint.r += (totalR / count - bgTint.r) * sm;
+          bgTint.g += (totalG / count - bgTint.g) * sm;
+          bgTint.b += (totalB / count - bgTint.b) * sm;
+        }
+      } else {
+        bgTint.r *= 0.97; bgTint.g *= 0.97; bgTint.b *= 0.97;
+      }
+
       // screen shake
       const shake = shakeRef.current;
       if (shake > 0.5) {
@@ -1218,7 +1241,8 @@ function App() {
       // fade trail background (skip in paint mode for persistent trails)
       if (!paintModeRef.current) {
         const fadeAlpha = longExposureRef.current ? 0.035 : 0.25;
-        ctx.fillStyle = `rgba(15, 15, 26, ${fadeAlpha})`;
+        const ts = 0.1;
+        ctx.fillStyle = `rgba(${15 + bgTint.r * ts | 0}, ${15 + bgTint.g * ts | 0}, ${26 + bgTint.b * ts | 0}, ${fadeAlpha})`;
         ctx.fillRect(0, 0, W, H);
         // Cinematic vignette: subtle edge darkening for depth
         const edgeAlpha = fadeAlpha * 0.15;
