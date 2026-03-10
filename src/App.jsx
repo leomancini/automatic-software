@@ -7485,6 +7485,7 @@ function App() {
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
           {wrapMode && <ModePill $color="#38bdf8">wrap</ModePill>}
           {nbodyMode && <ModePill $color="#a78bfa">n-body</ModePill>}
+          {flockingMode && <ModePill $color="#22d3ee">flock</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -7543,14 +7544,6 @@ function App() {
               <line x1="17.66" y1="17.66" x2="19.78" y2="19.78" />
               <line x1="4.22" y1="19.78" x2="6.34" y2="17.66" />
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleComet} title="Comet (Z)">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="17" cy="7" r="3" fill="currentColor" />
-              <path d="M14 10L3 21" />
-              <path d="M14 10L8 16" opacity="0.5" />
-              <path d="M12 12L5 19" opacity="0.3" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -7633,8 +7626,8 @@ function App() {
         <ModeToggle onClick={handleEchoMode} $active={echoMode} $color="#f093fb" title="Echo mode">
           echo
         </ModeToggle>
-        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity (A)">
-          n-body
+        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flocking swarm (K)">
+          flock
         </ModeToggle>
         <ModeToggle onClick={handleCyclePalette} $color="#c084fc" title="Cycle color palette (Y)">
           {PALETTES[paletteIndex].name.toLowerCase()}
@@ -7678,10 +7671,6 @@ function App() {
               <Shortcut><Key>overlap</Key><span>Merge (big ones split!)</span></Shortcut>
               <Shortcut><Key>rapid taps</Key><span>Combo streaks → bonus effects</span></Shortcut>
               <hr />
-              <Shortcut><Key>1</Key><span>Showtime (effect chain)</span></Shortcut>
-              <Shortcut><Key>2</Key><span>Tide wave</span></Shortcut>
-              <Shortcut><Key>3</Key><span>Galaxy spiral</span></Shortcut>
-              <Shortcut><Key>4</Key><span>Crossfire</span></Shortcut>
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
@@ -7691,18 +7680,17 @@ function App() {
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
-              <Shortcut><Key>T</Key><span>Pulse (all orbs shockwave)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>N</Key><span>Gravity well</span></Shortcut>
               <hr />
               <Shortcut><Key>G</Key><span>Cycle gravity direction</span></Shortcut>
+              <Shortcut><Key>K</Key><span>Flocking swarm</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
               <Shortcut><Key>O</Key><span>Magnet cursor</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>A</Key><span>N-body gravity</span></Shortcut>
-              <Shortcut><Key>I</Key><span>Wrap edges</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
             </ShortcutList>
