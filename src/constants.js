@@ -233,6 +233,13 @@ export const FISSION_MIN_RADIUS = 8;       // orbs smaller than this won't split
 export const FISSION_FRAG_COUNT = 3;       // fragments per split
 export const FISSION_COOLDOWN = 400;       // ms before an orb can split again
 
+// ── Impact scorch marks — persistent glow left by high-speed collisions ──
+export const SCORCH_DURATION = 6000;       // ms before a scorch mark fades completely
+export const SCORCH_MAX = 50;              // max active scorch marks
+export const SCORCH_SPEED_MIN = 4;         // min relative speed to leave a mark
+export const SCORCH_RADIUS_MIN = 8;        // base radius of smallest scorch
+export const SCORCH_RADIUS_MAX = 30;       // max radius (scales with collision speed)
+
 // ── Elastic bounce (orb-to-orb billiard collisions) ─────────────────
 export const BOUNCE_RESTITUTION = 0.82;    // energy retained per bounce (1 = perfectly elastic)
 export const BOUNCE_SPARK_COUNT = 4;       // small sparks at contact point

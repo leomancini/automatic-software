@@ -88,6 +88,7 @@ import {
   LENS_HOLD_RANGE, LENS_HOLD_STRENGTH,
   VOLATILE_POP_CHANCE, VOLATILE_MIN_RADIUS, VOLATILE_FRAG_COUNT, VOLATILE_FRAG_SPEED,
   FISSION_SPEED_THRESHOLD, FISSION_MIN_RADIUS, FISSION_FRAG_COUNT, FISSION_COOLDOWN,
+  SCORCH_DURATION, SCORCH_MAX, SCORCH_SPEED_MIN, SCORCH_RADIUS_MIN, SCORCH_RADIUS_MAX,
 } from './constants.js';
 import {
   PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce, playCollisionChime,
@@ -139,6 +140,7 @@ function App() {
   const shatterAllRef = useRef(null); // active shatter-all {born, phase, frozenOrbs}
   const embersRef = useRef([]); // fire ember particles
   const mergeSparksRef = useRef([]); // collision spark particles
+  const scorchMarksRef = useRef([]); // impact scorch marks from high-speed collisions
   const screenFlashesRef = useRef([]); // full-screen radial color flashes from big effects
   const strikesRef = useRef([]); // active orbital strikes
   const stormRef = useRef(null); // active magnetic storm {born, cx, cy, lastZap}
@@ -3553,6 +3555,13 @@ function App() {
               if (relSpeed > 1.5) {
                 ripplesRef.current.push({ x: cx, y: cy, color: sparkColors[Math.floor(Math.random() * 2)], born: now });
               }
+              // impact scorch mark at collision point
+              if (relSpeed > SCORCH_SPEED_MIN) {
+                const scorchT = Math.min((relSpeed - SCORCH_SPEED_MIN) / 10, 1);
+                const scorchR = SCORCH_RADIUS_MIN + scorchT * (SCORCH_RADIUS_MAX - SCORCH_RADIUS_MIN);
+                scorchMarksRef.current.push({ x: cx, y: cy, radius: scorchR, color: blendHexColors(a.color, b.color, 0.5), born: now });
+                if (scorchMarksRef.current.length > SCORCH_MAX) scorchMarksRef.current.shift();
+              }
               // play musical chime on orb-orb collision (pentatonic note mapped to Y)
               if (relSpeed > 2) playCollisionChime(cy, H, Math.min(relSpeed / 6, 1));
               // chain react: energetic bounces emit mini-shockwaves
@@ -3665,6 +3674,11 @@ function App() {
                 }
               }
               ripplesRef.current.push({ x: bigger.x, y: bigger.y, color: bigger.color, born: now });
+              // merge scorch mark
+              const mScorchT = Math.min(collisionSpeed / 12, 1);
+              const mScorchR = SCORCH_RADIUS_MIN + mScorchT * (SCORCH_RADIUS_MAX - SCORCH_RADIUS_MIN);
+              scorchMarksRef.current.push({ x: bigger.x, y: bigger.y, radius: mScorchR * 1.2, color: bigger.color, born: now });
+              if (scorchMarksRef.current.length > SCORCH_MAX) scorchMarksRef.current.shift();
               shakeRef.current = Math.max(shakeRef.current, Math.floor(3 + intensity * 5));
               // chain react: energetic merges spawn a small shockwave ring
               if (chainReactModeRef.current && collisionSpeed > 4) {
@@ -4697,6 +4711,23 @@ function App() {
           }
         }
         ctx.restore();
+      }
+
+      // draw impact scorch marks
+      scorchMarksRef.current = scorchMarksRef.current.filter((s) => now - s.born < SCORCH_DURATION);
+      for (const scorch of scorchMarksRef.current) {
+        const age = (now - scorch.born) / SCORCH_DURATION;
+        const alpha = (1 - age) * (1 - age); // quadratic fade-out
+        const pulse = 1 + 0.08 * Math.sin(now * 0.003 + scorch.x * 0.1); // gentle breathing
+        const r = scorch.radius * pulse;
+        const grad = ctx.createRadialGradient(scorch.x, scorch.y, 0, scorch.x, scorch.y, r);
+        grad.addColorStop(0, scorch.color + hexAlpha(alpha * 0.35 * 255));
+        grad.addColorStop(0.5, scorch.color + hexAlpha(alpha * 0.15 * 255));
+        grad.addColorStop(1, scorch.color + hexAlpha(0));
+        ctx.beginPath();
+        ctx.arc(scorch.x, scorch.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
       }
 
       // draw orbs
@@ -7345,6 +7376,7 @@ function App() {
     orbsRef.current = [];
     trailsRef.current = [];
     barriersRef.current = [];
+    scorchMarksRef.current = [];
     blackHoleRef.current = null;
     setOrbCount(0);
     shakeRef.current = 30;
