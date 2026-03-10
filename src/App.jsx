@@ -7347,48 +7347,6 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={() => { handleGalaxy(); if (orbsRef.current.length >= 3) comboFlashRef.current.push({ text: "GALAXY", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#c084fc" }); }} title="Galaxy (3)">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="2" fill="currentColor" />
-              <path d="M12 2c4 4 4 6 0 10s-4 6 0 10" />
-              <path d="M2 12c4-4 6-4 10 0s6 4 10 0" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleFireworkShow} title="Firework show (1)">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="6" y1="22" x2="6" y2="14" />
-              <line x1="6" y1="10" x2="3" y2="6" />
-              <line x1="6" y1="10" x2="9" y2="6" />
-              <line x1="6" y1="10" x2="6" y2="4" />
-              <line x1="18" y1="22" x2="18" y2="16" />
-              <line x1="18" y1="12" x2="15" y2="8" />
-              <line x1="18" y1="12" x2="21" y2="8" />
-              <line x1="18" y1="12" x2="18" y2="6" />
-              <line x1="12" y1="22" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="9" y2="3" />
-              <line x1="12" y1="8" x2="15" y2="3" />
-              <line x1="12" y1="8" x2="12" y2="2" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={() => { handleCrossfire(); comboFlashRef.current.push({ text: "CROSSFIRE", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#fa709a" }); }} title="Crossfire (4)">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="2" y1="12" x2="10" y2="12" />
-              <polyline points="7 9 10 12 7 15" />
-              <line x1="22" y1="12" x2="14" y2="12" />
-              <polyline points="17 9 14 12 17 15" />
-              <circle cx="12" cy="12" r="2" fill="currentColor" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={() => { handlePulse(); comboFlashRef.current.push({ text: "PULSE", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#4facfe" }); }} title="Pulse (T)">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="6" cy="12" r="2" />
-              <circle cx="6" cy="12" r="5" opacity="0.4" />
-              <circle cx="18" cy="12" r="2" />
-              <circle cx="18" cy="12" r="5" opacity="0.4" />
-              <circle cx="12" cy="6" r="2" />
-              <circle cx="12" cy="6" r="5" opacity="0.4" />
-            </svg>
-          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handleShuffle} title="Shuffle colors">
