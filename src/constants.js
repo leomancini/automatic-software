@@ -227,6 +227,12 @@ export const VOLATILE_MIN_RADIUS = 10;     // orbs smaller than this won't pop
 export const VOLATILE_FRAG_COUNT = 3;      // fragments per pop
 export const VOLATILE_FRAG_SPEED = 3.5;    // outward velocity of fragments
 
+// fission mode — speed-triggered splitting
+export const FISSION_SPEED_THRESHOLD = 12; // orbs faster than this auto-split
+export const FISSION_MIN_RADIUS = 8;       // orbs smaller than this won't split
+export const FISSION_FRAG_COUNT = 3;       // fragments per split
+export const FISSION_COOLDOWN = 400;       // ms before an orb can split again
+
 // ── Elastic bounce (orb-to-orb billiard collisions) ─────────────────
 export const BOUNCE_RESTITUTION = 0.82;    // energy retained per bounce (1 = perfectly elastic)
 export const BOUNCE_SPARK_COUNT = 4;       // small sparks at contact point

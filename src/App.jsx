@@ -87,6 +87,7 @@ import {
   LENS_BH_RANGE, LENS_BH_STRENGTH,
   LENS_HOLD_RANGE, LENS_HOLD_STRENGTH,
   VOLATILE_POP_CHANCE, VOLATILE_MIN_RADIUS, VOLATILE_FRAG_COUNT, VOLATILE_FRAG_SPEED,
+  FISSION_SPEED_THRESHOLD, FISSION_MIN_RADIUS, FISSION_FRAG_COUNT, FISSION_COOLDOWN,
 } from './constants.js';
 import {
   PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce, playCollisionChime,
@@ -249,6 +250,8 @@ function App() {
   const linksModeRef = useRef(false);
   const [volatileMode, setVolatileMode] = useState(false);
   const volatileModeRef = useRef(false);
+  const [fissionMode, setFissionMode] = useState(false);
+  const fissionModeRef = useRef(false);
   const [waveMode, setWaveMode] = useState(false);
   const waveModeRef = useRef(false);
   const [bounceMode, setBounceMode] = useState(false);
@@ -2293,6 +2296,10 @@ function App() {
         orb._b = parseInt(orb.color.slice(5, 7), 16);
       }
 
+      // fission mode deferred arrays (populated during physics, applied after)
+      const fissionFrags = [];
+      const fissionRemove = new Set();
+
       // update physics
       for (const orb of orbs) {
         if (orb === dragRef.current) continue;
@@ -2686,6 +2693,47 @@ function App() {
         {
           const spd = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
           orb.idleFrames = spd < 0.5 ? (orb.idleFrames || 0) + 1 : 0;
+
+          // fission mode: speed-triggered splitting
+          if (fissionModeRef.current && spd > FISSION_SPEED_THRESHOLD
+              && orb.radius > FISSION_MIN_RADIUS
+              && (!orb.fissionCooldown || now - orb.fissionCooldown > FISSION_COOLDOWN)
+              && orbsRef.current.length < 500
+              && orb !== dragRef.current) {
+            orb.fissionCooldown = now;
+            const fragRadius = orb.radius / Math.sqrt(FISSION_FRAG_COUNT);
+            const baseAngle = Math.atan2(orb.vy, orb.vx);
+            for (let f = 0; f < FISSION_FRAG_COUNT; f++) {
+              const angle = baseAngle + (Math.PI * 2 * f) / FISSION_FRAG_COUNT;
+              const fragSpd = spd * 0.6 * (0.8 + Math.random() * 0.4);
+              fissionFrags.push({
+                id: Date.now() + Math.random() + f,
+                x: orb.x + Math.cos(angle) * fragRadius,
+                y: orb.y + Math.sin(angle) * fragRadius,
+                vx: Math.cos(angle) * fragSpd,
+                vy: Math.sin(angle) * fragSpd,
+                radius: fragRadius,
+                color: orb.color,
+                pulsePhase: Math.random() * Math.PI * 2,
+                polarity: Math.random() < 0.5 ? 1 : -1,
+                fissionCooldown: now,
+              });
+            }
+            flashesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, radius: orb.radius * 1.5, born: now });
+            for (let s = 0; s < 4; s++) {
+              const sAngle = Math.random() * Math.PI * 2;
+              mergeSparksRef.current.push({
+                x: orb.x, y: orb.y,
+                vx: Math.cos(sAngle) * spd * 0.8,
+                vy: Math.sin(sAngle) * spd * 0.8,
+                color: orb.color,
+                size: 2 + Math.random() * 2,
+                born: now,
+              });
+            }
+            fissionRemove.add(orb);
+            shakeRef.current = Math.max(shakeRef.current, 2);
+          }
         }
 
         // trails mode: record position history
@@ -3455,6 +3503,12 @@ function App() {
       if (volatileRemove.size > 0) {
         orbsRef.current = orbsRef.current.filter((o) => !volatileRemove.has(o));
         orbsRef.current.push(...volatileFrags);
+        setOrbCount(orbsRef.current.length);
+      }
+      // fission mode: apply deferred speed-splits
+      if (fissionRemove.size > 0) {
+        orbsRef.current = orbsRef.current.filter((o) => !fissionRemove.has(o));
+        orbsRef.current.push(...fissionFrags);
         setOrbCount(orbsRef.current.length);
       }
 
@@ -7298,6 +7352,13 @@ function App() {
     });
   }, []);
 
+  const handleFissionMode = useCallback(() => {
+    setFissionMode((prev) => {
+      fissionModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleWaveMode = useCallback(() => {
     setWaveMode((prev) => {
       waveModeRef.current = !prev;
@@ -8293,6 +8354,9 @@ function App() {
         case ".":
           handleBounceMode();
           break;
+        case "=":
+          handleFissionMode();
+          break;
         case ",":
           handleSpiral();
           flashLabel("SPIRAL", "#c084fc");
@@ -8304,7 +8368,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleFinale, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleSpiral, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleFinale, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleFissionMode, handleSpiral, paletteIndex, setShowHelp]);
 
 
   return (
@@ -8372,6 +8436,7 @@ function App() {
           {pulseMode && <ModePill $color="#667eea">heartbeat</ModePill>}
           {trailsMode && <ModePill $color="#f97316">trails</ModePill>}
           {volatileMode && <ModePill $color="#ef4444">volatile</ModePill>}
+          {fissionMode && <ModePill $color="#f43f5e">fission</ModePill>}
           {waveMode && <ModePill $color="#38bdf8">wave</ModePill>}
           {bounceMode && <ModePill $color="#34d399">bounce</ModePill>}
           {tiltMode && <ModePill $color="#e879f9">tilt</ModePill>}
@@ -8529,11 +8594,8 @@ function App() {
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#f97316" title="Trails mode">
           trails
         </ModeToggle>
-        <ModeToggle onClick={handleLinksMode} $active={linksMode} $color="#f0abfc" title="Links mode">
-          links
-        </ModeToggle>
-        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body mode">
-          n-body
+        <ModeToggle onClick={handleFissionMode} $active={fissionMode} $color="#f43f5e" title="Fission mode — fast orbs auto-split (=)">
+          fission
         </ModeToggle>
         <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce mode — elastic collisions (.)">
           bounce
@@ -8595,7 +8657,7 @@ function App() {
               <Shortcut><Key>N</Key><span>Gravity well</span></Shortcut>
               <hr />
               <Shortcut><Key>G</Key><span>Cycle gravity direction</span></Shortcut>
-              <Shortcut><Key>6</Key><span>Plasma links</span></Shortcut>
+              <Shortcut><Key>=</Key><span>Fission mode</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
               <Shortcut><Key>O</Key><span>Magnet cursor</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
