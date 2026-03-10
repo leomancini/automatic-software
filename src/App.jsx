@@ -4491,9 +4491,11 @@ function App() {
 
         // ── living eyes: pupils track velocity / cursor ──
         if (r > 5) {
-          const eyeR = Math.max(r * 0.14, 1.3);
+          const eyeR = Math.max(r * 0.18, 1.5);
           const eyeGap = r * 0.3;
           const pupilR = eyeR * 0.55;
+          const isFrozen = frozenRef.current;
+          const isZooming = speed > 6;
           let lookAng;
           if (speed > 0.8) {
             lookAng = Math.atan2(orb.vy, orb.vx);
@@ -4509,15 +4511,40 @@ function App() {
           for (const s of [-1, 1]) {
             const ex = cx0 + Math.cos(perp) * eyeGap * s;
             const ey = cy0 + Math.sin(perp) * eyeGap * s;
-            ctx.beginPath();
-            ctx.arc(ex, ey, eyeR, 0, Math.PI * 2);
-            ctx.fillStyle = "rgba(255,255,255,0.9)";
-            ctx.fill();
-            const pOff = eyeR * 0.25;
-            ctx.beginPath();
-            ctx.arc(ex + Math.cos(lookAng) * pOff, ey + Math.sin(lookAng) * pOff, pupilR, 0, Math.PI * 2);
-            ctx.fillStyle = "rgba(8,8,24,0.85)";
-            ctx.fill();
+            if (isFrozen) {
+              // sleepy half-closed eyes: gentle arc
+              ctx.beginPath();
+              ctx.arc(ex, ey, eyeR, 0.15 * Math.PI, 0.85 * Math.PI);
+              ctx.strokeStyle = "rgba(255,255,255,0.8)";
+              ctx.lineWidth = Math.max(eyeR * 0.4, 0.8);
+              ctx.stroke();
+            } else if (isZooming) {
+              // squinting eyes: narrow horizontal ellipse
+              ctx.save();
+              ctx.translate(ex, ey);
+              ctx.rotate(lookAng);
+              ctx.scale(1, 0.4);
+              ctx.beginPath();
+              ctx.arc(0, 0, eyeR, 0, Math.PI * 2);
+              ctx.fillStyle = "rgba(255,255,255,0.9)";
+              ctx.fill();
+              ctx.restore();
+              const pOff = eyeR * 0.2;
+              ctx.beginPath();
+              ctx.arc(ex + Math.cos(lookAng) * pOff, ey + Math.sin(lookAng) * pOff, pupilR * 0.7, 0, Math.PI * 2);
+              ctx.fillStyle = "rgba(8,8,24,0.85)";
+              ctx.fill();
+            } else {
+              ctx.beginPath();
+              ctx.arc(ex, ey, eyeR, 0, Math.PI * 2);
+              ctx.fillStyle = "rgba(255,255,255,0.9)";
+              ctx.fill();
+              const pOff = eyeR * 0.25;
+              ctx.beginPath();
+              ctx.arc(ex + Math.cos(lookAng) * pOff, ey + Math.sin(lookAng) * pOff, pupilR, 0, Math.PI * 2);
+              ctx.fillStyle = "rgba(8,8,24,0.85)";
+              ctx.fill();
+            }
           }
         }
 
@@ -8171,8 +8198,8 @@ function App() {
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#f97316" title="Light trails — orbs leave glowing trails (8)">
           trails
         </ModeToggle>
-        <ModeToggle onClick={handleWaveMode} $active={waveMode} $color="#38bdf8" title="Wave — orbs undulate in sine waves (-)">
-          wave
+        <ModeToggle onClick={handleLinksMode} $active={linksMode} $color="#f0abfc" title="Plasma links — energy lines between nearby orbs (6)">
+          links
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
