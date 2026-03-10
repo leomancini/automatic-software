@@ -41,6 +41,11 @@ export const WAVE_WIDTH = 40; // thickness of the ring
 export const WAVE_MAX_RADIUS_FACTOR = 1.2; // expand to 120% of screen diagonal
 export const WALL_HIT_DURATION = 350; // ms
 export const WALL_HIT_SPEED_THRESHOLD = 1.5; // minimum pre-bounce speed to trigger
+export const WALL_SHATTER_SPEED = 7;          // minimum speed for wall shatter
+export const WALL_SHATTER_CHILD_SCALE = 0.55; // child radius = parent * this
+export const WALL_SHATTER_MIN_RADIUS = 6;     // don't shatter tiny orbs
+export const WALL_SHATTER_ORB_CAP = 150;      // don't shatter if too many orbs
+export const WALL_SHATTER_COOLDOWN = 500;      // ms before shattered orbs can re-shatter
 export const WELL_RANGE = 250; // gravity well attraction radius
 export const WELL_GRAVITY = 0.08; // gravity well force
 export const WELL_CRITICAL_MASS = 10; // orbiting orbs to trigger overload

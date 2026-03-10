@@ -6,7 +6,8 @@ import {
   MOTE_ORB_PUSH_FORCE, MOTE_FRICTION, MOTE_DISTURBED_GLOW, SPLIT_COUNT,
   LONG_PRESS_MS, FRICTION, REPEL_DIST, REPEL_FORCE, ATTRACT_DIST, ATTRACT_FORCE, COLOR_AFFINITY_DIST, COLOR_AFFINITY_FORCE,
   GRAVITY, WAVE_SPEED, WAVE_FORCE, WAVE_WIDTH, WAVE_MAX_RADIUS_FACTOR,
-  WALL_HIT_DURATION, WALL_HIT_SPEED_THRESHOLD, WELL_RANGE, WELL_GRAVITY, WELL_CRITICAL_MASS, WELL_CRITICAL_MS, WELL_CRITICAL_SCATTER,
+  WALL_HIT_DURATION, WALL_HIT_SPEED_THRESHOLD, WALL_SHATTER_SPEED, WALL_SHATTER_CHILD_SCALE, WALL_SHATTER_MIN_RADIUS, WALL_SHATTER_ORB_CAP, WALL_SHATTER_COOLDOWN,
+  WELL_RANGE, WELL_GRAVITY, WELL_CRITICAL_MASS, WELL_CRITICAL_MS, WELL_CRITICAL_SCATTER,
   TRAIL_SPEED_THRESHOLD, TRAIL_LIFETIME, TRAIL_MAX, TRAIL_SPAWN_RATE,
   HOLD_CHARGE_DELAY, HOLD_CHARGE_RANGE, HOLD_CHARGE_FORCE, HOLD_CHARGE_MAX_MS,
   CASCADE_MAX_GEN, CASCADE_SPEED_THRESHOLD, CASCADE_FORCE_DECAY, CASCADE_DELAY_FRAMES,
@@ -2591,6 +2592,7 @@ function App() {
           if (orb.y < -orb.radius) { orb.y = H + orb.radius; ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now }); }
           else if (orb.y > H + orb.radius) { orb.y = -orb.radius; ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now }); }
         } else {
+          const preBounceSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
           if (orb.x < orb.radius) {
             if (Math.abs(orb.vx) > WALL_HIT_SPEED_THRESHOLD) {
               const hi = Math.min(Math.abs(orb.vx) / 5, 1);
@@ -2654,6 +2656,33 @@ function App() {
             }
             orb.y = H - orb.radius;
             orb.vy *= -0.6;
+          }
+
+          // wall shatter — high-speed impacts break the orb into smaller pieces
+          if (preBounceSpeed > WALL_SHATTER_SPEED && orb.radius >= WALL_SHATTER_MIN_RADIUS
+              && (!orb.shatterBorn || now - orb.shatterBorn > WALL_SHATTER_COOLDOWN)
+              && orbs.length < WALL_SHATTER_ORB_CAP) {
+            const atWall = orb.x <= orb.radius + 1 || orb.x >= W - orb.radius - 1
+                        || orb.y <= orb.radius + 1 || orb.y >= H - orb.radius - 1;
+            if (atWall) {
+              const childR = orb.radius * WALL_SHATTER_CHILD_SCALE;
+              orb.radius = childR;
+              orb.shatterBorn = now;
+              for (let si = 0; si < 2; si++) {
+                const a = Math.random() * Math.PI * 2;
+                const sp = 2 + Math.random() * 3;
+                const child = createOrb(orb.x, orb.y);
+                child.radius = childR;
+                child.color = orb.color;
+                child.vx = orb.vx + Math.cos(a) * sp;
+                child.vy = orb.vy + Math.sin(a) * sp;
+                child.shatterBorn = now;
+                orbsRef.current.push(child);
+              }
+              wavesRef.current.push({ cx: orb.x, cy: orb.y, radius: 0, color: orb.color, generation: 1 });
+              shakeRef.current = Math.max(shakeRef.current, 8);
+              setOrbCount(orbsRef.current.length);
+            }
           }
         }
 
