@@ -242,6 +242,8 @@ function App() {
   const wrapModeRef = useRef(false);
   const [flowMode, setFlowMode] = useState(false);
   const flowModeRef = useRef(false);
+  const [linksMode, setLinksMode] = useState(false);
+  const linksModeRef = useRef(false);
   const barriersRef = useRef([]); // user-drawn bounce walls [{x1, y1, x2, y2, color}]
   const [barrierMode, setBarrierMode] = useState(false);
   const barrierModeRef = useRef(false);
@@ -4137,6 +4139,45 @@ function App() {
         }
       }
 
+      // draw plasma links between nearby orbs
+      if (linksModeRef.current && orbs.length >= 2) {
+        const LINK_RANGE = 140;
+        const LINK_RANGE_SQ = LINK_RANGE * LINK_RANGE;
+        ctx.save();
+        ctx.lineCap = "round";
+        for (let i = 0; i < orbs.length; i++) {
+          const a = orbs[i];
+          for (let j = i + 1; j < orbs.length; j++) {
+            const b = orbs[j];
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            const distSq = dx * dx + dy * dy;
+            if (distSq > LINK_RANGE_SQ) continue;
+            const dist = Math.sqrt(distSq);
+            const t = 1 - dist / LINK_RANGE;
+            const alpha = t * t * 0.7;
+            // pulse shimmer
+            const shimmer = 0.85 + 0.15 * Math.sin(time * 3 + i * 0.7 + j * 1.3);
+            const finalAlpha = alpha * shimmer;
+            // wide glow layer
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.strokeStyle = a.color + hexAlpha(finalAlpha * 0.3 * 255);
+            ctx.lineWidth = 6 * t;
+            ctx.stroke();
+            // bright core line
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.strokeStyle = b.color + hexAlpha(finalAlpha * 255);
+            ctx.lineWidth = 1.5 * t + 0.5;
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+      }
+
       // draw orbs
       for (const orb of orbs) {
         const pulse = 1 + 0.12 * Math.sin(time * 1.5 + orb.pulsePhase);
@@ -6662,6 +6703,13 @@ function App() {
   }, []);
 
 
+  const handleLinksMode = useCallback(() => {
+    setLinksMode((prev) => {
+      linksModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleRainMode = useCallback(() => {
     setRainMode((prev) => {
       rainModeRef.current = !prev;
@@ -7598,6 +7646,9 @@ function App() {
         case "j":
           handleFlowMode();
           break;
+        case "6":
+          handleLinksMode();
+          break;
         case ";":
           handleFinale();
           break;
@@ -7634,7 +7685,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "hit the star for a grand finale", "try rain mode for ambient vibes"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "hit the star for a grand finale", "try links mode for plasma webs"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -7669,6 +7720,7 @@ function App() {
           {nbodyMode && <ModePill $color="#a78bfa">n-body</ModePill>}
           {flockingMode && <ModePill $color="#22d3ee">flock</ModePill>}
           {flowMode && <ModePill $color="#38bdf8">flow</ModePill>}
+          {linksMode && <ModePill $color="#f0abfc">links</ModePill>}
           {rainMode && <ModePill $color="#60a5fa">rain</ModePill>}
           {kaleidoscopeMode && <ModePill $color="#f0abfc">mirror</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
@@ -7825,11 +7877,8 @@ function App() {
         <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
           n-body
         </ModeToggle>
-        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flocking swarm (K)">
-          flock
-        </ModeToggle>
-        <ModeToggle onClick={handleFlowMode} $active={flowMode} $color="#38bdf8" title="Flow field — organic currents (J)">
-          flow
+        <ModeToggle onClick={handleLinksMode} $active={linksMode} $color="#f0abfc" title="Plasma links — connect nearby orbs (6)">
+          links
         </ModeToggle>
         <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain mode — continuous orb rain (5)">
           rain
@@ -7890,8 +7939,7 @@ function App() {
               <Shortcut><Key>N</Key><span>Gravity well</span></Shortcut>
               <hr />
               <Shortcut><Key>G</Key><span>Cycle gravity direction</span></Shortcut>
-              <Shortcut><Key>K</Key><span>Flocking swarm</span></Shortcut>
-              <Shortcut><Key>J</Key><span>Flow field (organic currents)</span></Shortcut>
+              <Shortcut><Key>6</Key><span>Plasma links</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
               <Shortcut><Key>O</Key><span>Magnet cursor</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
