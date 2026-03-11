@@ -10795,12 +10795,14 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleCollide} title="Collide">
+          <ActionButton onClick={handleEruption} title="Eruption">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="2" y1="12" x2="10" y2="12" />
-              <polyline points="7 9 10 12 7 15" />
-              <line x1="22" y1="12" x2="14" y2="12" />
-              <polyline points="17 9 14 12 17 15" />
+              <path d="M12 22v-6" />
+              <path d="M12 12V2" />
+              <path d="M8 6l4-4 4 4" />
+              <path d="M6 18c0-2 2-4 6-4s6 2 6 4" />
+              <circle cx="8" cy="8" r="1" fill="currentColor" opacity="0.5" />
+              <circle cx="16" cy="6" r="1" fill="currentColor" opacity="0.5" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleScatter} title="Scatter orbs">
