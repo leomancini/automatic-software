@@ -4978,6 +4978,46 @@ function App() {
         ctx.globalAlpha = 1;
       }
 
+      // ── Gravity shadows: orbs cast soft shadows on the surface they fall toward ──
+      if (gravityRef.current && !gyroModeRef.current) {
+        const gDir = gravityDirRef.current;
+        for (const orb of orbs) {
+          let dist, sx, sy, sw, sh;
+          if (gDir === "down") {
+            dist = H - orb.y;
+            sx = orb.x;
+            sy = H - 2;
+            sw = orb.radius * (0.6 + 0.4 * (1 - dist / H));
+            sh = sw * 0.3;
+          } else if (gDir === "up") {
+            dist = orb.y;
+            sx = orb.x;
+            sy = 2;
+            sw = orb.radius * (0.6 + 0.4 * (1 - dist / H));
+            sh = sw * 0.3;
+          } else if (gDir === "right") {
+            dist = W - orb.x;
+            sx = W - 2;
+            sy = orb.y;
+            sh = orb.radius * (0.6 + 0.4 * (1 - dist / W));
+            sw = sh * 0.3;
+          } else {
+            dist = orb.x;
+            sx = 2;
+            sy = orb.y;
+            sh = orb.radius * (0.6 + 0.4 * (1 - dist / W));
+            sw = sh * 0.3;
+          }
+          const maxDist = (gDir === "down" || gDir === "up") ? H : W;
+          const alpha = Math.max(0, 0.18 * (1 - dist / maxDist));
+          if (alpha < 0.01 || sw < 0.5 || sh < 0.5) continue;
+          ctx.beginPath();
+          ctx.ellipse(sx, sy, sw, sh, 0, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(0,0,0,${alpha.toFixed(3)})`;
+          ctx.fill();
+        }
+      }
+
       // draw orbs
       // pre-compute beat pulse factor for orb size
       let beatOrbPulse = 0;
