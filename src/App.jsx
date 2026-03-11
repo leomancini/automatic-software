@@ -8574,6 +8574,39 @@ function App() {
     playSwoosh();
   }, []);
 
+  const handleCollide = useCallback(() => {
+    haptic(20);
+    applyEffectChain();
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cy = H / 2;
+    const count = 7;
+    const now = performance.now();
+    const spread = Math.min(35, H / (count + 2));
+
+    // Left swarm
+    for (let i = 0; i < count; i++) {
+      const y = cy + (i - (count - 1) / 2) * spread;
+      const orb = createOrb(30, y);
+      orb.vx = 7 + Math.random() * 2;
+      orb.vy = (Math.random() - 0.5) * 1;
+      orbsRef.current.push(orb);
+    }
+    // Right swarm
+    for (let i = 0; i < count; i++) {
+      const y = cy + (i - (count - 1) / 2) * spread;
+      const orb = createOrb(W - 30, y);
+      orb.vx = -(7 + Math.random() * 2);
+      orb.vy = (Math.random() - 0.5) * 1;
+      orbsRef.current.push(orb);
+    }
+
+    setOrbCount(orbsRef.current.length);
+    shakeRef.current = Math.max(shakeRef.current, 8);
+    screenFlashesRef.current.push({ cx: W / 2, cy, color: "#f093fb", born: now });
+    playBoom();
+  }, []);
+
   const handleRebound = useCallback(() => {
     const orbs = orbsRef.current;
     if (orbs.length === 0) return;
@@ -10637,7 +10670,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "big flick = rocket firework!", "right-click for a surprise", "shake your phone for a shockwave"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try rain mode \u00b7 mesmerizing with trails", "try the star button for grand finale", "cycle gravity (G) \u00b7 try spin mode"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try collide \u00b7 two swarms crash together", "try rain mode \u00b7 mesmerizing with paint", "cycle gravity (G) \u00b7 try spin mode"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -10762,6 +10795,14 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleCollide} title="Collide">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="2" y1="12" x2="10" y2="12" />
+              <polyline points="7 9 10 12 7 15" />
+              <line x1="22" y1="12" x2="14" y2="12" />
+              <polyline points="17 9 14 12 17 15" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleScatter} title="Scatter orbs">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="12" x2="5" y2="5" />
@@ -10842,15 +10883,6 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain — orbs auto-spawn and fall (5)">
           rain
-        </ModeToggle>
-        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flock — boid swarm behavior (K)">
-          flock
-        </ModeToggle>
-        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — orbs leave glowing comet tails (T)">
-          trails
-        </ModeToggle>
-        <ModeToggle onClick={handleWrapMode} $active={wrapMode} $color="#38bdf8" title="Wrap — orbs loop around screen edges (I)">
-          wrap
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
