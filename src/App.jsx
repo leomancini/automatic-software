@@ -8677,6 +8677,7 @@ function App() {
   const handleBounceMode = useCallback(() => {
     setBounceMode((prev) => {
       bounceModeRef.current = !prev;
+      flashLabel(!prev ? "BOUNCE ON" : "BOUNCE OFF", "#f97316");
       return !prev;
     });
   }, []);
@@ -10210,6 +10211,7 @@ function App() {
           {fissionMode && <ModePill $color="#f43f5e">fission</ModePill>}
           {waveMode && <ModePill $color="#38bdf8">wave</ModePill>}
           {trailsMode && <ModePill $color="#c084fc">trails</ModePill>}
+          {bounceMode && <ModePill $color="#f97316">bounce</ModePill>}
           {barrierMode && <ModePill $color="#f59e0b">walls</ModePill>}
           {tiltMode && <ModePill $color="#e879f9">tilt</ModePill>}
         </ModeIndicators>
@@ -10274,12 +10276,6 @@ function App() {
           <ActionButton onClick={handleLightning} title="Chain lightning">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleStorm} title="Storm (Z)">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973" />
-              <path d="M13 12l-3 5h4l-3 5" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleScatter} title="Scatter orbs (S)">
@@ -10354,8 +10350,8 @@ function App() {
         <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="Orbit — orbs attract each other (A)">
           orbit
         </ModeToggle>
-        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — light trails behind orbs (T)">
-          trails
+        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#f97316" title="Bounce — elastic collisions with sparks (.)">
+          bounce
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
