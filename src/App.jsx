@@ -1526,6 +1526,54 @@ function App() {
     return () => window.removeEventListener("deviceorientation", handleOrientation);
   }, []);
 
+  // ── Shake detection: shake phone → shockwave ─────────────────
+  useEffect(() => {
+    let lastShake = 0;
+    let lastAcc = { x: 0, y: 0, z: 0 };
+    let hasBaseline = false;
+    const SHAKE_THRESHOLD = 25;
+    const SHAKE_COOLDOWN = 800;
+
+    const handleMotion = (e) => {
+      if (theaterModeRef.current) return;
+      const acc = e.accelerationIncludingGravity;
+      if (!acc || acc.x == null) return;
+      if (!hasBaseline) {
+        lastAcc = { x: acc.x, y: acc.y, z: acc.z };
+        hasBaseline = true;
+        return;
+      }
+      const dx = acc.x - lastAcc.x;
+      const dy = acc.y - lastAcc.y;
+      const dz = acc.z - lastAcc.z;
+      const delta = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      lastAcc = { x: acc.x, y: acc.y, z: acc.z };
+
+      const now = performance.now();
+      if (delta > SHAKE_THRESHOLD && now - lastShake > SHAKE_COOLDOWN) {
+        lastShake = now;
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight / 2;
+        const color = randomColor();
+        wavesRef.current.push({
+          cx, cy, radius: 0, color,
+          generation: 0, hitOrbs: new Set(), delay: 0,
+        });
+        shakeRef.current = Math.max(shakeRef.current, 12);
+        comboFlashRef.current.push({
+          text: "SHAKE!", x: cx, y: cy - 40,
+          born: now, color,
+        });
+        haptic(30);
+        ensureAudio();
+        playBoom();
+      }
+    };
+
+    window.addEventListener("devicemotion", handleMotion);
+    return () => window.removeEventListener("devicemotion", handleMotion);
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
@@ -10101,7 +10149,7 @@ function App() {
         <Hint style={{ opacity: tipFading ? 0 : 1, transition: 'opacity 0.4s ease' }}>
           {(() => {
             const tips = orbCount === 0
-              ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "right-click for a surprise"]
+              ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "right-click for a surprise", "shake your phone for a shockwave"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
               : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try n-body mode \u00b7 orbs orbit each other", "try black hole \u00b7 watch orbs spiral in"];
@@ -10348,6 +10396,7 @@ function App() {
               <Shortcut><Key>overlap</Key><span>Merge (big ones split!)</span></Shortcut>
               <Shortcut><Key>rapid taps</Key><span>Combo streaks → bonus effects</span></Shortcut>
               <Shortcut><Key>pinch</Key><span>Gather / spread / spin orbs</span></Shortcut>
+              <Shortcut><Key>shake</Key><span>Shockwave (mobile)</span></Shortcut>
               <hr />
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
