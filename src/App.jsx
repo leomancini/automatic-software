@@ -114,6 +114,11 @@ import {
 
 let lastHarpPluckTime = 0;
 
+// Haptic feedback — makes taps and effects feel tactile on mobile
+const haptic = (ms) => {
+  try { navigator.vibrate?.(ms); } catch {}
+};
+
 function App() {
   const canvasRef = useRef(null);
   const orbsRef = useRef([]);
@@ -553,6 +558,7 @@ function App() {
         const now = performance.now();
         const distRatio = pinch.lastDist / Math.max(pinch.startDist, 1);
         if (distRatio > 1.6) {
+          haptic(25);
           // Big spread → shockwave burst
           wavesRef.current.push({ cx: pinch.cx, cy: pinch.cy, radius: 0, color: randomColor(), generation: 0, hitOrbs: new Set(), delay: 0 });
           shakeRef.current = Math.max(shakeRef.current, 12);
@@ -561,6 +567,7 @@ function App() {
           ensureAudio();
           playBoom();
         } else if (distRatio < 0.5) {
+          haptic(20);
           // Big pinch → gather implosion
           ripplesRef.current.push({ x: pinch.cx, y: pinch.cy, color: "#43e97b", born: now });
           comboFlashRef.current.push({ text: "GATHER", x: pinch.cx, y: pinch.cy - 30, born: now, color: "#43e97b" });
@@ -616,6 +623,7 @@ function App() {
       }
       // Hold-to-attract release — burst orbs outward
       if (holdChargeRef.current) {
+        haptic(35);
         const charge = holdChargeRef.current;
         holdChargeRef.current = null;
         const chargeDuration = performance.now() - charge.born;
@@ -809,6 +817,7 @@ function App() {
       const spawnCount = streak >= 8 ? 4 : streak >= 5 ? 3 : streak >= 3 ? 2 : 1;
       const radiusBonus = Math.min(streak * 0.8, 8); // orbs get slightly bigger
       const rippleColor = randomColor();
+      haptic(streak >= 5 ? 15 : 6);
 
       for (let i = 0; i < spawnCount; i++) {
         const angle = spawnCount > 1 ? (Math.PI * 2 * i) / spawnCount : 0;
@@ -7489,6 +7498,7 @@ function App() {
   };
 
   const handleScatter = useCallback(() => {
+    haptic(12);
     applyEffectChain();
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -7707,6 +7717,7 @@ function App() {
   }, []);
 
   const handleSpin = useCallback(() => {
+    haptic(10);
     applyEffectChain();
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -7740,6 +7751,7 @@ function App() {
   }, []);
 
   const handleWave = useCallback(() => {
+    haptic(30);
     applyEffectChain();
     const mx = mouseRef.current.x;
     const my = mouseRef.current.y;
@@ -8053,6 +8065,7 @@ function App() {
   }, [handleCyclePalette, paletteIndex]);
 
   const handleBurst = useCallback(() => {
+    haptic(20);
     applyEffectChain();
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -8154,6 +8167,7 @@ function App() {
 
 
   const handleFirework = useCallback(() => {
+    haptic(15);
     applyEffectChain();
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -8358,6 +8372,7 @@ function App() {
 
 
   const handleLightning = useCallback(() => {
+    haptic([10, 15, 10]);
     const orbs = orbsRef.current;
     if (orbs.length === 0) return;
 
@@ -8436,6 +8451,7 @@ function App() {
 
 
   const handleMeteorShower = useCallback(() => {
+    haptic(25);
     const W = window.innerWidth;
     const H = window.innerHeight;
     const now = performance.now();
@@ -8472,6 +8488,7 @@ function App() {
   }, []);
 
   const handleSupernova = useCallback(() => {
+    haptic([20, 30, 40]);
     if (supernovaRef.current) return; // already in progress
     const mx = mouseRef.current.x;
     const my = mouseRef.current.y;
@@ -8526,6 +8543,7 @@ function App() {
   }, []);
 
   const handleSlam = useCallback(() => {
+    haptic(40);
     ensureAudio();
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -8596,6 +8614,7 @@ function App() {
 
   const finaleRef = useRef(false);
   const handleFinale = useCallback(() => {
+    haptic([15, 20, 15, 20, 30, 40, 60]);
     if (finaleRef.current) return;
     finaleRef.current = true;
     const W = window.innerWidth;
@@ -8783,6 +8802,7 @@ function App() {
   }, []);
 
   const handleCrossfire = useCallback(() => {
+    haptic(25);
     const W = window.innerWidth;
     const H = window.innerHeight;
     const now = performance.now();
