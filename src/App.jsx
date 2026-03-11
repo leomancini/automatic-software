@@ -2913,7 +2913,10 @@ function App() {
               orb._r += (other._r - orb._r) * blend;
               orb._g += (other._g - orb._g) * blend;
               orb._b += (other._b - orb._b) * blend;
-              orb.color = '#' + ((1 << 24) + (Math.round(orb._r) << 16) + (Math.round(orb._g) << 8) + Math.round(orb._b)).toString(16).slice(1);
+              const cr = Math.max(0, Math.min(255, Math.round(orb._r))) || 0;
+              const cg = Math.max(0, Math.min(255, Math.round(orb._g))) || 0;
+              const cb = Math.max(0, Math.min(255, Math.round(orb._b))) || 0;
+              orb.color = '#' + ((1 << 24) + (cr << 16) + (cg << 8) + cb).toString(16).slice(1);
             }
           } else if (dist > 0 && dist < COLOR_AFFINITY_DIST && isSimilar) {
             // gentle attraction between similar-colored orbs at medium range
