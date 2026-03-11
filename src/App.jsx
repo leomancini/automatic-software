@@ -785,6 +785,28 @@ function App() {
               born: now,
             });
           }
+          // Directional gust — push existing orbs in the flick direction
+          if (fDist > 60) {
+            const gustRadius = 100 + fDist * 0.5;
+            const gustForce = speed * 0.3;
+            const fx = Math.cos(fAngle);
+            const fy = Math.sin(fAngle);
+            for (const orb of orbsRef.current) {
+              if (orb.born > now - 50) continue; // skip just-spawned orbs
+              const dx = orb.x - sling.startX;
+              const dy = orb.y - sling.startY;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist > 0 && dist < gustRadius) {
+                const dot = dist > 0 ? (dx * fx + dy * fy) / dist : 0;
+                if (dot > -0.2) {
+                  const falloff = 1 - dist / gustRadius;
+                  const f = gustForce * falloff * Math.max(dot, 0.15);
+                  orb.vx += fx * f;
+                  orb.vy += fy * f;
+                }
+              }
+            }
+          }
           setOrbCount(orbsRef.current.length);
           playSwoosh();
           shakeRef.current = Math.max(shakeRef.current, speed * 0.4 + volleyCount);
@@ -2893,7 +2915,7 @@ function App() {
               orb._b += (other._b - orb._b) * blend;
               orb.color = '#' + ((1 << 24) + (Math.round(orb._r) << 16) + (Math.round(orb._g) << 8) + Math.round(orb._b)).toString(16).slice(1);
             }
-          } else if (dist < COLOR_AFFINITY_DIST && isSimilar) {
+          } else if (dist > 0 && dist < COLOR_AFFINITY_DIST && isSimilar) {
             // gentle attraction between similar-colored orbs at medium range
             const t = (dist - REPEL_DIST) / (COLOR_AFFINITY_DIST - REPEL_DIST);
             const affinity = COLOR_AFFINITY_FORCE * (1 - hueCloseness / 60) * (1 - t);
@@ -3265,6 +3287,12 @@ function App() {
         const speed_factor = slowMoRef.current ? 0.3 : inBulletTime ? 0.18 : 1;
         orb.x += orb.vx * speed_factor;
         orb.y += orb.vy * speed_factor;
+
+        // sanitize non-finite values from division-by-zero edge cases
+        if (!isFinite(orb.vx)) orb.vx = 0;
+        if (!isFinite(orb.vy)) orb.vy = 0;
+        if (!isFinite(orb.x)) orb.x = W / 2;
+        if (!isFinite(orb.y)) orb.y = H / 2;
 
         // track idle time for drowsy eye expression
         {
@@ -10365,21 +10393,13 @@ function App() {
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleGrandFinale} title="Grand finale">
+          <ActionButton onClick={handleShuffle} title="Shuffle colors" $highlight>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 15 9 22 9 16.5 14 18.5 21 12 17 5.5 21 7.5 14 2 9 9 9" fill="currentColor" opacity="0.3" />
-              <polygon points="12 2 15 9 22 9 16.5 14 18.5 21 12 17 5.5 21 7.5 14 2 9 9 9" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleFractalBurst} title="Fractal burst">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="22" x2="12" y2="14" />
-              <line x1="12" y1="14" x2="6" y2="8" />
-              <line x1="12" y1="14" x2="18" y2="8" />
-              <line x1="6" y1="8" x2="3" y2="3" />
-              <line x1="6" y1="8" x2="9" y2="3" />
-              <line x1="18" y1="8" x2="15" y2="3" />
-              <line x1="18" y1="8" x2="21" y2="3" />
+              <polyline points="16 3 21 3 21 8" />
+              <line x1="4" y1="20" x2="21" y2="3" />
+              <polyline points="21 16 21 21 16 21" />
+              <line x1="15" y1="15" x2="21" y2="21" />
+              <line x1="4" y1="4" x2="9" y2="9" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -10460,7 +10480,7 @@ function App() {
             <HelpTitle>Keyboard Shortcuts</HelpTitle>
             <ShortcutList>
               <Shortcut><Key>click</Key><span>Create orb</span></Shortcut>
-              <Shortcut><Key>drag</Key><span>Flick to launch (long = volley!)</span></Shortcut>
+              <Shortcut><Key>drag</Key><span>Flick to launch (pushes nearby orbs!)</span></Shortcut>
               <Shortcut><Key>dbl-click</Key><span>Burst (empty) / remove (orb)</span></Shortcut>
               <Shortcut><Key>hold</Key><span>Charge → release to detonate</span></Shortcut>
               <Shortcut><Key>right-click</Key><span>Split orb / random effect</span></Shortcut>
