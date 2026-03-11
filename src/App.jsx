@@ -10637,7 +10637,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "big flick = rocket firework!", "right-click for a surprise", "shake your phone for a shockwave"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try n-body mode \u00b7 orbs orbit each other", "try the star button for grand finale", "cycle gravity (G) \u00b7 try spin mode"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try rain mode \u00b7 mesmerizing with trails", "try the star button for grand finale", "cycle gravity (G) \u00b7 try spin mode"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -10840,8 +10840,8 @@ function App() {
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode — orbs leave trails on canvas (P)">
           paint
         </ModeToggle>
-        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body — mutual gravity orbits (A)">
-          n-body
+        <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain — orbs auto-spawn and fall (5)">
+          rain
         </ModeToggle>
         <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flock — boid swarm behavior (K)">
           flock
