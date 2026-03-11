@@ -148,6 +148,7 @@ function App() {
   const shatterAllRef = useRef(null); // active shatter-all {born, phase, frozenOrbs}
   const embersRef = useRef([]); // fire ember particles
   const mergeSparksRef = useRef([]); // collision spark particles
+  const ghostsRef = useRef([]); // echo ghost copies [{x, y, radius, color, born}]
   const scorchMarksRef = useRef([]); // impact scorch marks from high-speed collisions
   const screenFlashesRef = useRef([]); // full-screen radial color flashes from big effects
   const strikesRef = useRef([]); // active orbital strikes
@@ -4899,6 +4900,33 @@ function App() {
         ctx.fill();
       }
 
+      // draw echo ghosts
+      {
+        const ghosts = ghostsRef.current;
+        for (let gi = ghosts.length - 1; gi >= 0; gi--) {
+          const ghost = ghosts[gi];
+          const age = (now - ghost.born) / 2000;
+          if (age >= 1) { ghosts.splice(gi, 1); continue; }
+          const alpha = (1 - age) * (1 - age) * 0.35;
+          const gr = ghost.radius * (1 + age * 0.3);
+          ctx.globalAlpha = alpha;
+          ctx.beginPath();
+          ctx.arc(ghost.x, ghost.y, gr, 0, Math.PI * 2);
+          ctx.fillStyle = ghost.color;
+          ctx.fill();
+          // soft glow ring
+          if (alpha > 0.1) {
+            ctx.beginPath();
+            ctx.arc(ghost.x, ghost.y, gr + 4, 0, Math.PI * 2);
+            ctx.strokeStyle = ghost.color;
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = alpha * 0.4;
+            ctx.stroke();
+          }
+        }
+        ctx.globalAlpha = 1;
+      }
+
       // draw orbs
       // pre-compute beat pulse factor for orb size
       let beatOrbPulse = 0;
@@ -8625,6 +8653,36 @@ function App() {
     playCometSound();
   }, []);
 
+  const handleEcho = useCallback(() => {
+    haptic(15);
+    const orbs = orbsRef.current;
+    if (orbs.length === 0) return;
+    const now = performance.now();
+    const ghosts = ghostsRef.current;
+    for (const orb of orbs) {
+      ghosts.push({ x: orb.x, y: orb.y, radius: orb.radius, color: orb.color, born: now });
+    }
+    // cap ghosts to prevent performance issues
+    if (ghosts.length > 400) {
+      ghostsRef.current = ghosts.slice(-400);
+    }
+    // small outward impulse to create visual separation from ghosts
+    for (const orb of orbs) {
+      const speed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+      if (speed > 0.5) {
+        orb.vx *= 1.15;
+        orb.vy *= 1.15;
+      } else {
+        const angle = Math.random() * Math.PI * 2;
+        orb.vx += Math.cos(angle) * 1.5;
+        orb.vy += Math.sin(angle) * 1.5;
+      }
+    }
+    shakeRef.current = Math.max(shakeRef.current, 6);
+    screenFlashesRef.current.push({ cx: window.innerWidth / 2, cy: window.innerHeight / 2, color: "#a78bfa", born: now });
+    playSwoosh();
+  }, []);
+
   const finaleRef = useRef(false);
   const handleFinale = useCallback(() => {
     haptic([15, 20, 15, 20, 30, 40, 60]);
@@ -9081,6 +9139,10 @@ function App() {
           handleSpiral();
           flashLabel("SPIRAL", "#c084fc");
           break;
+        case "[":
+          handleEcho();
+          flashLabel("ECHO", "#a78bfa");
+          break;
         case "/":
           handleBarrierMode();
           break;
@@ -9111,7 +9173,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleFinale, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleFissionMode, handleSpiral, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleFinale, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleFissionMode, handleSpiral, handleEcho, paletteIndex, setShowHelp]);
 
 
   return (
@@ -9261,6 +9323,15 @@ function App() {
           </ActionButton>
           {orbCount > 0 && (
             <>
+            <ActionButton onClick={handleEcho} title="Echo — ghost snapshot">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <circle cx="12" cy="12" r="7" opacity="0.5" />
+                <circle cx="12" cy="12" r="11" opacity="0.25" />
+                <circle cx="8" cy="8" r="2" opacity="0.3" />
+                <circle cx="16" cy="16" r="2" opacity="0.3" />
+              </svg>
+            </ActionButton>
             <ActionButton onClick={handleLightning} title="Chain lightning">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -9387,6 +9458,7 @@ function App() {
               <Shortcut><Key>Y</Key><span>Cycle palette</span></Shortcut>
               <Shortcut><Key>N</Key><span>Pulse (implode → explode)</span></Shortcut>
               <Shortcut><Key>0</Key><span>Black hole</span></Shortcut>
+              <Shortcut><Key>[</Key><span>Echo (ghost snapshot)</span></Shortcut>
               <hr />
               <Shortcut><Key>G</Key><span>Cycle gravity direction</span></Shortcut>
               <Shortcut><Key>=</Key><span>Fission mode</span></Shortcut>
