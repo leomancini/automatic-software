@@ -8575,8 +8575,8 @@ function App() {
           handleTrailsMode();
           break;
         case "n":
-          handlePlaceWell();
-          flashLabel("GRAVITY WELL", "#43e97b");
+          handlePulse();
+          flashLabel("PULSE", "#667eea");
           break;
         case "l":
           handleLightning();
@@ -8868,15 +8868,10 @@ function App() {
                 <line x1="4" y1="4" x2="9" y2="9" />
               </svg>
             </ActionButton>
-            <ActionButton onClick={() => { handlePlaceWell(); }} title="Place gravity well">
+            <ActionButton onClick={handleBlackHole} title="Black hole">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3" />
-                <circle cx="12" cy="12" r="7" opacity="0.5" />
-                <circle cx="12" cy="12" r="10" opacity="0.25" />
-                <line x1="12" y1="1" x2="12" y2="4" opacity="0.4" />
-                <line x1="12" y1="20" x2="12" y2="23" opacity="0.4" />
-                <line x1="1" y1="12" x2="4" y2="12" opacity="0.4" />
-                <line x1="20" y1="12" x2="23" y2="12" opacity="0.4" />
+                <circle cx="12" cy="12" r="5" fill="currentColor" />
+                <ellipse cx="12" cy="12" rx="11" ry="4" opacity="0.5" />
               </svg>
             </ActionButton>
 <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
@@ -8959,7 +8954,8 @@ function App() {
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>Y</Key><span>Cycle palette</span></Shortcut>
-              <Shortcut><Key>N</Key><span>Gravity well</span></Shortcut>
+              <Shortcut><Key>N</Key><span>Pulse (implode → explode)</span></Shortcut>
+              <Shortcut><Key>0</Key><span>Black hole</span></Shortcut>
               <hr />
               <Shortcut><Key>G</Key><span>Cycle gravity direction</span></Shortcut>
               <Shortcut><Key>=</Key><span>Fission mode</span></Shortcut>
