@@ -9936,11 +9936,9 @@ function App() {
           {volatileMode && <ModePill $color="#ef4444">volatile</ModePill>}
           {fissionMode && <ModePill $color="#f43f5e">fission</ModePill>}
           {waveMode && <ModePill $color="#38bdf8">wave</ModePill>}
-          {bounceMode && <ModePill $color="#34d399">bounce</ModePill>}
           {trailsMode && <ModePill $color="#c084fc">trails</ModePill>}
           {barrierMode && <ModePill $color="#f59e0b">walls</ModePill>}
           {tiltMode && <ModePill $color="#e879f9">tilt</ModePill>}
-          {chainReactMode && <ModePill $color="#f97316">clash</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -10003,6 +10001,14 @@ function App() {
           <ActionButton onClick={handleLightning} title="Chain lightning">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleComet} title="Comet (Z)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="8" cy="16" r="3" fill="currentColor" />
+              <line x1="10" y1="14" x2="20" y2="4" />
+              <line x1="10" y1="13" x2="18" y2="3" />
+              <line x1="11" y1="14" x2="22" y2="5" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleScatter} title="Scatter orbs (S)">
@@ -10079,12 +10085,6 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — light trails behind orbs (T)">
           trails
-        </ModeToggle>
-        <ModeToggle onClick={handleChainReact} $active={chainReactMode} $color="#f97316" title="Clash — collisions trigger chain reaction shockwaves">
-          clash
-        </ModeToggle>
-        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce — orbs bounce off walls (.)">
-          bounce
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
