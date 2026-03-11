@@ -12,6 +12,8 @@ import {
   HOLD_CHARGE_DELAY, HOLD_CHARGE_RANGE, HOLD_CHARGE_FORCE, HOLD_CHARGE_MAX_MS,
   CASCADE_MAX_GEN, CASCADE_SPEED_THRESHOLD, CASCADE_FORCE_DECAY, CASCADE_DELAY_FRAMES,
   TAP_IMPULSE_RADIUS, TAP_IMPULSE_FORCE, COLLAPSE_RADIUS, MITOSIS_WOBBLE_START,
+  ENERGY_PER_TAP, ENERGY_STREAK_BONUS, ENERGY_PER_EFFECT, ENERGY_DRAIN,
+  ENERGY_BAR_HEIGHT, ENERGY_GLOW_HEIGHT,
   SPARK_LIFETIME, SPARK_SPAWN_DIST, VORTEX_DURATION, VORTEX_ARMS,
   LIGHTNING_DURATION, LIGHTNING_CHAIN_DIST, LIGHTNING_MAX_CHAIN, LIGHTNING_FORCE,
   METEOR_COUNT, METEOR_STAGGER, METEOR_TRAIL_DURATION,
@@ -78,6 +80,7 @@ import {
   GALAXY_PULL_FORCE, GALAXY_SPIN_ACCEL, GALAXY_MAX_SPIN, GALAXY_DAMPING,
   GALAXY_EXPLODE_SPEED, GALAXY_RING_COUNT,
   RAIN_SPAWN_INTERVAL, RAIN_ORB_CAP, RAIN_SPEED_MIN, RAIN_SPEED_MAX, RAIN_DRIFT,
+  WAVE_FEAR_RANGE, WAVE_FEAR_FORCE,
   EDGE_GLOW_RANGE, EDGE_GLOW_DEPTH, EDGE_GLOW_ALPHA,
   TIDE_SPEED, TIDE_FORCE, TIDE_WIDTH, TIDE_SINE_AMP, TIDE_SINE_FREQ,
   IDLE_DRIFT_DELAY, IDLE_DRIFT_INTERVAL, IDLE_DRIFT_MAX, IDLE_DRIFT_SPEED,
@@ -157,6 +160,8 @@ function App() {
   const auroraActivityRef = useRef(0); // smoothed aurora intensity (0-1)
   const auroraFlareRef = useRef(0); // slow-decay energy from explosions (0-1)
   const systemEnergyRef = useRef(0); // smoothed total kinetic energy (0-1)
+  const interactionEnergyRef = useRef(0); // player interaction energy bar (0-1)
+  const energyReleaseRef = useRef(0); // timestamp of last energy release
   const [orbCount, setOrbCount] = useState(0);
   const [gravityOn, setGravityOn] = useState(false);
   const gravityRef = useRef(false);
@@ -819,6 +824,9 @@ function App() {
           orb.vy += (idy / idist) * force;
         }
       }
+
+      // ── Energy bar: accumulate from taps ──
+      interactionEnergyRef.current = Math.min(interactionEnergyRef.current + ENERGY_PER_TAP + streak * ENERGY_STREAK_BONUS, 1.0);
 
       // ── Tap sparkle particles ──
       const sparkleCount = TAP_SPARKLE_COUNT + Math.min(streak * 2, 12);
@@ -3922,6 +3930,14 @@ function App() {
                 }
               }
             }
+          }
+          // scared flee: orbs ahead of the wave scatter away before impact
+          const fearEdge = wave.radius + genWidth;
+          if (dist > fearEdge && dist < fearEdge + WAVE_FEAR_RANGE && dist > 0) {
+            const fearT = 1 - (dist - fearEdge) / WAVE_FEAR_RANGE;
+            const fleeForce = WAVE_FEAR_FORCE * fearT * fearT * genForceMultiplier;
+            orb.vx += (dx / dist) * fleeForce;
+            orb.vy += (dy / dist) * fleeForce;
           }
         }
         // shockwave portal transmission
@@ -7239,6 +7255,71 @@ function App() {
         ctx.restore();
       }
 
+      // ── Interaction energy bar ──
+      {
+        const ie = interactionEnergyRef.current;
+        // drain
+        interactionEnergyRef.current = Math.max(ie - ENERGY_DRAIN, 0);
+        // release trigger
+        if (ie >= 1.0) {
+          interactionEnergyRef.current = 0;
+          energyReleaseRef.current = now;
+          // spectacular release: shockwave + burst from center
+          const cx = W / 2, cy = H / 2;
+          wavesRef.current.push({ cx, cy, radius: 0, color: '#f093fb', generation: 0, hitOrbs: new Set(), delay: 0 });
+          wavesRef.current.push({ cx, cy, radius: 0, color: '#4facfe', generation: 0, hitOrbs: new Set(), delay: 6 });
+          // burst spawn ring of orbs from center
+          const burstCount = 8;
+          for (let bi = 0; bi < burstCount; bi++) {
+            const angle = (Math.PI * 2 * bi) / burstCount;
+            const orb = createOrb(cx, cy);
+            orb.vx = Math.cos(angle) * 8;
+            orb.vy = Math.sin(angle) * 8;
+            orbs.push(orb);
+          }
+          setOrbCount(orbs.length);
+          // screen flash + shake
+          screenFlashesRef.current.push({ cx, cy, color: '#f093fb', born: now });
+          shakeRef.current = Math.max(shakeRef.current, 25);
+          playBoom();
+          // floating label
+          comboFlashRef.current.push({ text: 'ENERGY RELEASE!', x: cx, y: cy * 0.4, born: now, color: '#f093fb' });
+        }
+        // render bar
+        if (ie > 0.005) {
+          const barW = W * ie;
+          const barY = H - ENERGY_BAR_HEIGHT;
+          // glow above bar
+          const glowAlpha = 0.15 + ie * 0.35;
+          const glow = ctx.createLinearGradient(0, barY - ENERGY_GLOW_HEIGHT, 0, barY + ENERGY_BAR_HEIGHT);
+          glow.addColorStop(0, 'transparent');
+          glow.addColorStop(0.6, `rgba(240, 147, 251, ${(glowAlpha * 0.3).toFixed(3)})`);
+          glow.addColorStop(1, `rgba(240, 147, 251, ${(glowAlpha * 0.6).toFixed(3)})`);
+          ctx.fillStyle = glow;
+          ctx.fillRect(0, barY - ENERGY_GLOW_HEIGHT, barW, ENERGY_GLOW_HEIGHT + ENERGY_BAR_HEIGHT);
+          // bar itself
+          const barGrad = ctx.createLinearGradient(0, barY, barW, barY);
+          barGrad.addColorStop(0, '#667eea');
+          barGrad.addColorStop(0.5, '#f093fb');
+          barGrad.addColorStop(1, ie > 0.8 ? '#ffd700' : '#43e97b');
+          ctx.fillStyle = barGrad;
+          ctx.fillRect(0, barY, barW, ENERGY_BAR_HEIGHT);
+          // pulse when nearly full
+          if (ie > 0.85) {
+            const pulseAlpha = (ie - 0.85) * 6 * (0.5 + 0.5 * Math.sin(time * 8));
+            ctx.fillStyle = `rgba(255, 215, 0, ${pulseAlpha.toFixed(3)})`;
+            ctx.fillRect(0, barY, barW, ENERGY_BAR_HEIGHT);
+          }
+        }
+        // release flash (white bar flash that fades)
+        const relAge = now - energyReleaseRef.current;
+        if (relAge < 400) {
+          const relAlpha = (1 - relAge / 400) * 0.8;
+          ctx.fillStyle = `rgba(255, 255, 255, ${relAlpha.toFixed(3)})`;
+          ctx.fillRect(0, H - ENERGY_BAR_HEIGHT * 3, W, ENERGY_BAR_HEIGHT * 3);
+        }
+      }
+
       // ── Kaleidoscope mirror (post-process) ──
       if (kaleidoscopeModeRef.current) {
         ctx.save();
@@ -7313,6 +7394,7 @@ function App() {
 
   // ── Effect Crescendo: chain multiple effects for escalating bonus ──
   const applyEffectChain = () => {
+    interactionEnergyRef.current = Math.min(interactionEnergyRef.current + ENERGY_PER_EFFECT, 1.0);
     const now = performance.now();
     const chain = effectChainRef.current;
     if (now - chain.lastTime < 3000) {

@@ -66,6 +66,14 @@ export const CASCADE_FORCE_DECAY = 0.55; // each generation is 55% as strong
 export const CASCADE_DELAY_FRAMES = 8; // frames to wait before cascade wave activates
 export const TAP_IMPULSE_RADIUS = 120; // px — push nearby orbs when tapping
 export const TAP_IMPULSE_FORCE = 1.8; // strength of the tap push (quadratic falloff)
+
+// ── Energy bar ───────────────────────────────────────────────────────
+export const ENERGY_PER_TAP = 0.03;        // base energy gain per tap
+export const ENERGY_STREAK_BONUS = 0.01;   // extra energy per streak level
+export const ENERGY_PER_EFFECT = 0.06;     // energy gain from triggering an effect button
+export const ENERGY_DRAIN = 0.0006;        // energy lost per frame (~0.036/sec at 60fps)
+export const ENERGY_BAR_HEIGHT = 3;        // px height of the energy bar
+export const ENERGY_GLOW_HEIGHT = 18;      // px height of glow above bar
 export const COLLAPSE_RADIUS = 35; // orbs this big undergo mitosis (split into two)
 export const MITOSIS_WOBBLE_START = COLLAPSE_RADIUS * 0.8; // visual wobble begins here
 
@@ -499,6 +507,10 @@ export const RAIN_ORB_CAP = 100;        // stop spawning above this count
 export const RAIN_SPEED_MIN = 1.5;      // min downward velocity
 export const RAIN_SPEED_MAX = 3.5;      // max downward velocity
 export const RAIN_DRIFT = 0.8;          // max horizontal drift
+
+// ── Wave fear flee (orbs scatter ahead of approaching shockwaves) ──
+export const WAVE_FEAR_RANGE = 70;    // px ahead of wave where orbs begin to flee
+export const WAVE_FEAR_FORCE = 0.35;  // base flee acceleration (quadratic falloff)
 
 // ── Reactive edge glow ──
 export const EDGE_GLOW_RANGE = 150;    // px from edge to detect orbs
