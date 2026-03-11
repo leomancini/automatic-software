@@ -705,28 +705,44 @@ function App() {
           const maxSpeed = 18;
           const speed = Math.min(fDist * 0.12, maxSpeed);
           const fAngle = Math.atan2(fdy, fdx);
-          const orb = createOrb(sling.startX, sling.startY);
-          orb.radius = 10 + Math.min(fDist * 0.03, 8);
-          orb.vx = Math.cos(fAngle) * speed;
-          orb.vy = Math.sin(fAngle) * speed;
-          orbsRef.current.push(orb);
           const now = performance.now();
-          ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+
+          // Volley: longer flick = more orbs in a fan spread
+          const volleyCount = fDist > 150 ? 5 : fDist > 80 ? 3 : 1;
+          const fanSpread = volleyCount > 1 ? 0.35 : 0;
+          let firstColor = null;
+
+          for (let v = 0; v < volleyCount; v++) {
+            const spreadAngle = volleyCount > 1
+              ? fAngle + fanSpread * ((v / (volleyCount - 1)) * 2 - 1)
+              : fAngle;
+            const vSpeed = v === Math.floor(volleyCount / 2) ? speed : speed * (0.85 + Math.random() * 0.15);
+            const orb = createOrb(sling.startX, sling.startY);
+            orb.radius = volleyCount > 1
+              ? 6 + Math.min(fDist * 0.02, 5)
+              : 10 + Math.min(fDist * 0.03, 8);
+            orb.vx = Math.cos(spreadAngle) * vSpeed;
+            orb.vy = Math.sin(spreadAngle) * vSpeed;
+            orbsRef.current.push(orb);
+            if (!firstColor) firstColor = orb.color;
+          }
+
+          ripplesRef.current.push({ x: sling.startX, y: sling.startY, color: firstColor, born: now });
           // Spawn burst particles in launch direction
-          for (let i = 0; i < 5; i++) {
-            const spread = fAngle + (Math.random() - 0.5) * 0.8;
+          for (let i = 0; i < 3 + volleyCount * 2; i++) {
+            const spread = fAngle + (Math.random() - 0.5) * (0.8 + fanSpread);
             burstsRef.current.push({
               x: sling.startX,
               y: sling.startY,
               vx: Math.cos(spread) * (2 + Math.random() * 3),
               vy: Math.sin(spread) * (2 + Math.random() * 3),
-              color: orb.color,
+              color: firstColor,
               born: now,
             });
           }
           setOrbCount(orbsRef.current.length);
           playSwoosh();
-          shakeRef.current = Math.max(shakeRef.current, speed * 0.4);
+          shakeRef.current = Math.max(shakeRef.current, speed * 0.4 + volleyCount);
           return;
         }
         // Drag was too short — fall through to normal tap
@@ -7028,60 +7044,74 @@ function App() {
         ctx.stroke();
 
         // Physics-predicted trajectory (curves with gravity + wells)
+        // Show fan trajectories for volley (multiple lines for longer flicks)
+        const previewVolley = sDist > 150 ? 5 : sDist > 80 ? 3 : 1;
+        const previewFan = previewVolley > 1 ? 0.35 : 0;
         if (sDist > 30) {
-          let sx = sling.startX, sy = sling.startY;
-          let svx = Math.cos(sAngle) * sSpeed;
-          let svy = Math.sin(sAngle) * sSpeed;
-          const steps = 90;
-          for (let i = 0; i < steps; i++) {
-            if (gravityRef.current) {
-              if (gyroModeRef.current) {
-                svx += Math.sin(gyroAngleRef.current + i * 0.012) * GRAVITY;
-                svy += Math.cos(gyroAngleRef.current + i * 0.012) * GRAVITY;
-              } else {
-                const gDir = gravityDirRef.current;
-                if (gDir === "down") svy += GRAVITY;
-                else if (gDir === "up") svy -= GRAVITY;
-                else if (gDir === "right") svx += GRAVITY;
-                else if (gDir === "left") svx -= GRAVITY;
+          const trajectories = previewVolley > 1 ? [0, Math.floor(previewVolley / 2), previewVolley - 1] : [0];
+          for (let tv = 0; tv < trajectories.length; tv++) {
+            const vi = trajectories[tv];
+            const tAngle = previewVolley > 1
+              ? sAngle + previewFan * ((vi / (previewVolley - 1)) * 2 - 1)
+              : sAngle;
+            const isCenter = vi === Math.floor(previewVolley / 2) || previewVolley === 1;
+            let sx = sling.startX, sy = sling.startY;
+            let svx = Math.cos(tAngle) * sSpeed;
+            let svy = Math.sin(tAngle) * sSpeed;
+            const steps = 90;
+            for (let i = 0; i < steps; i++) {
+              if (gravityRef.current) {
+                if (gyroModeRef.current) {
+                  svx += Math.sin(gyroAngleRef.current + i * 0.012) * GRAVITY;
+                  svy += Math.cos(gyroAngleRef.current + i * 0.012) * GRAVITY;
+                } else {
+                  const gDir = gravityDirRef.current;
+                  if (gDir === "down") svy += GRAVITY;
+                  else if (gDir === "up") svy -= GRAVITY;
+                  else if (gDir === "right") svx += GRAVITY;
+                  else if (gDir === "left") svx -= GRAVITY;
+                }
               }
-            }
-            for (const well of wellsRef.current) {
-              const wdx = well.x - sx, wdy = well.y - sy;
-              const wDist = Math.sqrt(wdx * wdx + wdy * wdy);
-              if (wDist < WELL_RANGE && wDist > 3) {
-                let ws = 1;
-                if (well.expiry) { ws = Math.min((well.expiry - now) / 1500, 1); if (ws <= 0) continue; }
-                const f = WELL_GRAVITY * ws / (1 + wDist * 0.01);
-                svx += (wdx / wDist) * f;
-                svy += (wdy / wDist) * f;
-                const of = f * 0.6 * (well.spinDir || 1);
-                svx += (-wdy / wDist) * of;
-                svy += (wdx / wDist) * of;
+              for (const well of wellsRef.current) {
+                const wdx = well.x - sx, wdy = well.y - sy;
+                const wDist = Math.sqrt(wdx * wdx + wdy * wdy);
+                if (wDist < WELL_RANGE && wDist > 3) {
+                  let ws = 1;
+                  if (well.expiry) { ws = Math.min((well.expiry - now) / 1500, 1); if (ws <= 0) continue; }
+                  const f = WELL_GRAVITY * ws / (1 + wDist * 0.01);
+                  svx += (wdx / wDist) * f;
+                  svy += (wdy / wDist) * f;
+                  const of = f * 0.6 * (well.spinDir || 1);
+                  svx += (-wdy / wDist) * of;
+                  svy += (wdx / wDist) * of;
+                }
               }
-            }
-            svx *= FRICTION;
-            svy *= FRICTION;
-            sx += svx;
-            sy += svy;
-            if (sx < 0) { sx = 0; svx *= -0.7; }
-            if (sx > W) { sx = W; svx *= -0.7; }
-            if (sy < 0) { sy = 0; svy *= -0.7; }
-            if (sy > H) { sy = H; svy *= -0.7; }
-            if (i % 3 === 0) {
-              const progress = i / steps;
-              const alpha = 0.45 * (1 - progress);
-              const dotR = 2.5 * (1 - progress * 0.5);
-              ctx.beginPath();
-              ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
-              ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-              ctx.fill();
+              svx *= FRICTION;
+              svy *= FRICTION;
+              sx += svx;
+              sy += svy;
+              if (sx < 0) { sx = 0; svx *= -0.7; }
+              if (sx > W) { sx = W; svx *= -0.7; }
+              if (sy < 0) { sy = 0; svy *= -0.7; }
+              if (sy > H) { sy = H; svy *= -0.7; }
+              if (i % 3 === 0) {
+                const progress = i / steps;
+                const baseAlpha = isCenter ? 0.45 : 0.25;
+                const alpha = baseAlpha * (1 - progress);
+                const dotR = (isCenter ? 2.5 : 1.8) * (1 - progress * 0.5);
+                ctx.beginPath();
+                ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.fill();
+              }
             }
           }
         }
 
         // Orb preview glow at start position
-        const previewR = 10 + Math.min(sDist * 0.03, 8);
+        const previewR = previewVolley > 1
+          ? 6 + Math.min(sDist * 0.02, 5)
+          : 10 + Math.min(sDist * 0.03, 8);
         const glowGrad = ctx.createRadialGradient(sling.startX, sling.startY, 0, sling.startX, sling.startY, previewR * 2.5);
         const powerHue = powerPct > 0.7 ? "250, 112, 154" : powerPct > 0.4 ? "254, 180, 123" : "67, 233, 123";
         glowGrad.addColorStop(0, `rgba(${powerHue}, 0.3)`);
@@ -7091,21 +7121,41 @@ function App() {
         ctx.arc(sling.startX, sling.startY, previewR * 2.5, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.beginPath();
-        ctx.arc(sling.startX, sling.startY, previewR, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${powerHue}, 0.2)`;
-        ctx.fill();
-        ctx.strokeStyle = `rgba(255, 255, 255, 0.6)`;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+        // Draw preview orbs for volley fan
+        if (previewVolley > 1) {
+          for (let pv = 0; pv < previewVolley; pv++) {
+            const pvAngle = sAngle + previewFan * ((pv / (previewVolley - 1)) * 2 - 1);
+            const pvDist = previewR + 8;
+            const pvx = sling.startX + Math.cos(pvAngle) * pvDist;
+            const pvy = sling.startY + Math.sin(pvAngle) * pvDist;
+            ctx.beginPath();
+            ctx.arc(pvx, pvy, previewR * 0.5, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${powerHue}, 0.25)`;
+            ctx.fill();
+            ctx.strokeStyle = `rgba(255, 255, 255, 0.3)`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+        } else {
+          ctx.beginPath();
+          ctx.arc(sling.startX, sling.startY, previewR, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${powerHue}, 0.2)`;
+          ctx.fill();
+          ctx.strokeStyle = `rgba(255, 255, 255, 0.6)`;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
 
-        // Power percentage label
+        // Power label + volley count
         if (sDist > 30) {
           ctx.save();
           ctx.font = "bold 13px monospace";
           ctx.textAlign = "center";
           ctx.fillStyle = `rgba(${powerHue}, 0.85)`;
-          ctx.fillText(Math.round(powerPct * 100) + "%", sling.startX, sling.startY - previewR - 10);
+          const label = previewVolley > 1
+            ? `x${previewVolley} ${Math.round(powerPct * 100)}%`
+            : Math.round(powerPct * 100) + "%";
+          ctx.fillText(label, sling.startX, sling.startY - previewR - 10);
           ctx.restore();
         }
       }
@@ -9098,7 +9148,7 @@ function App() {
             <HelpTitle>Keyboard Shortcuts</HelpTitle>
             <ShortcutList>
               <Shortcut><Key>click</Key><span>Create orb</span></Shortcut>
-              <Shortcut><Key>drag</Key><span>Spray orbs / move orb</span></Shortcut>
+              <Shortcut><Key>drag</Key><span>Flick to launch (long = volley!)</span></Shortcut>
               <Shortcut><Key>dbl-click</Key><span>Burst (empty) / remove (orb)</span></Shortcut>
               <Shortcut><Key>hold</Key><span>Charge → release to detonate</span></Shortcut>
               <Shortcut><Key>right-click</Key><span>Split orb / random effect</span></Shortcut>
