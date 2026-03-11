@@ -148,6 +148,21 @@ export const BestStreak = styled.div`
   ${(p) => p.$isNew && `animation: ${newBestPulse} 2.5s ease-out forwards;`}
 `;
 
+const bpmPulse = keyframes`
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.06); }
+`;
+
+export const BPMDisplay = styled.div`
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: rgba(167, 139, 250, 0.8);
+  margin-top: 4px;
+  animation: ${bpmPulse} ${(p) => p.$interval || 500}ms ease-in-out infinite;
+  filter: drop-shadow(0 0 6px rgba(167, 139, 250, 0.4));
+`;
+
 export const ButtonGroup = styled.div`
   position: fixed;
   bottom: 24px;

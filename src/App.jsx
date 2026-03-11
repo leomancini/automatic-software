@@ -108,7 +108,7 @@ import {
 } from './utils.js';
 import {
   Wrapper, Canvas, HUD, Title, Hint, Count, PaletteLink, ModeIndicators, ModePill,
-  StreakCounter, NextCombo, BestStreak, ButtonGroup, ButtonRow, ActionButton,
+  StreakCounter, NextCombo, BestStreak, BPMDisplay, ButtonGroup, ButtonRow, ActionButton,
   HelpButton, MuteButton, SaveFlash, ModeStrip, ModeToggle,
   HelpOverlay, HelpPanel, HelpTitle, ShortcutList, Shortcut, Key, HelpClose,
 } from './StyledComponents.js';
@@ -225,6 +225,8 @@ function App() {
   });
   const [newBest, setNewBest] = useState(false);
   const newBestTimerRef = useRef(null);
+  const [detectedBPM, setDetectedBPM] = useState(0);
+  const bpmFadeRef = useRef(null);
   const [tipCycle, setTipCycle] = useState(0);
   const [tipFading, setTipFading] = useState(false);
   const comboFlashRef = useRef([]); // [{text, x, y, born, color}]
@@ -807,6 +809,10 @@ function App() {
           if (ok >= Math.ceil(ivs.length * 0.6)) {
             beatRef.current.interval = median;
             beatRef.current.strength = Math.min(beatRef.current.strength + 0.15, 1);
+            const bpm = Math.round(60000 / median);
+            setDetectedBPM(bpm);
+            if (bpmFadeRef.current) clearTimeout(bpmFadeRef.current);
+            bpmFadeRef.current = setTimeout(() => setDetectedBPM(0), median * 5);
           }
         }
       }
@@ -9490,6 +9496,11 @@ function App() {
         )}
         {!streakDisplay && bestStreak >= 5 && (
           <BestStreak $isNew={false}>best: {bestStreak}x</BestStreak>
+        )}
+        {detectedBPM > 0 && (
+          <BPMDisplay $interval={Math.round(60000 / detectedBPM)}>
+            {detectedBPM} BPM
+          </BPMDisplay>
         )}
         <ModeIndicators>
           {frozen && <ModePill $color="#4facfe">frozen</ModePill>}
