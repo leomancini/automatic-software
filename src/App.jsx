@@ -2971,6 +2971,11 @@ function App() {
             else if (gDir === "up") orb.vy -= GRAVITY;
             else if (gDir === "right") orb.vx += GRAVITY;
             else if (gDir === "left") orb.vx -= GRAVITY;
+            else if (gDir === "flow") {
+              // convection: circular flow field — down on left, up on right, right at bottom, left at top
+              orb.vy += GRAVITY * (1 - 2 * orb.x / W);
+              orb.vx += GRAVITY * (2 * orb.y / H - 1);
+            }
           }
         }
 
@@ -8290,7 +8295,7 @@ function App() {
   }, []);
 
   const handleGravity = useCallback(() => {
-    const dirs = ["down", "right", "up", "left", "spin"];
+    const dirs = ["down", "right", "up", "left", "flow", "spin"];
     if (!gravityRef.current) {
       // off → on (down)
       gravityRef.current = true;
@@ -10322,7 +10327,7 @@ function App() {
         )}
         <ModeIndicators>
           {frozen && <ModePill $color="#4facfe">frozen</ModePill>}
-          {gravityOn && <ModePill $color="#43e97b">gravity {gyroMode ? "↻" : gravityDirRef.current === "down" ? "↓" : gravityDirRef.current === "up" ? "↑" : gravityDirRef.current === "right" ? "→" : "←"}</ModePill>}
+          {gravityOn && <ModePill $color="#43e97b">gravity {gyroMode ? "↻" : gravityDirRef.current === "down" ? "↓" : gravityDirRef.current === "up" ? "↑" : gravityDirRef.current === "right" ? "→" : gravityDirRef.current === "flow" ? "◎" : "←"}</ModePill>}
           {magnetCursorMode && <ModePill $color="#f59e0b">magnet</ModePill>}
           {attractMode && <ModePill $color="#f093fb">attract</ModePill>}
           {repelMode && <ModePill $color="#fa709a">repel</ModePill>}
@@ -10459,8 +10464,8 @@ function App() {
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet — orbs follow your cursor (O)">
           magnet
         </ModeToggle>
-        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="Orbit — orbs attract each other (A)">
-          orbit
+        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — light trails follow orbs (T)">
+          trails
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
@@ -10518,7 +10523,8 @@ function App() {
               <Shortcut><Key>O</Key><span>Magnet cursor</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
-              <Shortcut><Key>A</Key><span>N-body gravity</span></Shortcut>
+              <Shortcut><Key>T</Key><span>Trails mode</span></Shortcut>
+              <Shortcut><Key>A</Key><span>N-body orbit</span></Shortcut>
               <Shortcut><Key>.</Key><span>Bounce mode</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>Esc</Key><span>Theater mode (screensaver)</span></Shortcut>
