@@ -307,6 +307,7 @@ function App() {
   const effectChainRef = useRef({ count: 0, lastTime: 0 });
   const catalystRef = useRef(null); // wandering catalyst { x, y, vx, vy, born, lifespan }
   const catalystCooldownRef = useRef(0); // next spawn timestamp
+  const finaleActiveRef = useRef(false); // grand finale in progress
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -9452,6 +9453,62 @@ function App() {
     playMeteorSound();
   }, []);
 
+  const handleGrandFinale = useCallback(() => {
+    if (finaleActiveRef.current) return;
+    finaleActiveRef.current = true;
+    haptic([40, 30, 60, 30, 80]);
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const flashLabel = (text, color) => {
+      comboFlashRef.current.push({ text, x: W / 2, y: H / 2, born: performance.now(), color });
+    };
+
+    // Phase 1: Burst spawn (t=0)
+    flashLabel("GRAND FINALE", "#fbbf24");
+    handleBurst();
+    shakeRef.current = Math.max(shakeRef.current, 6);
+
+    // Phase 2: Shockwave (t=400ms)
+    setTimeout(() => {
+      flashLabel("SHOCKWAVE", "#00f2fe");
+      handleWave();
+      shakeRef.current = Math.max(shakeRef.current, 10);
+    }, 400);
+
+    // Phase 3: Chain lightning (t=800ms)
+    setTimeout(() => {
+      flashLabel("LIGHTNING", "#fbbf24");
+      handleLightning();
+      shakeRef.current = Math.max(shakeRef.current, 12);
+    }, 800);
+
+    // Phase 4: Firework (t=1300ms)
+    setTimeout(() => {
+      flashLabel("FIREWORK", "#f093fb");
+      handleFirework();
+      shakeRef.current = Math.max(shakeRef.current, 14);
+    }, 1300);
+
+    // Phase 5: Meteor shower (t=1900ms)
+    setTimeout(() => {
+      flashLabel("METEOR STORM", "#fa709a");
+      handleMeteorShower();
+      shakeRef.current = Math.max(shakeRef.current, 18);
+    }, 1900);
+
+    // Phase 6: Supernova climax (t=2600ms)
+    setTimeout(() => {
+      flashLabel("SUPERNOVA", "#f97316");
+      handleSupernova();
+      shakeRef.current = Math.max(shakeRef.current, 25);
+      bulletTimeRef.current = performance.now() + 600;
+      screenFlashesRef.current.push({ cx: W / 2, cy: H / 2, color: "#ffffff", born: performance.now() });
+    }, 2600);
+
+    // Unlock re-trigger after sequence completes
+    setTimeout(() => { finaleActiveRef.current = false; }, 3500);
+  }, [handleBurst, handleWave, handleLightning, handleFirework, handleMeteorShower, handleSupernova]);
+
   const handleTide = useCallback(() => {
     const dir = tideDirRef.current;
     tideDirRef.current *= -1;
@@ -9710,6 +9767,9 @@ function App() {
           handleEruption();
           flashLabel("ERUPTION", "#f97316");
           break;
+        case "!":
+          handleGrandFinale();
+          break;
         case "arrowdown":
         case "arrowup":
         case "arrowleft":
@@ -9734,7 +9794,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleEruption, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleSmash, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleFissionMode, handleBarrage, handleEcho, handleMaelstrom, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleEruption, handleGrandFinale, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleSmash, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleFissionMode, handleBarrage, handleEcho, handleMaelstrom, paletteIndex, setShowHelp]);
 
 
   return (
@@ -9919,6 +9979,11 @@ function App() {
               <circle cx="18" cy="2" r="1.5" fill="currentColor" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleGrandFinale} title="Grand finale">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="currentColor" />
+            </svg>
+          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handlePlaceWell} title="Place gravity well">
@@ -10036,6 +10101,7 @@ function App() {
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>'</Key><span>Eruption (volcanic burst)</span></Shortcut>
               <Shortcut><Key>4</Key><span>Crossfire (orbs from all edges)</span></Shortcut>
+              <Shortcut><Key>!</Key><span>Grand finale (effect crescendo)</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
