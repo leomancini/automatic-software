@@ -78,6 +78,7 @@ import {
   FLOCK_SEPARATION_FORCE, FLOCK_ALIGNMENT_FORCE, FLOCK_COHESION_FORCE,
   FLOCK_MAX_SPEED, FLOCK_CURSOR_FLEE_DIST, FLOCK_CURSOR_FLEE_FORCE,
   CURRENT_STRENGTH, CURRENT_SCALE, CURRENT_SPEED,
+  TIDAL_PERIOD, TIDAL_FORCE, TIDAL_DAMPING,
   GALAXY_SPIRAL_MS, GALAXY_SPIN_MS, GALAXY_EXPLODE_MS, GALAXY_ARM_COUNT,
   GALAXY_PULL_FORCE, GALAXY_SPIN_ACCEL, GALAXY_MAX_SPIN, GALAXY_DAMPING,
   GALAXY_EXPLODE_SPEED, GALAXY_RING_COUNT,
@@ -288,6 +289,8 @@ function App() {
   const wrapModeRef = useRef(false);
   const [flowMode, setFlowMode] = useState(false);
   const flowModeRef = useRef(false);
+  const [tidalMode, setTidalMode] = useState(false);
+  const tidalModeRef = useRef(false);
   const [linksMode, setLinksMode] = useState(false);
   const linksModeRef = useRef(false);
   const [volatileMode, setVolatileMode] = useState(false);
@@ -3149,6 +3152,21 @@ function App() {
           // gentle speed cap for dreamy movement
           const fSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
           if (fSpeed > 3.5) {
+            orb.vx *= 0.97;
+            orb.vy *= 0.97;
+          }
+        }
+
+        // tidal breathing: oscillating radial force (scatter ↔ gather)
+        if (tidalModeRef.current) {
+          const tidalPhase = Math.sin(now * 0.001 * (Math.PI * 2 / TIDAL_PERIOD));
+          const tdx = orb.x - W * 0.5;
+          const tdy = orb.y - H * 0.5;
+          const tDist = Math.sqrt(tdx * tdx + tdy * tdy) || 1;
+          orb.vx += (tdx / tDist) * TIDAL_FORCE * tidalPhase;
+          orb.vy += (tdy / tDist) * TIDAL_FORCE * tidalPhase;
+          const tSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+          if (tSpeed > TIDAL_DAMPING) {
             orb.vx *= 0.97;
             orb.vy *= 0.97;
           }
@@ -8766,6 +8784,13 @@ function App() {
   }, []);
 
 
+  const handleTidalMode = useCallback(() => {
+    setTidalMode((prev) => {
+      tidalModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleLinksMode = useCallback(() => {
     setLinksMode((prev) => {
       linksModeRef.current = !prev;
@@ -10364,6 +10389,7 @@ function App() {
           {nbodyMode && <ModePill $color="#a78bfa">n-body</ModePill>}
           {flockingMode && <ModePill $color="#22d3ee">flock</ModePill>}
           {flowMode && <ModePill $color="#38bdf8">flow</ModePill>}
+          {tidalMode && <ModePill $color="#06b6d4">tidal</ModePill>}
           {linksMode && <ModePill $color="#f0abfc">links</ModePill>}
           {rainMode && <ModePill $color="#60a5fa">rain</ModePill>}
           {kaleidoscopeMode && <ModePill $color="#f0abfc">mirror</ModePill>}
@@ -10502,6 +10528,9 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#f97316" title="Bounce — ricochet with sparks (.)">
           bounce
+        </ModeToggle>
+        <ModeToggle onClick={handleTidalMode} $active={tidalMode} $color="#06b6d4" title="Tidal — orbs breathe in and out">
+          tidal
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}

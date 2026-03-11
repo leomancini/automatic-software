@@ -171,6 +171,11 @@ export const FORMATION_SPRING = 0.08;
 export const FORMATION_DAMPING = 0.82;
 export const FORMATION_HOLD_MS = 3000;
 
+// ── Tidal breathing (oscillating scatter/gather) ────────────────────
+export const TIDAL_PERIOD = 3.5;         // seconds per full breathe cycle
+export const TIDAL_FORCE = 0.065;        // radial force amplitude per frame
+export const TIDAL_DAMPING = 3.5;        // gentle speed cap during tidal
+
 // ── Aurora borealis ─────────────────────────────────────────────────
 export const AURORA_BAND_COUNT = 5;         // number of overlapping curtain bands
 export const AURORA_BASE_ALPHA = 0.018;     // minimum opacity (visible even with 0 orbs)
@@ -435,6 +440,16 @@ export const PALETTES = [
     name: "Mono",
     colors: ["#e0e0e0", "#c0c0c0", "#a0b4c8", "#8899a8", "#c8d6e5", "#b0c4d8", "#d4e4f7", "#9bb5cf"],
     nebula: [[140,150,170], [100,120,150], [120,140,170], [90,110,140], [130,145,165]],
+  },
+  {
+    name: "Inferno",
+    colors: ["#ff4500", "#dc143c", "#ff6347", "#ff8c00", "#b22222", "#ff2400", "#cc5500", "#e25822"],
+    nebula: [[200,40,0], [180,15,40], [200,60,40], [180,100,0], [140,20,20]],
+  },
+  {
+    name: "Aurora",
+    colors: ["#00c9a7", "#845ec2", "#4b7bec", "#2de0a5", "#26de81", "#a55eea", "#45aaf2", "#00d4aa"],
+    nebula: [[0,160,130], [100,70,160], [50,100,190], [30,180,130], [0,170,140]],
   },
 ];
 
