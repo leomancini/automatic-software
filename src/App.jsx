@@ -10837,8 +10837,8 @@ function App() {
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — orbs leave glowing comet tails (T)">
           trails
         </ModeToggle>
-        <ModeToggle onClick={handleFizzMode} $active={fizzMode} $color="#fbbf24" title="Fizz — orbs slowly shrink and pop">
-          fizz
+        <ModeToggle onClick={handleAttractMode} $active={attractMode} $color="#f093fb" title="Attract — cursor pulls nearby orbs">
+          attract
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
