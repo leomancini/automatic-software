@@ -8394,47 +8394,76 @@ function App() {
     playBurstSound();
   }, []);
 
-  const handleSpiral = useCallback(() => {
-    haptic(15);
+  const handleGravityStorm = useCallback(() => {
+    haptic([20, 30, 20, 30, 20]);
     applyEffectChain();
     const W = window.innerWidth;
     const H = window.innerHeight;
     const cx = W / 2;
     const cy = H / 2;
     const now = performance.now();
-    const arms = 3;
-    const orbsPerArm = 8;
-    const maxRadius = Math.min(W, H) * 0.32;
+    const dirs = ["down", "right", "up", "left"];
+    const wasGravityOn = gravityRef.current;
+    const originalDir = gravityDirRef.current;
 
-    for (let arm = 0; arm < arms; arm++) {
-      const armOffset = (arm / arms) * Math.PI * 2;
-      for (let i = 0; i < orbsPerArm; i++) {
-        const t = (i + 1) / orbsPerArm;
-        const angle = armOffset + t * Math.PI * 2.5;
-        const radius = t * maxRadius;
-        const x = cx + Math.cos(angle) * radius;
-        const y = cy + Math.sin(angle) * radius;
-        const speed = 1.2 + t * 2.8;
-        const tangent = angle + Math.PI * 0.45;
-        const vx = Math.cos(tangent) * speed + Math.cos(angle) * 0.6;
-        const vy = Math.sin(tangent) * speed + Math.sin(angle) * 0.6;
-        const delay = (arm * orbsPerArm + i) * 22;
-        setTimeout(() => {
-          const orb = createOrb(x, y);
-          orb.vx = vx;
-          orb.vy = vy;
-          orbsRef.current.push(orb);
+    // Turn gravity on for the storm
+    gravityRef.current = true;
+    setGravityOn(true);
+
+    comboFlashRef.current.push({ text: "GRAVITY STORM", x: cx, y: cy, born: now, color: "#43e97b" });
+    screenFlashesRef.current.push({ cx, cy, color: "#43e97b", born: now });
+    shakeRef.current = 12;
+    playStormSound();
+
+    // Cycle gravity direction rapidly for ~4 seconds
+    const cycles = 14;
+    const interval = 280;
+    for (let i = 0; i < cycles; i++) {
+      setTimeout(() => {
+        const dir = dirs[i % dirs.length];
+        gravityDirRef.current = dir;
+        setGravityOn(true);
+
+        // Small burst of orbs every other cycle
+        if (i % 2 === 0) {
+          const bx = W * 0.15 + Math.random() * W * 0.7;
+          const by = H * 0.15 + Math.random() * H * 0.7;
+          for (let j = 0; j < 2; j++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 2 + Math.random() * 3;
+            const orb = createOrb(bx + Math.cos(angle) * 15, by + Math.sin(angle) * 15);
+            orb.vx = Math.cos(angle) * speed;
+            orb.vy = Math.sin(angle) * speed;
+            orbsRef.current.push(orb);
+          }
           setOrbCount(orbsRef.current.length);
-        }, delay);
-      }
+          ripplesRef.current.push({ x: bx, y: by, color: randomColor(), born: performance.now() });
+        }
+
+        // Kick all orbs in the new gravity direction
+        const kickForce = 3;
+        for (const orb of orbsRef.current) {
+          if (dir === "down") orb.vy += kickForce;
+          else if (dir === "up") orb.vy -= kickForce;
+          else if (dir === "right") orb.vx += kickForce;
+          else if (dir === "left") orb.vx -= kickForce;
+        }
+        shakeRef.current = Math.max(shakeRef.current, 5);
+      }, i * interval);
     }
 
-    ripplesRef.current.push({ x: cx, y: cy, color: randomColor(), born: now });
-    wavesRef.current.push({ x: cx, y: cy, radius: 0, born: now, color: randomColor() });
-    screenFlashesRef.current.push({ cx, cy, color: "#c084fc", born: now });
-    comboFlashRef.current.push({ text: "SPIRAL", x: cx, y: cy, born: now, color: "#c084fc" });
-    shakeRef.current = 10;
-    playGalaxySound();
+    // After storm: restore original gravity state + final shockwave
+    setTimeout(() => {
+      if (!wasGravityOn) {
+        gravityRef.current = false;
+        setGravityOn(false);
+      } else {
+        gravityDirRef.current = originalDir;
+        setGravityOn(true);
+      }
+      wavesRef.current.push({ x: cx, y: cy, radius: 0, born: performance.now(), color: "#43e97b" });
+      shakeRef.current = 8;
+    }, cycles * interval + 100);
   }, []);
 
 
@@ -9458,8 +9487,8 @@ function App() {
           handleFissionMode();
           break;
         case ",":
-          handleSpiral();
-          flashLabel("SPIRAL", "#c084fc");
+          handleGravityStorm();
+          flashLabel("GRAVITY STORM", "#43e97b");
           break;
         case "]":
           handleNovaChain();
@@ -9503,7 +9532,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleEruption, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleSmash, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleFissionMode, handleSpiral, handleEcho, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleEruption, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleSmash, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleFissionMode, handleGravityStorm, handleEcho, paletteIndex, setShowHelp]);
 
 
   return (
@@ -9663,9 +9692,17 @@ function App() {
               <line x1="12" y1="10" x2="12" y2="16" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleSpiral} title="Spiral galaxy">
+          <ActionButton onClick={handleGravityStorm} title="Gravity storm">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 12a2 2 0 1 1 0-4 4 4 0 1 1 0 8 6 6 0 1 1 0-12" />
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
+              <line x1="12" y1="3" x2="12" y2="7" />
+              <polyline points="9.5 5 12 3 14.5 5" />
+              <line x1="21" y1="12" x2="17" y2="12" />
+              <polyline points="19 9.5 21 12 19 14.5" />
+              <line x1="12" y1="21" x2="12" y2="17" />
+              <polyline points="14.5 19 12 21 9.5 19" />
+              <line x1="3" y1="12" x2="7" y2="12" />
+              <polyline points="5 14.5 3 12 5 9.5" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
