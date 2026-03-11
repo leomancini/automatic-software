@@ -7755,6 +7755,15 @@ function App() {
       hitOrbs: new Set(),
       delay: 0,
     });
+    // Echo pulses — trailing waves that follow the main shockwave
+    wavesRef.current.push({
+      cx, cy, radius: 0, color: randomColor(),
+      generation: 1, hitOrbs: new Set(), delay: 8,
+    });
+    wavesRef.current.push({
+      cx, cy, radius: 0, color: randomColor(),
+      generation: 2, hitOrbs: new Set(), delay: 16,
+    });
     shakeRef.current = 16;
     screenFlashesRef.current.push({ cx, cy, color: "#4facfe", born: performance.now() });
     playBoom();
