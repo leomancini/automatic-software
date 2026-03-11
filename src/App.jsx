@@ -1606,6 +1606,17 @@ function App() {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
+    // safe gradient wrappers — return dummy gradient for non-finite params instead of throwing
+    {
+      const _cRG = ctx.createRadialGradient.bind(ctx);
+      const _cLG = ctx.createLinearGradient.bind(ctx);
+      const _dummyGrad = _cRG(0, 0, 0, 0, 0, 1);
+      ctx.createRadialGradient = (x0, y0, r0, x1, y1, r1) =>
+        isFinite(x0 + y0 + r0 + x1 + y1 + r1) ? _cRG(x0, y0, r0, x1, y1, r1) : _dummyGrad;
+      ctx.createLinearGradient = (x0, y0, x1, y1) =>
+        isFinite(x0 + y0 + x1 + y1) ? _cLG(x0, y0, x1, y1) : _dummyGrad;
+    }
+
     let time = 0;
     let prevCursorX = 0, prevCursorY = 0;
     let cursorSpeed = 0;
