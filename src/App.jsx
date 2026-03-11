@@ -9864,30 +9864,6 @@ function App() {
     playSwoosh();
   }, []);
 
-  const handleSurprise = useCallback(() => {
-    // Pool of spectacular effects that are normally keyboard-only
-    const effects = [
-      { fn: handleBlackHole, label: "BLACK HOLE", color: "#a855f7", needsOrbs: true },
-      { fn: handleGalaxy, label: "GALAXY", color: "#c084fc", needsOrbs: true },
-      { fn: handleStorm, label: "STORM", color: "#4facfe", needsOrbs: false },
-      { fn: handleCrossfire, label: "CROSSFIRE", color: "#fa709a", needsOrbs: false },
-      { fn: handleFireworkShow, label: "FIREWORK SHOW", color: "#f093fb", needsOrbs: true },
-      { fn: handleTide, label: "TIDE", color: "#00f2fe", needsOrbs: false },
-      { fn: handleNovaChain, label: "NOVA CHAIN", color: "#fbbf24", needsOrbs: true },
-      { fn: handleEruption, label: "ERUPTION", color: "#f97316", needsOrbs: false },
-      { fn: handlePulse, label: "PULSE", color: "#667eea", needsOrbs: true },
-      { fn: handleEcho, label: "ECHO", color: "#a78bfa", needsOrbs: true },
-      { fn: handleMaelstrom, label: "MAELSTROM", color: "#78c8ff", needsOrbs: true },
-    ];
-    const hasOrbs = orbsRef.current.length >= 3;
-    const pool = hasOrbs ? effects : effects.filter(e => !e.needsOrbs);
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    pick.fn();
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    comboFlashRef.current.push({ text: pick.label, x: W / 2, y: H / 2, born: performance.now(), color: pick.color });
-  }, [handleBlackHole, handleGalaxy, handleStorm, handleCrossfire, handleFireworkShow, handleTide, handleNovaChain, handleEruption, handlePulse, handleEcho, handleMaelstrom]);
-
   const handleSaveCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -10165,7 +10141,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "right-click for a surprise", "shake your phone for a shockwave"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try n-body mode \u00b7 orbs orbit each other", "tap the dice for a surprise effect", "cycle gravity (G) \u00b7 try spin mode"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try n-body mode \u00b7 orbs orbit each other", "try the star button for grand finale", "cycle gravity (G) \u00b7 try spin mode"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -10316,14 +10292,10 @@ function App() {
               <line x1="19" y1="5" x2="15" y2="9" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleSurprise} title="Surprise">
+          <ActionButton onClick={handleGrandFinale} title="Grand finale">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
-              <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" />
-              <circle cx="8.5" cy="15.5" r="1.5" fill="currentColor" />
-              <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor" />
-              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              <polygon points="12 2 15 9 22 9 16.5 14 18.5 21 12 17 5.5 21 7.5 14 2 9 9 9" fill="currentColor" opacity="0.3" />
+              <polygon points="12 2 15 9 22 9 16.5 14 18.5 21 12 17 5.5 21 7.5 14 2 9 9 9" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
