@@ -9794,6 +9794,55 @@ function App() {
     playMeteorSound();
   }, []);
 
+  const handleFractalBurst = useCallback(() => {
+    haptic(25);
+    applyEffectChain();
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const cx = W / 2, cy = H / 2;
+    const now = performance.now();
+    screenFlashesRef.current.push({ cx, cy, color: "#c084fc", born: now });
+    comboFlashRef.current.push({ text: "FRACTAL", x: cx, y: cy, born: now, color: "#c084fc" });
+
+    const spawns = [];
+    const spread = Math.PI / 4.5;
+    const maxGen = 2;
+    const baseAngle = Math.random() * Math.PI * 2;
+
+    const buildTree = (x, y, angle, gen, delay) => {
+      if (gen > maxGen) return;
+      const speed = 6 - gen * 0.5;
+      spawns.push({ x, y, angle, speed, gen, delay, radius: Math.max(4, 9 - gen * 1.5) });
+      if (gen < maxGen) {
+        const travel = speed * 7;
+        const nx = x + Math.cos(angle) * travel;
+        const ny = y + Math.sin(angle) * travel;
+        const nextDelay = delay + 120;
+        buildTree(nx, ny, angle - spread * (0.8 + Math.random() * 0.4), gen + 1, nextDelay);
+        buildTree(nx, ny, angle + spread * (0.8 + Math.random() * 0.4), gen + 1, nextDelay);
+      }
+    };
+
+    for (let i = 0; i < 3; i++) {
+      buildTree(cx, cy, baseAngle + (Math.PI * 2 * i) / 3, 0, i * 60);
+    }
+
+    for (const s of spawns) {
+      setTimeout(() => {
+        const orb = createOrb(s.x, s.y);
+        orb.vx = Math.cos(s.angle) * s.speed;
+        orb.vy = Math.sin(s.angle) * s.speed;
+        orb.radius = s.radius;
+        orbsRef.current.push(orb);
+        setOrbCount(orbsRef.current.length);
+        ripplesRef.current.push({ x: s.x, y: s.y, color: orb.color, born: performance.now() });
+      }, s.delay);
+    }
+
+    shakeRef.current = Math.max(shakeRef.current, 12);
+    playBurstSound();
+  }, []);
+
   const handleGrandFinale = useCallback(() => {
     if (finaleActiveRef.current) return;
     finaleActiveRef.current = true;
@@ -10296,6 +10345,17 @@ function App() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="12 2 15 9 22 9 16.5 14 18.5 21 12 17 5.5 21 7.5 14 2 9 9 9" fill="currentColor" opacity="0.3" />
               <polygon points="12 2 15 9 22 9 16.5 14 18.5 21 12 17 5.5 21 7.5 14 2 9 9 9" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleFractalBurst} title="Fractal burst">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="22" x2="12" y2="14" />
+              <line x1="12" y1="14" x2="6" y2="8" />
+              <line x1="12" y1="14" x2="18" y2="8" />
+              <line x1="6" y1="8" x2="3" y2="3" />
+              <line x1="6" y1="8" x2="9" y2="3" />
+              <line x1="18" y1="8" x2="15" y2="3" />
+              <line x1="18" y1="8" x2="21" y2="3" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
