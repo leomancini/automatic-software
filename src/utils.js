@@ -63,6 +63,9 @@ export function hexToHsl(hex) {
   let r = parseInt(hex.slice(1, 3), 16) / 255;
   let g = parseInt(hex.slice(3, 5), 16) / 255;
   let b = parseInt(hex.slice(5, 7), 16) / 255;
+  if (isNaN(r)) r = 0;
+  if (isNaN(g)) g = 0;
+  if (isNaN(b)) b = 0;
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
   let h, s, l = (max + min) / 2;
   if (max === min) { h = s = 0; }

@@ -2856,9 +2856,9 @@ function App() {
       // precompute hue + RGB for color affinity & contagion
       for (const orb of orbs) {
         orb._hue = hexToHsl(orb.color)[0];
-        orb._r = parseInt(orb.color.slice(1, 3), 16);
-        orb._g = parseInt(orb.color.slice(3, 5), 16);
-        orb._b = parseInt(orb.color.slice(5, 7), 16);
+        orb._r = parseInt(orb.color.slice(1, 3), 16) || 0;
+        orb._g = parseInt(orb.color.slice(3, 5), 16) || 0;
+        orb._b = parseInt(orb.color.slice(5, 7), 16) || 0;
       }
 
       // fission mode deferred arrays (populated during physics, applied after)
