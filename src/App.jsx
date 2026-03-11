@@ -9224,6 +9224,90 @@ function App() {
     playCometSound();
   }, []);
 
+  const handleStorm = useCallback(() => {
+    haptic([20, 30, 40, 50]);
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const now = performance.now();
+
+    // Stormy screen flash
+    screenFlashesRef.current.push({ cx: W / 2, cy: 0, color: "#4facfe", born: now });
+
+    // Meteors rain down
+    for (let i = 0; i < METEOR_COUNT; i++) {
+      setTimeout(() => {
+        const x = W * 0.05 + Math.random() * W * 0.9;
+        const angle = Math.PI * 0.4 + Math.random() * Math.PI * 0.2;
+        const speed = 4 + Math.random() * 4;
+        const orb = createOrb(x, -20);
+        orb.radius = 6 + Math.random() * 8;
+        orb.vx = Math.cos(angle) * speed * (Math.random() > 0.5 ? 1 : -1);
+        orb.vy = Math.sin(angle) * speed;
+        orbsRef.current.push(orb);
+        ripplesRef.current.push({ x, y: 0, color: orb.color, born: performance.now() });
+        meteorTrailsRef.current.push({
+          x: x + (Math.random() - 0.5) * 40,
+          y: -60 - Math.random() * 40,
+          dx: orb.vx * 25, dy: orb.vy * 25,
+          color: orb.color, born: performance.now(),
+        });
+        setOrbCount(orbsRef.current.length);
+      }, i * METEOR_STAGGER);
+    }
+
+    // Lightning chains from sky after meteors start landing
+    for (let s = 0; s < 3; s++) {
+      setTimeout(() => {
+        const orbs = orbsRef.current;
+        if (orbs.length === 0) return;
+        const skyX = W * 0.15 + Math.random() * W * 0.7;
+        let cx = skyX, cy = -10;
+        const visited = new Set();
+        const bolts = [];
+        const sparks = [];
+        const maxJumps = Math.min(LIGHTNING_MAX_CHAIN, Math.ceil(orbs.length / 3));
+
+        for (let j = 0; j < maxJumps; j++) {
+          let nearest = null, nearestDist = LIGHTNING_CHAIN_DIST * 1.5;
+          for (const orb of orbs) {
+            if (visited.has(orb.id)) continue;
+            const dx = orb.x - cx, dy = orb.y - cy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < nearestDist) { nearestDist = dist; nearest = orb; }
+          }
+          if (!nearest) break;
+          visited.add(nearest.id);
+          bolts.push({ points: generateBolt(cx, cy, nearest.x, nearest.y), color: nearest.color });
+          if (Math.random() < 0.3) {
+            const pts = bolts[bolts.length - 1].points;
+            const bi = Math.floor(pts.length * 0.3 + Math.random() * pts.length * 0.4);
+            const bp = pts[bi];
+            const ba = Math.random() * Math.PI * 2;
+            const bl = 30 + Math.random() * 50;
+            bolts.push({ points: generateBolt(bp.x, bp.y, bp.x + Math.cos(ba) * bl, bp.y + Math.sin(ba) * bl, 5), color: nearest.color, branch: true });
+          }
+          for (let k = 0; k < 4; k++) {
+            const a = Math.random() * Math.PI * 2;
+            sparks.push({ x: nearest.x, y: nearest.y, vx: Math.cos(a) * 2, vy: Math.sin(a) * 2, color: nearest.color });
+          }
+          nearest.vx += (Math.random() - 0.5) * LIGHTNING_FORCE;
+          nearest.vy += LIGHTNING_FORCE * 0.3;
+          cx = nearest.x;
+          cy = nearest.y;
+        }
+
+        if (bolts.length > 0) {
+          lightningRef.current.push({ bolts, sparks, born: performance.now() });
+          shakeRef.current = Math.max(shakeRef.current, 8);
+        }
+      }, 200 + s * 250);
+    }
+
+    shakeRef.current = Math.max(shakeRef.current, 18);
+    playMeteorSound();
+    setTimeout(() => playLightning(), 300);
+  }, []);
+
   const handleEcho = useCallback(() => {
     haptic(15);
     const orbs = orbsRef.current;
@@ -9585,7 +9669,7 @@ function App() {
     const effects = [
       { fn: handleBlackHole, label: "BLACK HOLE", color: "#a855f7", needsOrbs: true },
       { fn: handleGalaxy, label: "GALAXY", color: "#c084fc", needsOrbs: true },
-      { fn: handleComet, label: "COMET", color: "#f59e0b", needsOrbs: false },
+      { fn: handleStorm, label: "STORM", color: "#4facfe", needsOrbs: false },
       { fn: handleCrossfire, label: "CROSSFIRE", color: "#fa709a", needsOrbs: false },
       { fn: handleFireworkShow, label: "FIREWORK SHOW", color: "#f093fb", needsOrbs: true },
       { fn: handleTide, label: "TIDE", color: "#00f2fe", needsOrbs: false },
@@ -9602,7 +9686,7 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     comboFlashRef.current.push({ text: pick.label, x: W / 2, y: H / 2, born: performance.now(), color: pick.color });
-  }, [handleBlackHole, handleGalaxy, handleComet, handleCrossfire, handleFireworkShow, handleTide, handleNovaChain, handleEruption, handlePulse, handleEcho, handleMaelstrom]);
+  }, [handleBlackHole, handleGalaxy, handleStorm, handleCrossfire, handleFireworkShow, handleTide, handleNovaChain, handleEruption, handlePulse, handleEcho, handleMaelstrom]);
 
   const handleSaveCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -9759,8 +9843,8 @@ function App() {
           handleRainMode();
           break;
         case "z":
-          handleComet();
-          flashLabel("COMET", "#f59e0b");
+          handleStorm();
+          flashLabel("STORM", "#4facfe");
           break;
         case "`":
           handleMaelstrom();
@@ -10003,12 +10087,10 @@ function App() {
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleComet} title="Comet (Z)">
+          <ActionButton onClick={handleStorm} title="Storm (Z)">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="8" cy="16" r="3" fill="currentColor" />
-              <line x1="10" y1="14" x2="20" y2="4" />
-              <line x1="10" y1="13" x2="18" y2="3" />
-              <line x1="11" y1="14" x2="22" y2="5" />
+              <path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973" />
+              <path d="M13 12l-3 5h4l-3 5" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleScatter} title="Scatter orbs (S)">
@@ -10131,7 +10213,7 @@ function App() {
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
-              <Shortcut><Key>Z</Key><span>Comet</span></Shortcut>
+              <Shortcut><Key>Z</Key><span>Storm (meteors + lightning)</span></Shortcut>
               <Shortcut><Key>`</Key><span>Maelstrom (whirlpool)</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>'</Key><span>Eruption (volcanic burst)</span></Shortcut>
