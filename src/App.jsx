@@ -8395,6 +8395,8 @@ function App() {
   }, []);
 
   const handleSpiral = useCallback(() => {
+    haptic(15);
+    applyEffectChain();
     const W = window.innerWidth;
     const H = window.innerHeight;
     const cx = W / 2;
@@ -9601,6 +9603,11 @@ function App() {
               <polyline points="9 7 12 10 15 7" />
               <line x1="12" y1="22" x2="12" y2="14" />
               <polyline points="9 17 12 14 15 17" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleSpiral} title="Spiral galaxy">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 12a2 2 0 1 1 0-4 4 4 0 1 1 0 8 6 6 0 1 1 0-12" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
