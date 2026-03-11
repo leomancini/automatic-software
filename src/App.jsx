@@ -294,6 +294,10 @@ function App() {
   const tidalModeRef = useRef(false);
   const [swirlMode, setSwirlMode] = useState(false);
   const swirlModeRef = useRef(false);
+  const [stringMode, setStringMode] = useState(false);
+  const stringModeRef = useRef(false);
+  const springsRef = useRef([]); // [{idA, idB, restLength}]
+  const lastTapOrbIdRef = useRef(null); // last orb created by tap (for string connections)
   const [linksMode, setLinksMode] = useState(false);
   const linksModeRef = useRef(false);
   const [volatileMode, setVolatileMode] = useState(false);
@@ -764,6 +768,7 @@ function App() {
           const volleyCount = fDist > 150 ? 5 : fDist > 80 ? 3 : 1;
           const fanSpread = volleyCount > 1 ? 0.35 : 0;
           let firstColor = null;
+          let rocketId = null;
 
           for (let v = 0; v < volleyCount; v++) {
             const spreadAngle = volleyCount > 1
@@ -778,6 +783,8 @@ function App() {
             orb.vy = Math.sin(spreadAngle) * vSpeed;
             orbsRef.current.push(orb);
             if (!firstColor) firstColor = orb.color;
+            // Mark center orb of max volley as a rocket
+            if (volleyCount === 5 && v === 2) rocketId = orb.id;
           }
 
           ripplesRef.current.push({ x: sling.startX, y: sling.startY, color: firstColor, born: now });
@@ -818,6 +825,46 @@ function App() {
           setOrbCount(orbsRef.current.length);
           playSwoosh();
           shakeRef.current = Math.max(shakeRef.current, speed * 0.4 + volleyCount);
+
+          // Rocket flick: center orb of max volley detonates into a firework
+          if (rocketId) {
+            const capturedId = rocketId;
+            setTimeout(() => {
+              const idx = orbsRef.current.findIndex(o => o.id === capturedId);
+              if (idx === -1) return;
+              const rocket = orbsRef.current[idx];
+              const rx = rocket.x, ry = rocket.y, rColor = rocket.color;
+              orbsRef.current.splice(idx, 1);
+              const burstNow = performance.now();
+              // Firework burst — ring of orbs
+              for (let i = 0; i < 10; i++) {
+                const angle = (Math.PI * 2 * i) / 10 + Math.random() * 0.3;
+                const spd = 2 + Math.random() * 3;
+                const o = createOrb(rx, ry);
+                o.radius = 5 + Math.random() * 6;
+                o.vx = Math.cos(angle) * spd;
+                o.vy = Math.sin(angle) * spd;
+                orbsRef.current.push(o);
+              }
+              // Visual effects
+              screenFlashesRef.current.push({ cx: rx, cy: ry, color: rColor, born: burstNow });
+              ripplesRef.current.push({ x: rx, y: ry, color: rColor, born: burstNow });
+              flashesRef.current.push({ x: rx, y: ry, color: rColor, radius: 30, born: burstNow });
+              for (let i = 0; i < 12; i++) {
+                const a = Math.random() * Math.PI * 2;
+                burstsRef.current.push({
+                  x: rx, y: ry,
+                  vx: Math.cos(a) * (1.5 + Math.random() * 3),
+                  vy: Math.sin(a) * (1.5 + Math.random() * 3),
+                  color: rColor, born: burstNow,
+                });
+              }
+              comboFlashRef.current.push({ text: "ROCKET", x: rx, y: ry - 30, born: burstNow, color: rColor });
+              shakeRef.current = Math.max(shakeRef.current, 10);
+              setOrbCount(orbsRef.current.length);
+              playBurstSound();
+            }, 350);
+          }
           return;
         }
         // Drag was too short — fall through to normal tap
@@ -1009,6 +1056,20 @@ function App() {
           }
           orbsRef.current.push(orb);
           ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+          // String mode: connect to previous tap orb with elastic spring
+          if (stringModeRef.current && i === 0) {
+            const prevId = lastTapOrbIdRef.current;
+            if (prevId != null) {
+              const prevOrb = orbsRef.current.find(o => o.id === prevId);
+              if (prevOrb) {
+                const sdx = orb.x - prevOrb.x;
+                const sdy = orb.y - prevOrb.y;
+                const dist = Math.sqrt(sdx * sdx + sdy * sdy);
+                springsRef.current.push({ idA: prevId, idB: orb.id, restLength: Math.max(dist * 0.6, 40) });
+              }
+            }
+            lastTapOrbIdRef.current = orb.id;
+          }
         }
       }
 
@@ -2931,6 +2992,43 @@ function App() {
       // fission mode deferred arrays (populated during physics, applied after)
       const fissionFrags = [];
       const fissionRemove = new Set();
+
+      // ── String springs: elastic forces between connected orbs ──
+      if (stringModeRef.current || springsRef.current.length > 0) {
+        const SPRING_K = 0.04;  // stiffness
+        const SPRING_DAMP = 0.02; // damping
+        const SPRING_BREAK = 3.5; // break at 3.5x rest length
+        const orbById = new Map();
+        for (const o of orbs) orbById.set(o.id, o);
+        const alive = [];
+        for (const sp of springsRef.current) {
+          const a = orbById.get(sp.idA);
+          const b = orbById.get(sp.idB);
+          if (!a || !b) continue; // orb removed
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
+          if (dist > sp.restLength * SPRING_BREAK) continue; // break spring
+          const displacement = dist - sp.restLength;
+          const fx = (dx / dist) * displacement * SPRING_K;
+          const fy = (dy / dist) * displacement * SPRING_K;
+          // relative velocity damping
+          const dvx = b.vx - a.vx;
+          const dvy = b.vy - a.vy;
+          const dampX = dvx * SPRING_DAMP;
+          const dampY = dvy * SPRING_DAMP;
+          if (a !== dragRef.current && !frozenRef.current) {
+            a.vx += fx + dampX;
+            a.vy += fy + dampY;
+          }
+          if (b !== dragRef.current && !frozenRef.current) {
+            b.vx -= fx + dampX;
+            b.vy -= fy + dampY;
+          }
+          alive.push(sp);
+        }
+        springsRef.current = alive;
+      }
 
       // update physics
       for (const orb of orbs) {
@@ -5424,6 +5522,45 @@ function App() {
             ctx.lineWidth = 1.5 * t + 0.5;
             ctx.stroke();
           }
+        }
+        ctx.restore();
+      }
+
+      // draw string springs as glowing elastic lines
+      if (springsRef.current.length > 0) {
+        const orbById = new Map();
+        for (const o of orbs) orbById.set(o.id, o);
+        ctx.save();
+        ctx.lineCap = "round";
+        for (const sp of springsRef.current) {
+          const a = orbById.get(sp.idA);
+          const b = orbById.get(sp.idB);
+          if (!a || !b) continue;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 0.1;
+          const stretch = dist / sp.restLength;
+          // alpha fades as spring stretches toward breaking
+          const tension = Math.min(stretch / 3.5, 1);
+          const alpha = (1 - tension * 0.7) * 0.9;
+          // color shifts from orb color to warm red when stretched
+          const hue = stretch > 1.5 ? `hsl(${Math.max(0, 40 - (stretch - 1.5) * 30)}, 90%, 65%)` : a.color;
+          // wide glow
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.strokeStyle = hue + (hue.startsWith('#') ? hexAlpha(alpha * 0.3 * 255) : '');
+          if (!hue.startsWith('#')) ctx.globalAlpha = alpha * 0.3;
+          ctx.lineWidth = 6 * (1 - tension * 0.5);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          // bright core
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.strokeStyle = b.color + hexAlpha(alpha * 255);
+          ctx.lineWidth = 2 * (1 - tension * 0.3);
+          ctx.stroke();
         }
         ctx.restore();
       }
@@ -8636,6 +8773,8 @@ function App() {
     trailsRef.current = [];
     barriersRef.current = [];
     scorchMarksRef.current = [];
+    springsRef.current = [];
+    lastTapOrbIdRef.current = null;
     blackHoleRef.current = null;
     setBlackHoleActive(false);
     setOrbCount(0);
@@ -8921,6 +9060,17 @@ function App() {
   const handleSwirlMode = useCallback(() => {
     setSwirlMode((prev) => {
       swirlModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
+  const handleStringMode = useCallback(() => {
+    setStringMode((prev) => {
+      stringModeRef.current = !prev;
+      if (prev) {
+        // turning off — clear last tap tracking (springs persist until they break)
+        lastTapOrbIdRef.current = null;
+      }
       return !prev;
     });
   }, []);
@@ -10475,7 +10625,7 @@ function App() {
         <Hint style={{ opacity: tipFading ? 0 : 1, transition: 'opacity 0.4s ease' }}>
           {(() => {
             const tips = orbCount === 0
-              ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "right-click for a surprise", "shake your phone for a shockwave"]
+              ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "big flick = rocket firework!", "right-click for a surprise", "shake your phone for a shockwave"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
               : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try n-body mode \u00b7 orbs orbit each other", "try the star button for grand finale", "cycle gravity (G) \u00b7 try spin mode"];
@@ -10529,6 +10679,7 @@ function App() {
           {flowMode && <ModePill $color="#38bdf8">flow</ModePill>}
           {tidalMode && <ModePill $color="#06b6d4">tidal</ModePill>}
           {swirlMode && <ModePill $color="#818cf8">swirl</ModePill>}
+          {stringMode && <ModePill $color="#818cf8">strings</ModePill>}
           {linksMode && <ModePill $color="#f0abfc">links</ModePill>}
           {rainMode && <ModePill $color="#60a5fa">rain</ModePill>}
           {kaleidoscopeMode && <ModePill $color="#f0abfc">mirror</ModePill>}
@@ -10656,9 +10807,6 @@ function App() {
         <ModeToggle onClick={handleGravity} $active={gravityOn} $color="#43e97b" title="Toggle gravity">
           gravity
         </ModeToggle>
-        <ModeToggle onClick={handleSwirlMode} $active={swirlMode} $color="#818cf8" title="Swirl — persistent vortex whirlpool">
-          swirl
-        </ModeToggle>
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
@@ -10670,9 +10818,6 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — orbs leave glowing comet tails (T)">
           trails
-        </ModeToggle>
-        <ModeToggle onClick={handleMagmaMode} $active={magmaMode} $color="#f97316" title="Magma — orbs heat up and erupt on collision">
-          magma
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
@@ -10706,7 +10851,7 @@ function App() {
             <HelpTitle>Keyboard Shortcuts</HelpTitle>
             <ShortcutList>
               <Shortcut><Key>click</Key><span>Create orb</span></Shortcut>
-              <Shortcut><Key>drag</Key><span>Flick to launch (pushes nearby orbs!)</span></Shortcut>
+              <Shortcut><Key>drag</Key><span>Flick to launch (big flick = rocket!)</span></Shortcut>
               <Shortcut><Key>dbl-click</Key><span>Burst (empty) / remove (orb)</span></Shortcut>
               <Shortcut><Key>hold</Key><span>Charge → release to detonate</span></Shortcut>
               <Shortcut><Key>right-click</Key><span>Split orb / random effect</span></Shortcut>
