@@ -7986,19 +7986,35 @@ function App() {
 
 
   const handleShuffle = useCallback(() => {
-    const now = performance.now();
+    const canvas = canvasRef.current;
+    const W = canvas ? canvas.width : window.innerWidth;
+    const H = canvas ? canvas.height : window.innerHeight;
+    const cx = W / 2, cy = H / 2;
+    const maxDist = Math.sqrt(cx * cx + cy * cy) || 1;
+    const WAVE_MS = 500; // total time for the color wave to sweep outward
+
+    // Send a shockwave ring from center for visual feedback
+    wavesRef.current.push({
+      cx, cy, radius: 0, color: "#feb47b",
+      generation: 3, hitOrbs: new Set(), delay: 0,
+    });
+
     for (const orb of orbsRef.current) {
-      const oldColor = orb.color;
-      let newColor;
-      do { newColor = randomColor(); } while (newColor === oldColor && COLORS.length > 1);
-      orb.color = newColor;
-      flashesRef.current.push({
-        x: orb.x,
-        y: orb.y,
-        color: newColor,
-        radius: orb.radius,
-        born: now,
-      });
+      const dist = Math.sqrt((orb.x - cx) ** 2 + (orb.y - cy) ** 2);
+      const delay = (dist / maxDist) * WAVE_MS;
+
+      setTimeout(() => {
+        const oldColor = orb.color;
+        let newColor;
+        do { newColor = randomColor(); } while (newColor === oldColor && COLORS.length > 1);
+        orb.color = newColor;
+        flashesRef.current.push({
+          x: orb.x, y: orb.y,
+          color: newColor, radius: orb.radius * 1.5,
+          born: performance.now(),
+        });
+        ripplesRef.current.push({ x: orb.x, y: orb.y, color: newColor, born: performance.now() });
+      }, delay);
     }
   }, []);
 
