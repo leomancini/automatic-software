@@ -536,3 +536,6 @@ export const KING_HEARTBEAT_RANGE = 160;      // px radius of the push wave
 export const KING_HEARTBEAT_FORCE = 1.2;      // outward push strength
 export const KING_HEARTBEAT_RING_DURATION = 700; // ms for the visual ring to expand and fade
 export const KING_HEARTBEAT_MIN_RADIUS = 20;  // king must be at least this big to pulse
+export const KING_FLEE_RANGE = 170;            // px — small orbs flee the king within this range
+export const KING_FLEE_FORCE = 0.12;           // gentle continuous push away from king
+export const KING_FLEE_RATIO = 0.55;           // orbs below king_radius * this flee

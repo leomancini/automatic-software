@@ -97,6 +97,7 @@ import {
   MAELSTROM_SPIRAL_MS, MAELSTROM_RELEASE_MS, MAELSTROM_PULL, MAELSTROM_TANGENT, MAELSTROM_RELEASE_SPEED,
   KING_HEARTBEAT_INTERVAL, KING_HEARTBEAT_RANGE, KING_HEARTBEAT_FORCE,
   KING_HEARTBEAT_RING_DURATION, KING_HEARTBEAT_MIN_RADIUS,
+  KING_FLEE_RANGE, KING_FLEE_FORCE, KING_FLEE_RATIO,
 } from './constants.js';
 import {
   PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce, playCollisionChime,
@@ -4114,6 +4115,28 @@ function App() {
             x: kingOrb.x, y: kingOrb.y, born: now, color: kingOrb.color,
           });
         }
+        // ── Subjects flee the king: small orbs scurry away in fear ──
+        if (kingOrb) {
+          const fleeThreshold = kingOrb.radius * KING_FLEE_RATIO;
+          for (const orb of orbs) {
+            if (orb === kingOrb || orb.spark) { orb.nearKing = false; continue; }
+            if (orb.radius < fleeThreshold) {
+              const dx = orb.x - kingOrb.x;
+              const dy = orb.y - kingOrb.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              if (dist > 0 && dist < KING_FLEE_RANGE) {
+                const falloff = 1 - dist / KING_FLEE_RANGE;
+                const force = KING_FLEE_FORCE * falloff * falloff;
+                orb.vx += (dx / dist) * force;
+                orb.vy += (dy / dist) * force;
+                orb.nearKing = true;
+                orb.kingAngle = Math.atan2(kingOrb.y - orb.y, kingOrb.x - orb.x);
+                continue;
+              }
+            }
+            orb.nearKing = false;
+          }
+        }
       }
 
       // Mitosis: massive orbs split into two daughter orbs
@@ -5418,7 +5441,7 @@ function App() {
           const isSatisfied = orb.mergedAt && now - orb.mergedAt < 400;
           // surprised wide eyes when hit by shockwave
           const isSurprised = orb.waveHit && now - orb.waveHit < 350;
-          // scared: shockwave approaching but hasn't hit yet
+          // scared: shockwave approaching but hasn't hit yet, or fleeing the king
           let isScared = false;
           let scareLookAng = 0;
           if (!isFrozen && !isSatisfied && !isSurprised) {
@@ -5432,6 +5455,11 @@ function App() {
                 scareLookAng = Math.atan2(w.y - orb.y, w.x - orb.x);
                 break;
               }
+            }
+            // small orbs near the king look up at it in fear
+            if (!isScared && orb.nearKing) {
+              isScared = true;
+              scareLookAng = orb.kingAngle;
             }
           }
           // drowsy: orb has been idle for a while
