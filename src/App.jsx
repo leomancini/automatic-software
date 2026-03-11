@@ -9190,6 +9190,64 @@ function App() {
     playBurstSound();
   }, []);
 
+  const handleEruption = useCallback(() => {
+    haptic([30, 20, 50]);
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const now = performance.now();
+    const count = 12 + Math.floor(Math.random() * 6);
+    const cx = W * 0.3 + Math.random() * W * 0.4; // random vent position
+
+    // Screen flash at base
+    screenFlashesRef.current.push({ cx, cy: H, color: "#f97316", born: now });
+
+    // Staggered eruption bursts
+    for (let i = 0; i < count; i++) {
+      setTimeout(() => {
+        const spread = (Math.random() - 0.5) * W * 0.25;
+        const x = cx + spread;
+        const orb = createOrb(x, H + 10);
+        orb.radius = 6 + Math.random() * 10;
+        // Strong upward velocity with spread
+        orb.vy = -(8 + Math.random() * 7);
+        orb.vx = (Math.random() - 0.5) * 4 + spread * 0.01;
+        orbsRef.current.push(orb);
+
+        // Ember trail from launch point
+        for (let j = 0; j < 3; j++) {
+          embersRef.current.push({
+            x: x + (Math.random() - 0.5) * 10,
+            y: H - Math.random() * 20,
+            vx: (Math.random() - 0.5) * 3,
+            vy: -(2 + Math.random() * 4),
+            radius: 1.5 + Math.random() * 2,
+            color: ["#f97316", "#ef4444", "#fbbf24", "#f59e0b"][Math.floor(Math.random() * 4)],
+            born: performance.now(),
+            life: 600 + Math.random() * 400,
+          });
+        }
+
+        ripplesRef.current.push({ x, y: H, color: orb.color, born: performance.now() });
+        setOrbCount(orbsRef.current.length);
+      }, i * 60 + Math.random() * 40);
+    }
+
+    // Ground shake builds up
+    shakeRef.current = Math.max(shakeRef.current, 15);
+    setTimeout(() => { shakeRef.current = Math.max(shakeRef.current, 10); }, 300);
+
+    // Shockwave from vent after a delay
+    setTimeout(() => {
+      wavesRef.current.push({
+        cx, cy: H, radius: 0,
+        color: "#f97316", generation: 0, hitOrbs: new Set(), delay: 0,
+      });
+      playBoom();
+    }, count * 40);
+
+    playMeteorSound();
+  }, []);
+
   const handleTide = useCallback(() => {
     const dir = tideDirRef.current;
     tideDirRef.current *= -1;
@@ -9417,6 +9475,10 @@ function App() {
         case "?":
           setShowHelp((prev) => !prev);
           break;
+        case "'":
+          handleEruption();
+          flashLabel("ERUPTION", "#f97316");
+          break;
         case "arrowdown":
         case "arrowup":
         case "arrowleft":
@@ -9441,7 +9503,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleSmash, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleFissionMode, handleSpiral, handleEcho, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleEruption, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleSmash, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleFissionMode, handleSpiral, handleEcho, paletteIndex, setShowHelp]);
 
 
   return (
@@ -9593,16 +9655,12 @@ function App() {
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleCrossfire} title="Crossfire">
+          <ActionButton onClick={handleEruption} title="Eruption">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="2" y1="12" x2="10" y2="12" />
-              <polyline points="7 9 10 12 7 15" />
-              <line x1="22" y1="12" x2="14" y2="12" />
-              <polyline points="17 9 14 12 17 15" />
-              <line x1="12" y1="2" x2="12" y2="10" />
-              <polyline points="9 7 12 10 15 7" />
-              <line x1="12" y1="22" x2="12" y2="14" />
-              <polyline points="9 17 12 14 15 17" />
+              <path d="M12 2 L10 8 L8 5 L7 9" />
+              <path d="M12 2 L14 7 L16 4 L17 9" />
+              <path d="M5 22 L8 14 L12 16 L16 14 L19 22" />
+              <line x1="12" y1="10" x2="12" y2="16" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleSpiral} title="Spiral galaxy">
@@ -9739,6 +9797,7 @@ function App() {
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Comet</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
+              <Shortcut><Key>'</Key><span>Eruption (volcanic burst)</span></Shortcut>
               <Shortcut><Key>4</Key><span>Crossfire (orbs from all edges)</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
