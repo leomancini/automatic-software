@@ -1554,6 +1554,20 @@ function App() {
           ctx.fillStyle = `rgba(102, 126, 234, ${pulseAlpha})`;
           ctx.fillRect(0, 0, W, H);
         }
+        // Beat pulse: canvas-wide brightness flash on each detected tap beat
+        {
+          const beat = beatRef.current;
+          if (beat.strength > 0.1 && beat.interval > 0 && tapTimesRef.current.length > 0) {
+            const elapsed = now - tapTimesRef.current[tapTimesRef.current.length - 1];
+            const fade = Math.max(0, 1 - elapsed / (beat.interval * 6));
+            const phase = (elapsed % beat.interval) / beat.interval;
+            const beatFlash = Math.exp(-phase * 5) * beat.strength * fade;
+            if (beatFlash > 0.01) {
+              ctx.fillStyle = `rgba(140, 160, 255, ${(beatFlash * 0.07).toFixed(3)})`;
+              ctx.fillRect(0, 0, W, H);
+            }
+          }
+        }
       }
 
       // ── Aurora: subtle drifting light curtains in the upper sky ──
@@ -1566,7 +1580,17 @@ function App() {
           const o = orbs[ai];
           if (!o.spark) _auroraEnergy += o.vx * o.vx + o.vy * o.vy;
         }
-        const _auroraBoost = Math.min(_auroraEnergy / 80, 1);
+        let _auroraBoost = Math.min(_auroraEnergy / 80, 1);
+        // Beat-sync aurora: intensify on each detected beat
+        {
+          const beat = beatRef.current;
+          if (beat.strength > 0.1 && beat.interval > 0 && tapTimesRef.current.length > 0) {
+            const elapsed = now - tapTimesRef.current[tapTimesRef.current.length - 1];
+            const fade = Math.max(0, 1 - elapsed / (beat.interval * 6));
+            const phase = (elapsed % beat.interval) / beat.interval;
+            _auroraBoost += Math.exp(-phase * 4) * beat.strength * fade * 0.5;
+          }
+        }
         const _auroraBands = [
           { hue: 150, yFrac: 0.11, speed: 0.12, freq: 3.0 },
           { hue: 190, yFrac: 0.19, speed: 0.16, freq: 2.5 },
@@ -1833,8 +1857,17 @@ function App() {
             ctx.fill();
           }
         } else {
-          // Normal star rendering (with shockwave flare)
-          const f = star.flare || 0;
+          // Normal star rendering (with shockwave flare + beat pulse)
+          let f = star.flare || 0;
+          {
+            const beat = beatRef.current;
+            if (beat.strength > 0.1 && beat.interval > 0 && tapTimesRef.current.length > 0) {
+              const elapsed = now - tapTimesRef.current[tapTimesRef.current.length - 1];
+              const fade = Math.max(0, 1 - elapsed / (beat.interval * 6));
+              const phase = (elapsed % beat.interval) / beat.interval;
+              f += Math.exp(-phase * 4) * beat.strength * fade * 0.3;
+            }
+          }
           const alpha = Math.min(twinkle * 0.5 + f, 1);
           const sz = star.size * (1 + f * 3);
           if (f > 0.15) {
