@@ -10153,7 +10153,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "right-click for a surprise", "shake your phone for a shockwave"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try n-body mode \u00b7 orbs orbit each other", "try black hole \u00b7 watch orbs spiral in"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try n-body mode \u00b7 orbs orbit each other", "tap the dice for a surprise effect"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -10304,6 +10304,16 @@ function App() {
               <line x1="19" y1="5" x2="15" y2="9" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleSurprise} title="Surprise">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
+              <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" />
+              <circle cx="8.5" cy="15.5" r="1.5" fill="currentColor" />
+              <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+            </svg>
+          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handlePlaceWell} title="Place gravity well">
@@ -10389,7 +10399,6 @@ function App() {
               <Shortcut><Key>dbl-click</Key><span>Burst (empty) / remove (orb)</span></Shortcut>
               <Shortcut><Key>hold</Key><span>Charge → release to detonate</span></Shortcut>
               <Shortcut><Key>right-click</Key><span>Split orb / random effect</span></Shortcut>
-              <Shortcut><Key>overlap</Key><span>Merge (big ones split!)</span></Shortcut>
               <Shortcut><Key>rapid taps</Key><span>Combo streaks → bonus effects</span></Shortcut>
               <Shortcut><Key>pinch</Key><span>Gather / spread / spin orbs</span></Shortcut>
               <Shortcut><Key>shake</Key><span>Shockwave (mobile)</span></Shortcut>
@@ -10399,35 +10408,20 @@ function App() {
               <Shortcut><Key>W</Key><span>Shockwave</span></Shortcut>
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
-              <Shortcut><Key>Z</Key><span>Storm (meteors + lightning)</span></Shortcut>
-              <Shortcut><Key>`</Key><span>Maelstrom (whirlpool)</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
-              <Shortcut><Key>'</Key><span>Eruption (volcanic burst)</span></Shortcut>
-              <Shortcut><Key>4</Key><span>Crossfire (orbs from all edges)</span></Shortcut>
-              <Shortcut><Key>!</Key><span>Grand finale (effect crescendo)</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
-              <Shortcut><Key>Y</Key><span>Cycle palette</span></Shortcut>
-              <Shortcut><Key>N</Key><span>Pulse (implode → explode)</span></Shortcut>
               <Shortcut><Key>0</Key><span>Black hole</span></Shortcut>
-              <Shortcut><Key>[</Key><span>Echo (ghost snapshot)</span></Shortcut>
-              <Shortcut><Key>]</Key><span>Nova chain (cascading explosions)</span></Shortcut>
               <hr />
               <Shortcut><Key>G</Key><span>Cycle gravity direction</span></Shortcut>
-              <Shortcut><Key>=</Key><span>Fission mode</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
               <Shortcut><Key>O</Key><span>Magnet cursor</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
-              <Shortcut><Key>T</Key><span>Trails mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
-              <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>A</Key><span>N-body gravity</span></Shortcut>
-              <Shortcut><Key>K</Key><span>Flocking swarm</span></Shortcut>
-              <Shortcut><Key>5</Key><span>Rain mode</span></Shortcut>
-              <Shortcut><Key>7</Key><span>Heartbeat pulse</span></Shortcut>
-              <Shortcut><Key>-</Key><span>Wave mode</span></Shortcut>
               <Shortcut><Key>.</Key><span>Bounce mode</span></Shortcut>
+              <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>Esc</Key><span>Theater mode (screensaver)</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
