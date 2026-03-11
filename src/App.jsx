@@ -2636,6 +2636,32 @@ function App() {
               }
               shakeRef.current = Math.max(shakeRef.current, 12);
             },
+            // gravity pulse (gather then explode)
+            () => {
+              const cx2 = W / 2, cy2 = H / 2;
+              for (const o of orbs) {
+                const dx = cx2 - o.x, dy = cy2 - o.y;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                o.vx += (dx / dist) * (5 + Math.random() * 3);
+                o.vy += (dy / dist) * (5 + Math.random() * 3);
+              }
+              ripplesRef.current.push({ x: cx2, y: cy2, color: "#a78bfa", born: now });
+              shakeRef.current = Math.max(shakeRef.current, 8);
+              playSwoosh();
+              setTimeout(() => {
+                for (const o of orbsRef.current) {
+                  const dx = o.x - cx2, dy = o.y - cy2;
+                  const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                  o.vx += (dx / dist) * (6 + Math.random() * 5);
+                  o.vy += (dy / dist) * (6 + Math.random() * 5);
+                }
+                wavesRef.current.push({ cx: cx2, cy: cy2, radius: 0, color: "#a78bfa", generation: 0, hitOrbs: new Set(), delay: 0 });
+                wavesRef.current.push({ cx: cx2, cy: cy2, radius: 0, color: "#c084fc", generation: 1, hitOrbs: new Set(), delay: 6 });
+                shakeRef.current = Math.max(shakeRef.current, 20);
+                screenFlashesRef.current.push({ cx: cx2, cy: cy2, color: "#a78bfa", born: performance.now() });
+                playBoom();
+              }, 400);
+            },
             // meteor shower
             () => {
               for (let i = 0; i < METEOR_COUNT; i++) {
@@ -10392,6 +10418,10 @@ function App() {
           handleEruption();
           flashLabel("ERUPTION", "#f97316");
           break;
+        case "\\":
+          handleGravityPulse();
+          flashLabel("GRAVITY PULSE", "#a78bfa");
+          break;
         case "!":
           handleGrandFinale();
           break;
@@ -10571,6 +10601,13 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleGravityPulse} title="Gravity pulse">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" fill="currentColor" />
+              <path d="M5 5l3 3M19 5l-3 3M5 19l3-3M19 19l-3-3" />
+              <circle cx="12" cy="12" r="10" opacity="0.4" strokeDasharray="4 2" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleLightning} title="Chain lightning">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -10685,6 +10722,7 @@ function App() {
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin (double-tap: centrifuge!)</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
+              <Shortcut><Key>\</Key><span>Gravity pulse (implode → explode)</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Rebound (reverse all velocities)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>0</Key><span>Black hole</span></Shortcut>
