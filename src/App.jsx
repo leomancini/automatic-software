@@ -222,6 +222,7 @@ function App() {
   const audioEnabledRef = useRef(true);
   const streakRef = useRef(0);
   const lastTapTimeRef = useRef(0);
+  const lastSpinTimeRef = useRef(0); // for double-spin centrifuge detection
   const lastTapPosRef = useRef({ x: 0, y: 0 }); // for double-tap detection
   const tapTimesRef = useRef([]); // recent tap timestamps for beat detection
   const beatRef = useRef({ interval: 0, strength: 0 }); // detected rhythm state
@@ -5009,7 +5010,7 @@ function App() {
           const warpT = Math.min(maxWarp / MESH_MAX_DISPLACEMENT, 1);
           const alpha = MESH_BASE_ALPHA + warpT * (MESH_WARP_ALPHA - MESH_BASE_ALPHA);
           ctx.strokeStyle = warpColor
-            ? hexAlpha(warpColor, alpha)
+            ? warpColor + hexAlpha(alpha * 255)
             : `rgba(102, 126, 234, ${alpha})`;
           ctx.stroke();
         }
@@ -5043,7 +5044,7 @@ function App() {
           const warpT = Math.min(maxWarp / MESH_MAX_DISPLACEMENT, 1);
           const alpha = MESH_BASE_ALPHA + warpT * (MESH_WARP_ALPHA - MESH_BASE_ALPHA);
           ctx.strokeStyle = warpColor
-            ? hexAlpha(warpColor, alpha)
+            ? warpColor + hexAlpha(alpha * 255)
             : `rgba(102, 126, 234, ${alpha})`;
           ctx.stroke();
         }
@@ -8429,8 +8430,58 @@ function App() {
     const H = window.innerHeight;
     const cx = W / 2;
     const cy = H / 2;
-    const dir = Math.random() > 0.5 ? 1 : -1;
     const spinNow = performance.now();
+    const doubleSpin = spinNow - lastSpinTimeRef.current < 800;
+    lastSpinTimeRef.current = spinNow;
+
+    if (doubleSpin && orbsRef.current.length > 0) {
+      // ── Centrifuge: double-spin flings orbs outward in a spiral explosion ──
+      haptic(40);
+      const centrifugeColor = randomColor();
+      for (const orb of orbsRef.current) {
+        const dx = orb.x - cx;
+        const dy = orb.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        // Strong outward radial push
+        const radialForce = 6 + Math.random() * 4;
+        orb.vx += (dx / dist) * radialForce;
+        orb.vy += (dy / dist) * radialForce;
+        // Add tangential spin for spiral trajectory
+        const tangentForce = 3 + Math.random() * 2;
+        orb.vx += (-dy / dist) * tangentForce;
+        orb.vy += (dx / dist) * tangentForce;
+        // Flash each orb
+        orb.hitGlow = 1;
+      }
+      // Double shockwave rings
+      wavesRef.current.push({ cx, cy, radius: 0, color: centrifugeColor, generation: 0, hitOrbs: new Set(), delay: 0 });
+      wavesRef.current.push({ cx, cy, radius: 0, color: randomColor(), generation: 1, hitOrbs: new Set(), delay: 4 });
+      // Spiral sparks from center
+      for (let i = 0; i < 24; i++) {
+        const angle = (Math.PI * 2 * i) / 24 + Math.random() * 0.3;
+        const spd = 4 + Math.random() * 6;
+        mergeSparksRef.current.push({
+          x: cx, y: cy,
+          vx: Math.cos(angle) * spd,
+          vy: Math.sin(angle) * spd,
+          color: centrifugeColor,
+          size: 2 + Math.random() * 3,
+          born: spinNow,
+          lifetime: 800,
+        });
+      }
+      // Big vortex visual
+      vortexesRef.current.push({ cx, cy, born: spinNow, color: centrifugeColor, direction: 1 });
+      vortexesRef.current.push({ cx, cy, born: spinNow, color: randomColor(), direction: -1 });
+      shakeRef.current = Math.max(shakeRef.current, 18);
+      screenFlashesRef.current.push({ cx, cy, color: centrifugeColor, born: spinNow });
+      comboFlashRef.current.push({ text: "CENTRIFUGE", x: cx, y: cy - 40, born: spinNow, color: centrifugeColor });
+      playBoom();
+      return true; // signals centrifuge was triggered
+    }
+
+    // ── Normal spin ──
+    const dir = Math.random() > 0.5 ? 1 : -1;
     for (const orb of orbsRef.current) {
       orb.spunAt = spinNow;
       const dx = orb.x - cx;
@@ -9981,8 +10032,7 @@ function App() {
           flashLabel("GATHER", "#43e97b");
           break;
         case "r":
-          handleSpin();
-          flashLabel("SPIN", "#f093fb");
+          if (!handleSpin()) flashLabel("SPIN", "#f093fb");
           break;
         case "b":
           handleBurst();
@@ -10424,7 +10474,7 @@ function App() {
               <Shortcut><Key>F</Key><span>Firework</span></Shortcut>
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
-              <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
+              <Shortcut><Key>R</Key><span>Spin (double-tap: centrifuge!)</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>0</Key><span>Black hole</span></Shortcut>
