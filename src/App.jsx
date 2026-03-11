@@ -180,6 +180,7 @@ function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [saveFlash, setSaveFlash] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
+  const [blackHoleActive, setBlackHoleActive] = useState(false);
   const autoplayModeRef = useRef(false);
   const [theaterMode, setTheaterMode] = useState(false);
   const theaterModeRef = useRef(false);
@@ -3438,6 +3439,7 @@ function App() {
           shakeRef.current = Math.max(shakeRef.current, 45);
           playBoom();
           blackHoleRef.current = null;
+          setBlackHoleActive(false);
           setOrbCount(orbsRef.current.length);
         }
       }
@@ -7721,6 +7723,7 @@ function App() {
     barriersRef.current = [];
     scorchMarksRef.current = [];
     blackHoleRef.current = null;
+    setBlackHoleActive(false);
     setOrbCount(0);
     shakeRef.current = 30;
     playSupernovaSound();
@@ -8688,28 +8691,7 @@ function App() {
     }, 3800);
   }, [handleGather, handleSpin, handleLightning, handleWave, handleSupernova, handleMeteorShower, handleBurst, handleFirework]);
 
-  const handleLucky = useCallback(() => {
-    ensureAudio();
-    const effects = [
-      { fn: handleBurst, label: "BURST", color: "#667eea" },
-      { fn: handleMeteorShower, label: "METEORS", color: "#43e97b" },
-      { fn: handleWave, label: "SHOCKWAVE", color: "#4facfe" },
-      { fn: handleFirework, label: "FIREWORK", color: "#fa709a" },
-      { fn: handleSupernova, label: "SUPERNOVA", color: "#f093fb" },
-      { fn: handleLightning, label: "LIGHTNING", color: "#4facfe" },
-      { fn: handleScatter, label: "SCATTER", color: "#fa709a" },
-      { fn: handleSpin, label: "SPIN", color: "#f093fb" },
-    ];
-    const pick = effects[Math.floor(Math.random() * effects.length)];
-    pick.fn();
-    comboFlashRef.current.push({
-      text: pick.label,
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-      born: performance.now(),
-      color: pick.color,
-    });
-  }, [handleBurst, handleMeteorShower, handleWave, handleFirework, handleSupernova, handleLightning, handleScatter, handleSpin]);
+
 
   const handleGalaxy = useCallback(() => {
     if (galaxyRef.current) return;
@@ -8745,6 +8727,7 @@ function App() {
         });
       }
       blackHoleRef.current = null;
+      setBlackHoleActive(false);
       shakeRef.current = 8;
       return;
     }
@@ -8770,6 +8753,7 @@ function App() {
       mass: 0,
       diskDots: dots,
     };
+    setBlackHoleActive(true);
     ripplesRef.current.push({ x: cx, y: cy, color: "#a855f7", born: performance.now() });
     shakeRef.current = 12;
     playBlackHoleSound();
@@ -9154,7 +9138,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "right-click for a surprise"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try n-body mode \u00b7 orbs orbit each other", "try the finale button \u00b7 watch the fireworks"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try n-body mode \u00b7 orbs orbit each other", "try black hole \u00b7 watch orbs spiral in"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -9268,14 +9252,11 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleLucky} title="Random effect">
+          <ActionButton onClick={handleBlackHole} title="Black hole" $active={!!blackHoleActive}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="3" />
-              <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" />
-              <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" />
-              <circle cx="12" cy="12" r="1.2" fill="currentColor" />
-              <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor" />
-              <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" />
+              <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+              <path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5" />
+              <path d="M12 20.5a8.5 8.5 0 0 1-8.5-8.5" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
