@@ -10762,11 +10762,16 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleGravityPulse} title="Gravity pulse">
+          <ActionButton onClick={handleScatter} title="Scatter orbs">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" fill="currentColor" />
-              <path d="M5 5l3 3M19 5l-3 3M5 19l3-3M19 19l-3-3" />
-              <circle cx="12" cy="12" r="10" opacity="0.4" strokeDasharray="4 2" />
+              <line x1="12" y1="12" x2="5" y2="5" />
+              <polyline points="5 9 5 5 9 5" />
+              <line x1="12" y1="12" x2="19" y2="5" />
+              <polyline points="15 5 19 5 19 9" />
+              <line x1="12" y1="12" x2="5" y2="19" />
+              <polyline points="9 19 5 19 5 15" />
+              <line x1="12" y1="12" x2="19" y2="19" />
+              <polyline points="19 15 19 19 15 19" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleLightning} title="Chain lightning">
@@ -10819,6 +10824,9 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
+        </ModeToggle>
+        <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode — orbs leave trails on canvas (P)">
+          paint
         </ModeToggle>
         <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body — mutual gravity orbits (A)">
           n-body
