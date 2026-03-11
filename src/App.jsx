@@ -4815,29 +4815,31 @@ function App() {
         }
       }
 
-      // draw trails
+      // draw trails — smooth gradient fade from tail to head
       if (trailsModeRef.current) {
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
+        ctx.lineCap = "round";
         for (const orb of orbs) {
           const t = orb.trail;
           if (!t || t.length < 4) continue;
           const pts = t.length / 2;
-          ctx.beginPath();
-          ctx.moveTo(t[0], t[1]);
-          for (let ti = 2; ti < t.length; ti += 2) {
-            ctx.lineTo(t[ti], t[ti + 1]);
-          }
-          ctx.lineWidth = Math.max(1, orb.radius * 0.4);
-          ctx.strokeStyle = orb.color + "55";
-          ctx.stroke();
-          // bright head segment
-          if (pts >= 2) {
+          // batch into 4 segments for performance (tail → mid-low → mid-high → head)
+          const bands = [
+            { from: 0, to: Math.floor(pts * 0.4), alpha: 0.12, width: 0.25 },
+            { from: Math.floor(pts * 0.4), to: Math.floor(pts * 0.65), alpha: 0.25, width: 0.4 },
+            { from: Math.floor(pts * 0.65), to: Math.floor(pts * 0.85), alpha: 0.45, width: 0.6 },
+            { from: Math.floor(pts * 0.85), to: pts - 1, alpha: 0.75, width: 0.8 },
+          ];
+          for (const band of bands) {
+            if (band.from >= band.to) continue;
             ctx.beginPath();
-            ctx.moveTo(t[t.length - 4], t[t.length - 3]);
-            ctx.lineTo(t[t.length - 2], t[t.length - 1]);
-            ctx.lineWidth = Math.max(1.5, orb.radius * 0.6);
-            ctx.strokeStyle = orb.color + "aa";
+            ctx.moveTo(t[band.from * 2], t[band.from * 2 + 1]);
+            for (let i = band.from + 1; i <= band.to; i++) {
+              ctx.lineTo(t[i * 2], t[i * 2 + 1]);
+            }
+            ctx.lineWidth = Math.max(0.5, orb.radius * band.width);
+            ctx.strokeStyle = orb.color + hexAlpha(Math.floor(band.alpha * 255));
             ctx.stroke();
           }
         }
@@ -9679,6 +9681,9 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="Orbit — orbs attract each other (A)">
           orbit
+        </ModeToggle>
+        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — light trails behind orbs (T)">
+          trails
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
