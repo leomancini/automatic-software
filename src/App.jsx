@@ -9331,8 +9331,8 @@ function App() {
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor — orbs orbit your finger (O)">
           magnet
         </ModeToggle>
-        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body gravity — orbs attract each other (A)">
-          n-body
+        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails mode">
+          trails
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
