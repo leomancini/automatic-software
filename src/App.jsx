@@ -10692,6 +10692,7 @@ function App() {
           {trailsMode && <ModePill $color="#c084fc">trails</ModePill>}
           {bounceMode && <ModePill $color="#f97316">bounce</ModePill>}
           {barrierMode && <ModePill $color="#f59e0b">walls</ModePill>}
+          {sparklerMode && <ModePill $color="#fbbf24">sparkler</ModePill>}
           {tiltMode && <ModePill $color="#e879f9">tilt</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -10818,6 +10819,9 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — orbs leave glowing comet tails (T)">
           trails
+        </ModeToggle>
+        <ModeToggle onClick={handleSparklerMode} $active={sparklerMode} $color="#fbbf24" title="Sparkler — drag to draw sparkling particle streams">
+          sparkler
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
