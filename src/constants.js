@@ -259,6 +259,11 @@ export const BOUNCE_SPARK_SIZE = 1.8;      // base radius
 export const BOUNCE_SHAKE_THRESHOLD = 5;   // min relative speed for screen shake
 export const BOUNCE_SHAKE_INTENSITY = 3;   // max screen shake from bounce
 
+// Impact numbers (floating collision force readout)
+export const IMPACT_NUM_DURATION = 800;    // ms lifetime
+export const IMPACT_NUM_RISE = 35;         // px total upward drift
+export const IMPACT_NUM_MIN_SPEED = 4;     // min relSpeed to show a number
+
 // ── Merge sparks (collision particles) ──────────────────────────────
 export const MERGE_SPARK_COUNT = 10;     // particles per merge event
 export const MERGE_SPARK_SPEED = 3.5;    // initial outward velocity

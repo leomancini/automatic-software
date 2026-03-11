@@ -42,6 +42,7 @@ import {
   STORM_DURATION, STORM_ZAP_INTERVAL, STORM_SPIN_FORCE, STORM_RADIAL_FORCE, STORM_ARC_COUNT,
   BOUNCE_RESTITUTION, BOUNCE_SPARK_COUNT, BOUNCE_SPARK_SPEED, BOUNCE_SPARK_LIFETIME,
   BOUNCE_SPARK_SIZE, BOUNCE_SHAKE_THRESHOLD, BOUNCE_SHAKE_INTENSITY,
+  IMPACT_NUM_DURATION, IMPACT_NUM_RISE, IMPACT_NUM_MIN_SPEED,
   MERGE_SPARK_COUNT, MERGE_SPARK_SPEED, MERGE_SPARK_LIFETIME, MERGE_SPARK_SIZE,
   MERGE_PUSH_RADIUS, MERGE_PUSH_FORCE, MERGE_PUSH_SPEED_MIN,
   MAGNET_RANGE, MAGNET_FORCE,
@@ -150,6 +151,7 @@ function App() {
   const mergeSparksRef = useRef([]); // collision spark particles
   const ghostsRef = useRef([]); // echo ghost copies [{x, y, radius, color, born}]
   const scorchMarksRef = useRef([]); // impact scorch marks from high-speed collisions
+  const impactNumsRef = useRef([]); // floating collision force numbers
   const screenFlashesRef = useRef([]); // full-screen radial color flashes from big effects
   const strikesRef = useRef([]); // active orbital strikes
   const stormRef = useRef(null); // active magnetic storm {born, cx, cy, lastZap}
@@ -3779,6 +3781,11 @@ function App() {
                 scorchMarksRef.current.push({ x: cx, y: cy, radius: scorchR, color: blendHexColors(a.color, b.color, 0.5), born: now });
                 if (scorchMarksRef.current.length > SCORCH_MAX) scorchMarksRef.current.shift();
               }
+              // floating impact number at collision point
+              if (relSpeed > IMPACT_NUM_MIN_SPEED && impactNumsRef.current.length < 30) {
+                const val = Math.round(relSpeed * 10);
+                impactNumsRef.current.push({ x: cx, y: cy, value: val, color: blendHexColors(a.color, b.color, 0.5), born: now });
+              }
               // play musical chime on orb-orb collision (pentatonic note mapped to Y)
               if (relSpeed > 2) playCollisionChime(cy, H, Math.min(relSpeed / 6, 1));
               // chain react: energetic bounces emit mini-shockwaves
@@ -6484,6 +6491,27 @@ function App() {
         ctx.fillText(f.text, f.x + 1, f.y - yOff + 1);
         ctx.fillStyle = f.color;
         ctx.fillText(f.text, f.x, f.y - yOff);
+        ctx.restore();
+      }
+
+      // draw floating impact numbers
+      impactNumsRef.current = impactNumsRef.current.filter((n) => now - n.born < IMPACT_NUM_DURATION);
+      for (const n of impactNumsRef.current) {
+        const progress = (now - n.born) / IMPACT_NUM_DURATION;
+        const alpha = progress < 0.15 ? progress / 0.15 : 1 - (progress - 0.15) / 0.85;
+        const yOff = progress * IMPACT_NUM_RISE;
+        const scale = progress < 0.1 ? 0.5 + (progress / 0.1) * 0.5 : 1 - progress * 0.2;
+        const fontSize = Math.round(Math.min(12 + n.value * 0.06, 22) * scale);
+        if (fontSize < 4) continue;
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.85;
+        ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
+        ctx.fillText(n.value, n.x + 1, n.y - yOff + 1);
+        ctx.fillStyle = n.color;
+        ctx.fillText(n.value, n.x, n.y - yOff);
         ctx.restore();
       }
 
@@ -9646,8 +9674,8 @@ function App() {
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor — orbs orbit your finger (O)">
           magnet
         </ModeToggle>
-        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body — orbs orbit each other">
-          n-body
+        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce — elastic billiard collisions (.)">
+          bounce
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
