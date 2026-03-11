@@ -8960,71 +8960,26 @@ function App() {
     playSwoosh();
   }, []);
 
-  const finaleRef = useRef(false);
-  const handleFinale = useCallback(() => {
-    haptic([15, 20, 15, 20, 30, 40, 60]);
-    if (finaleRef.current) return;
-    finaleRef.current = true;
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const cx = W / 2;
-    const cy = H / 2;
+  const handleSmash = useCallback(() => {
+    const orbs = orbsRef.current;
+    if (orbs.length < 2) return;
+    haptic([20, 30, 50]);
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
     const now = performance.now();
-
-    comboFlashRef.current.push({ text: "FINALE", x: cx, y: cy, born: now, color: "#fbbf24" });
-
-    // Phase 1: Burst spawn (seed orbs if needed) + Gather
-    if (orbsRef.current.length < 8) {
-      for (let i = 0; i < 12; i++) {
-        const angle = (Math.PI * 2 * i) / 12;
-        const orb = createOrb(cx + Math.cos(angle) * 60, cy + Math.sin(angle) * 60);
-        orb.vx = Math.cos(angle) * 2;
-        orb.vy = Math.sin(angle) * 2;
-        orbsRef.current.push(orb);
-      }
-      playBurstSound();
+    const speed = 18;
+    for (const orb of orbs) {
+      const dx = cx - orb.x;
+      const dy = cy - orb.y;
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      orb.vx = (dx / dist) * speed;
+      orb.vy = (dy / dist) * speed;
     }
-    handleGather();
-
-    // Phase 2: Spin into vortex
-    setTimeout(() => {
-      handleSpin();
-      comboFlashRef.current.push({ text: "SPIN", x: cx, y: cy - 40, born: performance.now(), color: "#f093fb" });
-    }, 500);
-
-    // Phase 3: Chain lightning
-    setTimeout(() => {
-      handleLightning();
-      comboFlashRef.current.push({ text: "LIGHTNING", x: cx, y: cy - 40, born: performance.now(), color: "#4facfe" });
-    }, 1000);
-
-    // Phase 4: Shockwave
-    setTimeout(() => {
-      handleWave();
-      comboFlashRef.current.push({ text: "SHOCKWAVE", x: cx, y: cy - 40, born: performance.now(), color: "#00f2fe" });
-    }, 1500);
-
-    // Phase 5: Supernova
-    setTimeout(() => {
-      handleSupernova();
-      comboFlashRef.current.push({ text: "SUPERNOVA", x: cx, y: cy - 40, born: performance.now(), color: "#f093fb" });
-    }, 2200);
-
-    // Phase 6: Meteor shower rain
-    setTimeout(() => {
-      handleMeteorShower();
-      comboFlashRef.current.push({ text: "METEORS", x: cx, y: cy - 40, born: performance.now(), color: "#43e97b" });
-    }, 3000);
-
-    // Phase 7: Final burst + firework
-    setTimeout(() => {
-      handleBurst();
-      handleFirework();
-      comboFlashRef.current.push({ text: "GRAND FINALE!", x: cx, y: cy, born: performance.now(), color: "#fbbf24" });
-      shakeRef.current = 30;
-      finaleRef.current = false;
-    }, 3800);
-  }, [handleGather, handleSpin, handleLightning, handleWave, handleSupernova, handleMeteorShower, handleBurst, handleFirework]);
+    shakeRef.current = 15;
+    ripplesRef.current.push({ x: cx, y: cy, color: "#ef4444", born: now });
+    comboFlashRef.current.push({ text: "SMASH", x: cx, y: cy, born: now, color: "#ef4444" });
+    playSwoosh();
+  }, []);
 
 
 
@@ -9401,7 +9356,7 @@ function App() {
           flashLabel(volatileModeRef.current ? "VOLATILE OFF" : "VOLATILE ON", "#ef4444");
           break;
         case ";":
-          handleFinale();
+          handleSmash();
           break;
         case "-":
           handleWaveMode();
@@ -9454,7 +9409,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleFinale, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleFissionMode, handleSpiral, handleEcho, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleSmash, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleFissionMode, handleSpiral, handleEcho, paletteIndex, setShowHelp]);
 
 
   return (
@@ -9601,9 +9556,16 @@ function App() {
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleFinale} title="Finale — chain all effects">
+          <ActionButton onClick={handleSmash} title="Smash">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              <line x1="4" y1="4" x2="10" y2="10" />
+              <polyline points="4 8 4 4 8 4" />
+              <line x1="20" y1="4" x2="14" y2="10" />
+              <polyline points="16 4 20 4 20 8" />
+              <line x1="4" y1="20" x2="10" y2="14" />
+              <polyline points="8 20 4 20 4 16" />
+              <line x1="20" y1="20" x2="14" y2="14" />
+              <polyline points="20 16 20 20 16 20" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -9732,7 +9694,7 @@ function App() {
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Comet</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
-              <Shortcut><Key>;</Key><span>Finale (chain all effects!)</span></Shortcut>
+              <Shortcut><Key>;</Key><span>Smash (hurl all orbs to center)</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
