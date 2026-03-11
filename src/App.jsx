@@ -281,6 +281,7 @@ function App() {
   const [gyroMode, setGyroMode] = useState(false);
   const gyroModeRef = useRef(false);
   const gyroAngleRef = useRef(0);
+  const effectChainRef = useRef({ count: 0, lastTime: 0 });
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -7260,7 +7261,43 @@ function App() {
     }));
   }, []);
 
+  // ── Effect Crescendo: chain multiple effects for escalating bonus ──
+  const applyEffectChain = () => {
+    const now = performance.now();
+    const chain = effectChainRef.current;
+    if (now - chain.lastTime < 3000) {
+      chain.count++;
+    } else {
+      chain.count = 1;
+    }
+    chain.lastTime = now;
+    if (chain.count < 2) return;
+    const level = Math.min(chain.count, 6);
+    const W = window.innerWidth, H = window.innerHeight;
+    const label = level >= 5 ? "MEGA CHAIN!" : `${level}X CHAIN!`;
+    const color = level >= 5 ? "#ffd700" : level >= 4 ? "#ff6b6b" : level >= 3 ? "#f093fb" : "#4facfe";
+    comboFlashRef.current.push({ text: label, x: W / 2, y: H * 0.35, born: now, color });
+    shakeRef.current = Math.max(shakeRef.current, 3 * level);
+    const particleCount = 6 * level;
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (Math.PI * 2 * i) / particleCount;
+      const speed = 1.5 + Math.random() * 2 * level;
+      burstsRef.current.push({
+        x: W / 2, y: H / 2,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        color: randomColor(),
+        radius: 1 + Math.random() * 1.5,
+        born: now,
+      });
+    }
+    if (level >= 3) {
+      screenFlashesRef.current.push({ cx: W / 2, cy: H / 2, color, born: now });
+    }
+  };
+
   const handleScatter = useCallback(() => {
+    applyEffectChain();
     const W = window.innerWidth;
     const H = window.innerHeight;
     const cx = W / 2;
@@ -7478,6 +7515,7 @@ function App() {
   }, []);
 
   const handleSpin = useCallback(() => {
+    applyEffectChain();
     const W = window.innerWidth;
     const H = window.innerHeight;
     const cx = W / 2;
@@ -7510,6 +7548,7 @@ function App() {
   }, []);
 
   const handleWave = useCallback(() => {
+    applyEffectChain();
     const mx = mouseRef.current.x;
     const my = mouseRef.current.y;
     // Fire from cursor position, fall back to center if no interaction yet
@@ -7797,6 +7836,7 @@ function App() {
   }, [handleCyclePalette, paletteIndex]);
 
   const handleBurst = useCallback(() => {
+    applyEffectChain();
     const W = window.innerWidth;
     const H = window.innerHeight;
     const now = performance.now();
@@ -7897,6 +7937,7 @@ function App() {
 
 
   const handleFirework = useCallback(() => {
+    applyEffectChain();
     const W = window.innerWidth;
     const H = window.innerHeight;
     const launchX = W * 0.2 + Math.random() * W * 0.6;
@@ -8401,6 +8442,29 @@ function App() {
     }, 3800);
   }, [handleGather, handleSpin, handleLightning, handleWave, handleSupernova, handleMeteorShower, handleBurst, handleFirework]);
 
+  const handleLucky = useCallback(() => {
+    ensureAudio();
+    const effects = [
+      { fn: handleBurst, label: "BURST", color: "#667eea" },
+      { fn: handleMeteorShower, label: "METEORS", color: "#43e97b" },
+      { fn: handleWave, label: "SHOCKWAVE", color: "#4facfe" },
+      { fn: handleFirework, label: "FIREWORK", color: "#fa709a" },
+      { fn: handleSupernova, label: "SUPERNOVA", color: "#f093fb" },
+      { fn: handleLightning, label: "LIGHTNING", color: "#4facfe" },
+      { fn: handleScatter, label: "SCATTER", color: "#fa709a" },
+      { fn: handleSpin, label: "SPIN", color: "#f093fb" },
+    ];
+    const pick = effects[Math.floor(Math.random() * effects.length)];
+    pick.fn();
+    comboFlashRef.current.push({
+      text: pick.label,
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+      born: performance.now(),
+      color: pick.color,
+    });
+  }, [handleBurst, handleMeteorShower, handleWave, handleFirework, handleSupernova, handleLightning, handleScatter, handleSpin]);
+
   const handleGalaxy = useCallback(() => {
     if (galaxyRef.current) return;
     const orbs = orbsRef.current;
@@ -8767,6 +8831,26 @@ function App() {
         case "?":
           setShowHelp((prev) => !prev);
           break;
+        case "arrowdown":
+        case "arrowup":
+        case "arrowleft":
+        case "arrowright": {
+          e.preventDefault();
+          const dirMap = { arrowdown: "down", arrowup: "up", arrowleft: "left", arrowright: "right" };
+          const arrowMap = { down: "\u2193", up: "\u2191", left: "\u2190", right: "\u2192" };
+          const dir = dirMap[e.key.toLowerCase()];
+          if (gravityRef.current && gravityDirRef.current === dir) {
+            gravityRef.current = false;
+            setGravityOn(false);
+            flashLabel("GRAVITY OFF", "#43e97b");
+          } else {
+            gravityRef.current = true;
+            gravityDirRef.current = dir;
+            setGravityOn(true);
+            flashLabel("GRAVITY " + arrowMap[dir], "#43e97b");
+          }
+          break;
+        }
       }
     };
     window.addEventListener("keydown", handleKey);
@@ -8913,7 +8997,7 @@ function App() {
           </ActionButton>
           <ActionButton onClick={handleFinale} title="Finale" $highlight>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12,2 15,9 22,9 16.5,14 18.5,21 12,17 5.5,21 7.5,14 2,9 9,9" />
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
