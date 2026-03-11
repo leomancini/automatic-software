@@ -9895,6 +9895,15 @@ function App() {
               <path d="M17 11C14 14 10 17 5 20" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleCrossfire} title="Crossfire — orbs from all edges (4)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
+              <line x1="2" y1="12" x2="8" y2="12" /><polyline points="6 10 8 12 6 14" />
+              <line x1="22" y1="12" x2="16" y2="12" /><polyline points="18 10 16 12 18 14" />
+              <line x1="12" y1="2" x2="12" y2="8" /><polyline points="10 6 12 8 14 6" />
+              <line x1="12" y1="22" x2="12" y2="16" /><polyline points="10 18 12 16 14 18" />
+            </svg>
+          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handlePlaceWell} title="Place gravity well">
@@ -9904,18 +9913,6 @@ function App() {
                 <path d="M12 2a10 10 0 0 0-7.07 2.93" />
                 <path d="M12 22a10 10 0 0 0 7.07-2.93" />
                 <path d="M12 22a10 10 0 0 1-7.07-2.93" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleScatter} title="Scatter orbs">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="12" x2="5" y2="5" />
-                <polyline points="5 11 5 5 11 5" />
-                <line x1="12" y1="12" x2="19" y2="5" />
-                <polyline points="13 5 19 5 19 11" />
-                <line x1="12" y1="12" x2="5" y2="19" />
-                <polyline points="11 19 5 19 5 13" />
-                <line x1="12" y1="12" x2="19" y2="19" />
-                <polyline points="19 13 19 19 13 19" />
               </svg>
             </ActionButton>
 <ActionButton onClick={handleMaelstrom} title="Maelstrom — spiral in, burst out">
@@ -9973,6 +9970,9 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleChainReact} $active={chainReactMode} $color="#f97316" title="Clash — collisions trigger chain reaction shockwaves">
           clash
+        </ModeToggle>
+        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce — orbs bounce off walls (.)">
+          bounce
         </ModeToggle>
         <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain — continuous gentle rain of orbs">
           rain
