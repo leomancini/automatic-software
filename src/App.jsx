@@ -9196,6 +9196,15 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleCrossfire} title="Crossfire">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="2" y1="12" x2="8" y2="12" /><polyline points="6 10 8 12 6 14" />
+              <line x1="22" y1="12" x2="16" y2="12" /><polyline points="18 14 16 12 18 10" />
+              <line x1="12" y1="2" x2="12" y2="8" /><polyline points="10 6 12 8 14 6" />
+              <line x1="12" y1="22" x2="12" y2="16" /><polyline points="14 18 12 16 10 18" />
+              <circle cx="12" cy="12" r="2" fill="currentColor" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleFinale} title="Finale" $highlight>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -9236,6 +9245,14 @@ function App() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 12a9 9 0 1 1-6.22-8.56" />
                 <polyline points="21 3 21 9 15 9" />
+              </svg>
+            </ActionButton>
+<ActionButton onClick={handleSlam} title="Slam">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="2" x2="12" y2="16" />
+                <polyline points="6 10 12 16 18 10" />
+                <line x1="4" y1="20" x2="20" y2="20" />
+                <line x1="6" y1="22" x2="18" y2="22" opacity="0.5" />
               </svg>
             </ActionButton>
 <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
