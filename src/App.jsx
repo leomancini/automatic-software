@@ -1129,7 +1129,7 @@ function App() {
       }
 
       // ── Tap pulse wave — concentric ripples from every tap ──
-      tapWavesRef.current.push({ x: pos.x, y: pos.y, born: now, color: rippleColor, streak });
+      tapWavesRef.current.push({ x: pos.x, y: pos.y, born: now, color: rippleColor, streak, hitOrbs: new Set() });
 
       setOrbCount(orbsRef.current.length);
       if (streak >= 2) {
@@ -3002,6 +3002,12 @@ function App() {
             const push = TAP_WAVE_PUSH * proximity * fadeOut * streakMul;
             orb.vx += (tdx / tDist) * push;
             orb.vy += (tdy / tDist) * push;
+            // Tap wave resonance: orb emits a colored ripple when the wave passes through
+            if (!tw.hitOrbs) tw.hitOrbs = new Set();
+            if (!tw.hitOrbs.has(orb.id)) {
+              tw.hitOrbs.add(orb.id);
+              ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+            }
           }
         }
 
