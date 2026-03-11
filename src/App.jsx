@@ -9755,6 +9755,14 @@ function App() {
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleComet} title="Comet (Z)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="17" cy="7" r="4" fill="currentColor" />
+              <path d="M15 9C12 12 8 15 3 18" />
+              <path d="M13 11C10 13 7 15 2 16" />
+              <path d="M17 11C14 14 10 17 5 20" />
+            </svg>
+          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handlePlaceWell} title="Place gravity well">
@@ -9778,31 +9786,10 @@ function App() {
                 <polyline points="19 13 19 19 13 19" />
               </svg>
             </ActionButton>
-<ActionButton onClick={handleGather} title="Gather orbs">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="5" y1="5" x2="12" y2="12" />
-                <polyline points="8 5 5 5 5 8" />
-                <line x1="19" y1="5" x2="12" y2="12" />
-                <polyline points="19 8 19 5 16 5" />
-                <line x1="5" y1="19" x2="12" y2="12" />
-                <polyline points="5 16 5 19 8 19" />
-                <line x1="19" y1="19" x2="12" y2="12" />
-                <polyline points="16 19 19 19 19 16" />
-              </svg>
-            </ActionButton>
 <ActionButton onClick={handleSpin} title="Spin orbs">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 12a9 9 0 1 1-6.22-8.56" />
                 <polyline points="21 3 21 9 15 9" />
-              </svg>
-            </ActionButton>
-<ActionButton onClick={handleShuffle} title="Shuffle colors">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="16 3 21 3 21 8" />
-                <line x1="4" y1="20" x2="21" y2="3" />
-                <polyline points="21 16 21 21 16 21" />
-                <line x1="15" y1="15" x2="21" y2="21" />
-                <line x1="4" y1="4" x2="9" y2="9" />
               </svg>
             </ActionButton>
 <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
