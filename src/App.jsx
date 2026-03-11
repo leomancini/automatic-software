@@ -299,6 +299,8 @@ function App() {
   const gyroModeRef = useRef(false);
   const gyroAngleRef = useRef(0);
   const effectChainRef = useRef({ count: 0, lastTime: 0 });
+  const catalystRef = useRef(null); // wandering catalyst { x, y, vx, vy, born, lifespan }
+  const catalystCooldownRef = useRef(0); // next spawn timestamp
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -824,6 +826,35 @@ function App() {
         setNewBest(true);
         if (newBestTimerRef.current) clearTimeout(newBestTimerRef.current);
         newBestTimerRef.current = setTimeout(() => setNewBest(false), 2500);
+      }
+
+      // ── Catalyst tap check ──
+      if (catalystRef.current) {
+        const cat = catalystRef.current;
+        const cdx = pos.x - cat.x, cdy = pos.y - cat.y;
+        if (cdx * cdx + cdy * cdy < 45 * 45) {
+          // Trigger catalyst: mini-burst + shockwave + sparkles
+          for (let ci = 0; ci < 6; ci++) {
+            const cAngle = (Math.PI * 2 * ci) / 6;
+            const catOrb = createOrb(cat.x, cat.y);
+            catOrb.vx = Math.cos(cAngle) * 5.5;
+            catOrb.vy = Math.sin(cAngle) * 5.5;
+            orbsRef.current.push(catOrb);
+          }
+          wavesRef.current.push({ cx: cat.x, cy: cat.y, radius: 0, color: "#fbbf24", generation: 0, hitOrbs: new Set(), delay: 0 });
+          screenFlashesRef.current.push({ cx: cat.x, cy: cat.y, color: "#fbbf24", born: now });
+          for (let si = 0; si < 16; si++) {
+            const sAngle = Math.random() * Math.PI * 2;
+            const sSpeed = TAP_SPARKLE_SPEED * (0.8 + Math.random());
+            tapSparklesRef.current.push({ x: cat.x, y: cat.y, vx: Math.cos(sAngle) * sSpeed, vy: Math.sin(sAngle) * sSpeed, color: "#fbbf24", born: now });
+          }
+          shakeRef.current = Math.max(shakeRef.current, 16);
+          playBurstSound();
+          comboFlashRef.current.push({ text: "CATALYST!", x: cat.x, y: cat.y - 30, born: now, color: "#fbbf24" });
+          catalystRef.current = null;
+          catalystCooldownRef.current = now + 25000 + Math.random() * 15000;
+          setOrbCount(orbsRef.current.length);
+        }
       }
 
       // ── Scale effects by streak ──
@@ -3143,6 +3174,7 @@ function App() {
               }
             }
             orb.x = orb.radius;
+            { const si = Math.min(Math.abs(orb.vx) / 5, 1); if (si > 0.1) { orb.squishAmount = si; orb.squishAngle = 0; orb.squishBorn = now; } }
             orb.vx *= bounceModeRef.current ? -1.0 : -0.6;
           }
           if (orb.x > W - orb.radius) {
@@ -3159,6 +3191,7 @@ function App() {
               }
             }
             orb.x = W - orb.radius;
+            { const si = Math.min(Math.abs(orb.vx) / 5, 1); if (si > 0.1) { orb.squishAmount = si; orb.squishAngle = 0; orb.squishBorn = now; } }
             orb.vx *= bounceModeRef.current ? -1.0 : -0.6;
           }
           if (orb.y < orb.radius) {
@@ -3175,6 +3208,7 @@ function App() {
               }
             }
             orb.y = orb.radius;
+            { const si = Math.min(Math.abs(orb.vy) / 5, 1); if (si > 0.1) { orb.squishAmount = si; orb.squishAngle = Math.PI / 2; orb.squishBorn = now; } }
             orb.vy *= bounceModeRef.current ? -1.0 : -0.6;
           }
           if (orb.y > H - orb.radius) {
@@ -3191,6 +3225,7 @@ function App() {
               }
             }
             orb.y = H - orb.radius;
+            { const si = Math.min(Math.abs(orb.vy) / 5, 1); if (si > 0.1) { orb.squishAmount = si; orb.squishAngle = Math.PI / 2; orb.squishBorn = now; } }
             orb.vy *= bounceModeRef.current ? -1.0 : -0.6;
           }
 
@@ -3725,6 +3760,13 @@ function App() {
               if (relSpeed > BOUNCE_SHAKE_THRESHOLD) {
                 const shakeAmt = Math.min(relSpeed / 10, 1) * BOUNCE_SHAKE_INTENSITY;
                 shakeRef.current = Math.max(shakeRef.current, Math.floor(shakeAmt));
+              }
+              // impact squish on both orbs
+              const squishI = Math.min(relSpeed / 8, 1);
+              if (squishI > 0.1) {
+                const collAngle = Math.atan2(ny, nx);
+                a.squishAmount = squishI; a.squishAngle = collAngle; a.squishBorn = now;
+                b.squishAmount = squishI; b.squishAngle = collAngle; b.squishBorn = now;
               }
               // collision ripple ring at contact point
               if (relSpeed > 1.5) {
@@ -5087,6 +5129,20 @@ function App() {
           ctx.rotate(velAngle);
           ctx.scale(1 + stretchAmt, 1 - stretchAmt * 0.35);
           ctx.rotate(-velAngle);
+        }
+
+        // impact squish: orbs deform like jello on collision then spring back
+        if (orb.squishBorn) {
+          const sqElapsed = (now - orb.squishBorn) / 1000;
+          const sqDecay = Math.exp(-10 * sqElapsed);
+          if (sqDecay > 0.01) {
+            const sqOsc = Math.sin(18 * sqElapsed) * sqDecay * orb.squishAmount;
+            ctx.rotate(orb.squishAngle);
+            ctx.scale(1 - sqOsc * 0.3, 1 + sqOsc * 0.2);
+            ctx.rotate(-orb.squishAngle);
+          } else {
+            orb.squishBorn = 0;
+          }
         }
 
         if (mitosisProgress > 0) {
