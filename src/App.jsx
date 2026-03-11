@@ -3742,6 +3742,9 @@ function App() {
               const cx = (a.x + b.x) / 2;
               const cy = (a.y + b.y) / 2;
               const relSpeed = Math.sqrt(dvx * dvx + dvy * dvy);
+              // collision glow — orbs flash bright on impact
+              a.hitGlow = Math.max(a.hitGlow || 0, Math.min(relSpeed / 4, 1));
+              b.hitGlow = Math.max(b.hitGlow || 0, Math.min(relSpeed / 4, 1));
               // bounce sparks at contact point
               const sparkColors = [a.color, b.color];
               for (let s = 0; s < BOUNCE_SPARK_COUNT; s++) {
@@ -5173,8 +5176,13 @@ function App() {
           ctx.fill();
         }
 
-        // outer glow (expands + brightens with speed)
-        const heat = Math.min(speed / 8, 1);
+        // collision flash: brief bright glow after impact, decays each frame
+        const hitGlow = orb.hitGlow || 0;
+        if (hitGlow > 0.01) orb.hitGlow = hitGlow * 0.9;
+        else orb.hitGlow = 0;
+
+        // outer glow (expands + brightens with speed and collision flash)
+        const heat = Math.min(speed / 8 + hitGlow * 0.6, 1);
         const glowR = r * (3 + heat * 3);
         const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, glowR);
         grad.addColorStop(0, orb.color + hexAlpha(0x66 + heat * 0x55));
@@ -5184,8 +5192,8 @@ function App() {
         ctx.fillStyle = grad;
         ctx.fill();
 
-        // speed corona: warm white glow when moving fast
-        if (heat > 0.15) {
+        // speed corona: warm white glow when moving fast or after collision
+        if (heat > 0.15 || hitGlow > 0.3) {
           const coronaA = (heat - 0.15) * 0.45;
           const coronaR = r * (1.5 + heat * 1.5);
           const corona = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, coronaR);
@@ -9671,8 +9679,8 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet cursor — orbs orbit your finger (O)">
-          magnet
+        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Swarm — orbs flock like birds (K)">
+          swarm
         </ModeToggle>
         <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce — elastic billiard collisions (.)">
           bounce
