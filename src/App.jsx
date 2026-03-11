@@ -1777,6 +1777,12 @@ function App() {
           }
         }
 
+        // Decay star flare from shockwaves
+        if (star.flare > 0) {
+          star.flare *= 0.94;
+          if (star.flare < 0.01) star.flare = 0;
+        }
+
         const twinkle = 0.25 + 0.75 * ((1 + Math.sin(time * star.speed + star.phase)) * 0.5);
 
         if (warpActive && warpElapsed < WARP_CHARGE_MS + WARP_JUMP_MS) {
@@ -1827,11 +1833,24 @@ function App() {
             ctx.fill();
           }
         } else {
-          // Normal star rendering
-          const alpha = twinkle * 0.5;
+          // Normal star rendering (with shockwave flare)
+          const f = star.flare || 0;
+          const alpha = Math.min(twinkle * 0.5 + f, 1);
+          const sz = star.size * (1 + f * 3);
+          if (f > 0.15) {
+            // Glow halo for flared stars
+            const glowR = sz * 4;
+            const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, glowR);
+            g.addColorStop(0, `rgba(220, 235, 255, ${(f * 0.5).toFixed(3)})`);
+            g.addColorStop(1, 'transparent');
+            ctx.beginPath();
+            ctx.arc(sx, sy, glowR, 0, Math.PI * 2);
+            ctx.fillStyle = g;
+            ctx.fill();
+          }
           ctx.beginPath();
-          ctx.arc(sx, sy, star.size, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(200, 210, 255, ${alpha})`;
+          ctx.arc(sx, sy, sz, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${200 + Math.round(f * 55)}, ${210 + Math.round(f * 45)}, 255, ${alpha.toFixed(3)})`;
           ctx.fill();
         }
       }
@@ -4074,6 +4093,16 @@ function App() {
             const fleeForce = WAVE_FEAR_FORCE * fearT * fearT * genForceMultiplier;
             orb.vx += (dx / dist) * fleeForce;
             orb.vy += (dy / dist) * fleeForce;
+          }
+        }
+        // Flare background stars as shockwave passes through them
+        for (const star of starsRef.current) {
+          const stx = star.x * W, sty = star.y * H;
+          const sdx = stx - wave.cx, sdy = sty - wave.cy;
+          const sDist = Math.sqrt(sdx * sdx + sdy * sdy);
+          if (sDist > wave.radius - WAVE_SPEED * 3 && sDist < wave.radius + WAVE_SPEED * 3 && wave.radius > 0) {
+            const intensity = Math.max(0, 0.8 * (1 - wave.radius / maxWaveRadius));
+            star.flare = Math.max(star.flare, intensity);
           }
         }
         // shockwave portal transmission
@@ -7704,6 +7733,7 @@ function App() {
       size: 0.5 + Math.random() * 1.5,
       phase: Math.random() * Math.PI * 2,
       speed: 0.3 + Math.random() * 0.7,
+      flare: 0,
     }));
     motesRef.current = Array.from({ length: MOTE_COUNT }, () => ({
       x: Math.random() * W,
