@@ -878,6 +878,28 @@ function App() {
           orb.radius += radiusBonus;
           orb.vx += ovx;
           orb.vy += ovy;
+          // Orbit mode: launch orbs into orbit around nearest existing orb
+          if (nbodyModeRef.current && orbsRef.current.length > 0) {
+            let nearest = null;
+            let nearestDist = Infinity;
+            for (const other of orbsRef.current) {
+              const ndx = other.x - orb.x;
+              const ndy = other.y - orb.y;
+              const nd = Math.sqrt(ndx * ndx + ndy * ndy);
+              if (nd < nearestDist && nd > 5) { nearestDist = nd; nearest = other; }
+            }
+            if (nearest && nearestDist < 300) {
+              const ndx = orb.x - nearest.x;
+              const ndy = orb.y - nearest.y;
+              const nd = Math.sqrt(ndx * ndx + ndy * ndy);
+              // Orbital speed from circular orbit equation: v = sqrt(G * M / r)
+              const mass = nearest.radius * nearest.radius;
+              const orbSpeed = Math.sqrt(NBODY_G * mass / Math.max(nd, 15)) * 1.3;
+              const dir = Math.random() < 0.5 ? 1 : -1;
+              orb.vx = (-ndy / nd) * orbSpeed * dir;
+              orb.vy = (ndx / nd) * orbSpeed * dir;
+            }
+          }
           if (Math.random() < NOVA_CHANCE) {
             orb.isNova = true;
             orb.novaBorn = now;
@@ -9644,8 +9666,8 @@ function App() {
         <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Swarm — orbs flock like birds (K)">
           swarm
         </ModeToggle>
-        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce — elastic billiard collisions (.)">
-          bounce
+        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="Orbit — orbs attract each other (A)">
+          orbit
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
