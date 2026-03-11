@@ -8242,26 +8242,31 @@ function App() {
   }, []);
 
   const handleGravity = useCallback(() => {
-    const dirs = ["down", "right", "up", "left"];
+    const dirs = ["down", "right", "up", "left", "spin"];
     if (!gravityRef.current) {
       // off → on (down)
       gravityRef.current = true;
       gravityDirRef.current = "down";
+      gyroModeRef.current = false;
+      setGyroMode(false);
       setGravityOn(true);
+    } else if (gyroModeRef.current) {
+      // spin → off
+      gravityRef.current = false;
+      gyroModeRef.current = false;
+      setGyroMode(false);
+      setGravityOn(false);
     } else {
       const idx = dirs.indexOf(gravityDirRef.current);
-      if (idx < dirs.length - 1) {
-        // cycle to next direction
+      if (idx < dirs.length - 2) {
+        // cycle to next directional (down → right → up → left)
         gravityDirRef.current = dirs[idx + 1];
         setGravityOn(true); // force re-render for pill update
       } else {
-        // after left → off
-        gravityRef.current = false;
-        setGravityOn(false);
-        if (gyroModeRef.current) {
-          gyroModeRef.current = false;
-          setGyroMode(false);
-        }
+        // left → spin (rotating gravity)
+        gyroModeRef.current = true;
+        setGyroMode(true);
+        setGravityOn(true);
       }
     }
   }, []);
@@ -10110,13 +10115,15 @@ function App() {
           const dirMap = { arrowdown: "down", arrowup: "up", arrowleft: "left", arrowright: "right" };
           const arrowMap = { down: "\u2193", up: "\u2191", left: "\u2190", right: "\u2192" };
           const dir = dirMap[e.key.toLowerCase()];
-          if (gravityRef.current && gravityDirRef.current === dir) {
+          if (gravityRef.current && gravityDirRef.current === dir && !gyroModeRef.current) {
             gravityRef.current = false;
             setGravityOn(false);
             flashLabel("GRAVITY OFF", "#43e97b");
           } else {
             gravityRef.current = true;
             gravityDirRef.current = dir;
+            gyroModeRef.current = false;
+            setGyroMode(false);
             setGravityOn(true);
             flashLabel("GRAVITY " + arrowMap[dir], "#43e97b");
           }
@@ -10153,7 +10160,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "right-click for a surprise", "shake your phone for a shockwave"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try n-body mode \u00b7 orbs orbit each other", "tap the dice for a surprise effect"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try n-body mode \u00b7 orbs orbit each other", "tap the dice for a surprise effect", "cycle gravity (G) \u00b7 try spin mode"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -10414,7 +10421,7 @@ function App() {
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>0</Key><span>Black hole</span></Shortcut>
               <hr />
-              <Shortcut><Key>G</Key><span>Cycle gravity direction</span></Shortcut>
+              <Shortcut><Key>G</Key><span>Cycle gravity (↓→↑←↻)</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
               <Shortcut><Key>O</Key><span>Magnet cursor</span></Shortcut>
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
