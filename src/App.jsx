@@ -9690,6 +9690,7 @@ function App() {
           {trailsMode && <ModePill $color="#c084fc">trails</ModePill>}
           {barrierMode && <ModePill $color="#f59e0b">walls</ModePill>}
           {tiltMode && <ModePill $color="#e879f9">tilt</ModePill>}
+          {chainReactMode && <ModePill $color="#f97316">clash</ModePill>}
         </ModeIndicators>
       </HUD>
       <ButtonGroup>
@@ -9845,6 +9846,9 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — light trails behind orbs (T)">
           trails
+        </ModeToggle>
+        <ModeToggle onClick={handleChainReact} $active={chainReactMode} $color="#f97316" title="Clash — collisions trigger chain reaction shockwaves">
+          clash
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
