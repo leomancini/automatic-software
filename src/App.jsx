@@ -1080,6 +1080,100 @@ function App() {
       const hit = findOrb(pos.x, pos.y);
       if (hit) {
         splitOrb(hit);
+      } else {
+        // Right-click on empty space: trigger a random popular effect at this position
+        ensureAudio();
+        const now = performance.now();
+        const effects = [
+          () => {
+            // Mini burst at position
+            for (let i = 0; i < 6; i++) {
+              const angle = (Math.PI * 2 * i) / 6;
+              const orb = createOrb(pos.x, pos.y);
+              orb.radius = 6 + Math.random() * 5;
+              orb.vx = Math.cos(angle) * (3 + Math.random() * 2);
+              orb.vy = Math.sin(angle) * (3 + Math.random() * 2);
+              orbsRef.current.push(orb);
+            }
+            setOrbCount(orbsRef.current.length);
+            comboFlashRef.current.push({ text: "BURST", x: pos.x, y: pos.y - 30, born: now, color: "#667eea" });
+            shakeRef.current = Math.max(shakeRef.current, 6);
+            playBurstSound();
+          },
+          () => {
+            // Shockwave at position
+            wavesRef.current.push({ cx: pos.x, cy: pos.y, radius: 0, color: randomColor(), generation: 0, hitOrbs: new Set(), delay: 0 });
+            comboFlashRef.current.push({ text: "SHOCKWAVE", x: pos.x, y: pos.y - 30, born: now, color: "#4facfe" });
+            shakeRef.current = Math.max(shakeRef.current, 10);
+            playBoom();
+          },
+          () => {
+            // Firework at position
+            const count = 8;
+            for (let i = 0; i < count; i++) {
+              const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+              const orb = createOrb(pos.x, pos.y);
+              orb.radius = 4 + Math.random() * 5;
+              orb.vx = Math.cos(angle) * (4 + Math.random() * 3);
+              orb.vy = Math.sin(angle) * (4 + Math.random() * 3);
+              orbsRef.current.push(orb);
+              ripplesRef.current.push({ x: pos.x, y: pos.y, color: orb.color, born: now });
+            }
+            setOrbCount(orbsRef.current.length);
+            comboFlashRef.current.push({ text: "FIREWORK", x: pos.x, y: pos.y - 30, born: now, color: "#fa709a" });
+            shakeRef.current = Math.max(shakeRef.current, 8);
+            playFirePop();
+          },
+          () => {
+            // Lightning from position to nearby orbs
+            if (orbsRef.current.length > 0) {
+              const visited = new Set();
+              const bolts = [];
+              const lSparks = [];
+              let lcx = pos.x, lcy = pos.y;
+              for (let chain = 0; chain < LIGHTNING_MAX_CHAIN; chain++) {
+                let nearest = null, nearestDist = LIGHTNING_CHAIN_DIST;
+                for (const orb of orbsRef.current) {
+                  if (visited.has(orb.id)) continue;
+                  const dx = orb.x - lcx, dy = orb.y - lcy;
+                  const d = Math.sqrt(dx * dx + dy * dy);
+                  if (d < nearestDist) { nearest = orb; nearestDist = d; }
+                }
+                if (!nearest) break;
+                visited.add(nearest.id);
+                bolts.push({ points: generateBolt(lcx, lcy, nearest.x, nearest.y), color: nearest.color });
+                const force = LIGHTNING_FORCE;
+                const dx = nearest.x - lcx, dy = nearest.y - lcy;
+                const d = Math.sqrt(dx * dx + dy * dy) || 1;
+                nearest.vx += (dx / d) * force;
+                nearest.vy += (dy / d) * force;
+                for (let si = 0; si < 3; si++) {
+                  lSparks.push({ x: nearest.x, y: nearest.y, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, color: nearest.color, born: now });
+                }
+                lcx = nearest.x; lcy = nearest.y;
+              }
+              if (bolts.length > 0) {
+                lightningRef.current.push({ bolts, sparks: lSparks, born: now });
+                comboFlashRef.current.push({ text: "LIGHTNING", x: pos.x, y: pos.y - 30, born: now, color: "#00f2fe" });
+                shakeRef.current = Math.max(shakeRef.current, 6);
+                playLightning();
+              }
+            } else {
+              // No orbs — spawn a burst instead
+              for (let i = 0; i < 5; i++) {
+                const angle = (Math.PI * 2 * i) / 5;
+                const orb = createOrb(pos.x, pos.y);
+                orb.vx = Math.cos(angle) * 3;
+                orb.vy = Math.sin(angle) * 3;
+                orbsRef.current.push(orb);
+              }
+              setOrbCount(orbsRef.current.length);
+              comboFlashRef.current.push({ text: "BURST", x: pos.x, y: pos.y - 30, born: now, color: "#667eea" });
+              playBurstSound();
+            }
+          },
+        ];
+        effects[Math.floor(Math.random() * effects.length)]();
       }
     },
     [getPos, findOrb, splitOrb]
@@ -8700,7 +8794,7 @@ function App() {
         <Hint style={{ opacity: tipFading ? 0 : 1, transition: 'opacity 0.4s ease' }}>
           {(() => {
             const tips = orbCount === 0
-              ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch"]
+              ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "right-click for a surprise"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
               : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try trails mode \u00b7 everything looks better", "try the finale button \u00b7 watch the fireworks"];
@@ -8859,21 +8953,6 @@ function App() {
                 <polyline points="21 3 21 9 15 9" />
               </svg>
             </ActionButton>
-            <ActionButton onClick={handleShuffle} title="Shuffle colors" $highlight>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="16 3 21 3 21 8" />
-                <line x1="4" y1="20" x2="21" y2="3" />
-                <polyline points="21 16 21 21 16 21" />
-                <line x1="15" y1="15" x2="21" y2="21" />
-                <line x1="4" y1="4" x2="9" y2="9" />
-              </svg>
-            </ActionButton>
-            <ActionButton onClick={handleBlackHole} title="Black hole">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="5" fill="currentColor" />
-                <ellipse cx="12" cy="12" rx="11" ry="4" opacity="0.5" />
-              </svg>
-            </ActionButton>
 <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -8938,7 +9017,7 @@ function App() {
               <Shortcut><Key>drag</Key><span>Spray orbs / move orb</span></Shortcut>
               <Shortcut><Key>dbl-click</Key><span>Burst (empty) / remove (orb)</span></Shortcut>
               <Shortcut><Key>hold</Key><span>Charge → release to detonate</span></Shortcut>
-              <Shortcut><Key>right-click</Key><span>Split orb</span></Shortcut>
+              <Shortcut><Key>right-click</Key><span>Split orb / random effect</span></Shortcut>
               <Shortcut><Key>overlap</Key><span>Merge (big ones split!)</span></Shortcut>
               <Shortcut><Key>rapid taps</Key><span>Combo streaks → bonus effects</span></Shortcut>
               <Shortcut><Key>pinch</Key><span>Gather / spread / spin orbs</span></Shortcut>
