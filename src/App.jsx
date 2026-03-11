@@ -9591,16 +9591,16 @@ function App() {
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleSmash} title="Smash">
+          <ActionButton onClick={handleCrossfire} title="Crossfire">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="4" y1="4" x2="10" y2="10" />
-              <polyline points="4 8 4 4 8 4" />
-              <line x1="20" y1="4" x2="14" y2="10" />
-              <polyline points="16 4 20 4 20 8" />
-              <line x1="4" y1="20" x2="10" y2="14" />
-              <polyline points="8 20 4 20 4 16" />
-              <line x1="20" y1="20" x2="14" y2="14" />
-              <polyline points="20 16 20 20 16 20" />
+              <line x1="2" y1="12" x2="10" y2="12" />
+              <polyline points="7 9 10 12 7 15" />
+              <line x1="22" y1="12" x2="14" y2="12" />
+              <polyline points="17 9 14 12 17 15" />
+              <line x1="12" y1="2" x2="12" y2="10" />
+              <polyline points="9 7 12 10 15 7" />
+              <line x1="12" y1="22" x2="12" y2="14" />
+              <polyline points="9 17 12 14 15 17" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -9732,7 +9732,7 @@ function App() {
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Comet</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
-              <Shortcut><Key>;</Key><span>Smash (hurl all orbs to center)</span></Shortcut>
+              <Shortcut><Key>4</Key><span>Crossfire (orbs from all edges)</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
