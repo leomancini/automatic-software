@@ -9755,16 +9755,6 @@ function App() {
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleSurprise} title="Surprise — random effect">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="3" />
-              <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
-              <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" />
-              <circle cx="8.5" cy="15.5" r="1.5" fill="currentColor" />
-              <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor" />
-              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-            </svg>
-          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handlePlaceWell} title="Place gravity well">
@@ -9852,6 +9842,9 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleChainReact} $active={chainReactMode} $color="#f97316" title="Clash — collisions trigger chain reaction shockwaves">
           clash
+        </ModeToggle>
+        <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain — continuous gentle rain of orbs">
+          rain
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
