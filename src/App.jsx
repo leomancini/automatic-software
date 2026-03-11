@@ -35,7 +35,7 @@ import {
   TORNADO_FLING_SPEED, TORNADO_DEBRIS_MAX,
   STREAK_WINDOW, STREAK_DECAY_DELAY, STREAK_FIREWORK, STREAK_LIGHTNING,
   STREAK_METEOR, STREAK_SUPERNOVA, STREAK_CASCADE, COMBO_FLASH_DURATION,
-  STREAK_SUPERMASSIVE,
+  STREAK_SUPERMASSIVE, STREAK_NOVA_CHAIN, NOVA_CHAIN_DELAY,
   STRIKE_BEAM_MS, STRIKE_FADE_MS, STRIKE_ORB_COUNT, STRIKE_ORB_SPEED, STRIKE_BEAM_WIDTH,
   IGNITE_SPREAD_DIST, IGNITE_BURN_MS, IGNITE_SPARK_COUNT, IGNITE_SPARK_SPEED,
   IGNITE_SPREAD_CHANCE, EMBER_LIFETIME,
@@ -1126,6 +1126,12 @@ function App() {
         playSupernovaSound();
         playBurstSound();
         comboFlashRef.current.push({ text: "SUPERMASSIVE!", x: pos.x, y: pos.y - 40, born: now, color: "#fff" });
+      }
+
+      if (streak === STREAK_NOVA_CHAIN && orbsRef.current.length >= 2) {
+        // NOVA CHAIN: cascading chain-reaction explosions hop from orb to orb
+        handleNovaChain();
+        comboFlashRef.current.push({ text: "NOVA CHAIN!", x: pos.x, y: pos.y - 40, born: now, color: "#fbbf24" });
       }
 
       // ── Tap pulse wave — concentric ripples from every tap ──
@@ -8606,6 +8612,84 @@ function App() {
   }, []);
 
 
+  const handleNovaChain = useCallback(() => {
+    haptic([20, 30, 40]);
+    const orbs = orbsRef.current;
+    if (orbs.length < 2) return;
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    // Build nearest-neighbor chain starting from center
+    const chain = [];
+    const remaining = orbs.map((o, i) => i);
+    let cur = { x: cx, y: cy };
+    while (remaining.length > 0) {
+      let best = 0, bestDist = Infinity;
+      for (let i = 0; i < remaining.length; i++) {
+        const o = orbs[remaining[i]];
+        const d = (o.x - cur.x) ** 2 + (o.y - cur.y) ** 2;
+        if (d < bestDist) { bestDist = d; best = i; }
+      }
+      chain.push(orbs[remaining[best]]);
+      cur = orbs[remaining[best]];
+      remaining.splice(best, 1);
+    }
+    // Cascade through chain with staggered timing
+    const maxChain = Math.min(chain.length, 80);
+    for (let i = 0; i < maxChain; i++) {
+      setTimeout(() => {
+        const orb = chain[i];
+        if (!orb) return;
+        const now = performance.now();
+        // Mini shockwave at orb position
+        wavesRef.current.push({
+          cx: orb.x, cy: orb.y, radius: 0,
+          color: orb.color, generation: 0, hitOrbs: new Set(), delay: 0,
+        });
+        ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+        // Push nearby orbs outward
+        for (const other of orbsRef.current) {
+          if (other === orb) continue;
+          const dx = other.x - orb.x;
+          const dy = other.y - orb.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 0 && dist < 120) {
+            const force = (1 - dist / 120) * 6;
+            other.vx += (dx / dist) * force;
+            other.vy += (dy / dist) * force;
+          }
+        }
+        // Lightning bolt to next orb in chain
+        if (i < maxChain - 1 && chain[i + 1]) {
+          const next = chain[i + 1];
+          lightningRef.current.push({
+            bolts: [{ points: generateBolt(orb.x, orb.y, next.x, next.y), color: orb.color }],
+            sparks: [], born: now,
+          });
+        }
+        // Burst particles
+        for (let p = 0; p < 5; p++) {
+          const angle = Math.random() * Math.PI * 2;
+          burstsRef.current.push({
+            x: orb.x, y: orb.y,
+            vx: Math.cos(angle) * (2 + Math.random() * 3),
+            vy: Math.sin(angle) * (2 + Math.random() * 3),
+            color: orb.color, born: now,
+          });
+        }
+        // Kick the orb itself
+        const kickAngle = Math.random() * Math.PI * 2;
+        orb.vx += Math.cos(kickAngle) * 4;
+        orb.vy += Math.sin(kickAngle) * 4;
+        shakeRef.current = Math.max(shakeRef.current, 3 + (maxChain - i) * 0.2);
+      }, i * NOVA_CHAIN_DELAY);
+    }
+    // Sound
+    screenFlashesRef.current.push({ cx, cy, color: "#fbbf24", born: performance.now() });
+    playSupernovaSound();
+    setTimeout(() => playLightning(), maxChain * NOVA_CHAIN_DELAY * 0.3);
+    setTimeout(() => playBoom(), maxChain * NOVA_CHAIN_DELAY * 0.7);
+  }, []);
+
   const handleImplode = useCallback(() => {
     if (implodeRef.current) return;
     if (orbsRef.current.length < 2) return;
@@ -9200,6 +9284,10 @@ function App() {
           handleSpiral();
           flashLabel("SPIRAL", "#c084fc");
           break;
+        case "]":
+          handleNovaChain();
+          flashLabel("NOVA CHAIN", "#fbbf24");
+          break;
         case "[":
           handleEcho();
           flashLabel("ECHO", "#a78bfa");
@@ -9281,6 +9369,7 @@ function App() {
                streakDisplay < 30 ? `${STREAK_CASCADE}x cascade` :
                streakDisplay < 35 ? `${STREAK_STARFALL}x starfall` :
                streakDisplay < 40 ? `${STREAK_SUPERMASSIVE}x supermassive` :
+               streakDisplay < 45 ? `${STREAK_NOVA_CHAIN}x nova chain` :
                "MAX COMBO"}
             </NextCombo>
             {bestStreak >= 5 && (
@@ -9519,6 +9608,7 @@ function App() {
               <Shortcut><Key>N</Key><span>Pulse (implode → explode)</span></Shortcut>
               <Shortcut><Key>0</Key><span>Black hole</span></Shortcut>
               <Shortcut><Key>[</Key><span>Echo (ghost snapshot)</span></Shortcut>
+              <Shortcut><Key>]</Key><span>Nova chain (cascading explosions)</span></Shortcut>
               <hr />
               <Shortcut><Key>G</Key><span>Cycle gravity direction</span></Shortcut>
               <Shortcut><Key>=</Key><span>Fission mode</span></Shortcut>

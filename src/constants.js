@@ -204,6 +204,8 @@ export const STREAK_SUPERNOVA = 25;      // supernova at tap point
 export const STREAK_CASCADE = 30;        // cosmic cascade — every orb splits
 export const STREAK_STARFALL = 35;       // starfall — all orbs rain down as meteors
 export const STREAK_SUPERMASSIVE = 40;   // supermassive — simultaneous firework bursts + shockwaves + scatter
+export const STREAK_NOVA_CHAIN = 45;     // nova chain — cascading chain-reaction explosions hop orb to orb
+export const NOVA_CHAIN_DELAY = 60;      // ms between each orb detonation in the chain
 export const COMBO_FLASH_DURATION = 1400; // ms for floating reward text
 
 // ── Orbital strike ─────────────────────────────────────────────────
