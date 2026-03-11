@@ -5711,6 +5711,58 @@ function App() {
         ctx.restore();
       }
 
+      // Crown for the king — the largest orb wears a floating golden crown
+      if (orbs.length >= 2) {
+        let kingOrb = null;
+        let maxRad = 18;
+        for (const orb of orbs) {
+          if (!orb.spark && orb.radius > maxRad) {
+            maxRad = orb.radius;
+            kingOrb = orb;
+          }
+        }
+        if (kingOrb) {
+          const kPulse = 1 + 0.12 * Math.sin(time * 1.5 + kingOrb.pulsePhase);
+          const kr = kingOrb.radius * kPulse;
+          const bob = Math.sin(time * 2) * 2;
+          const crownX = kingOrb.x;
+          const crownY = kingOrb.y - kr - 6 + bob;
+          const cw = Math.min(kr * 0.7, 14);
+          const ch = Math.min(kr * 0.45, 9);
+
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+
+          // Golden glow behind crown
+          const glowR = cw * 2;
+          const glow = ctx.createRadialGradient(crownX, crownY - ch * 0.3, 0, crownX, crownY - ch * 0.3, glowR);
+          glow.addColorStop(0, "rgba(255, 200, 50, 0.12)");
+          glow.addColorStop(1, "transparent");
+          ctx.beginPath();
+          ctx.arc(crownX, crownY - ch * 0.3, glowR, 0, Math.PI * 2);
+          ctx.fillStyle = glow;
+          ctx.fill();
+
+          // Crown shape — 3 pointed peaks
+          ctx.beginPath();
+          ctx.moveTo(crownX - cw, crownY);
+          ctx.lineTo(crownX - cw * 0.6, crownY - ch);
+          ctx.lineTo(crownX - cw * 0.2, crownY - ch * 0.35);
+          ctx.lineTo(crownX, crownY - ch * 1.15);
+          ctx.lineTo(crownX + cw * 0.2, crownY - ch * 0.35);
+          ctx.lineTo(crownX + cw * 0.6, crownY - ch);
+          ctx.lineTo(crownX + cw, crownY);
+          ctx.closePath();
+          ctx.fillStyle = "rgba(255, 215, 0, 0.65)";
+          ctx.fill();
+          ctx.strokeStyle = "rgba(255, 245, 200, 0.5)";
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+
+          ctx.restore();
+        }
+      }
+
       // magnetic polarity rings
       if (magnetModeRef.current) {
         for (const orb of orbs) {
