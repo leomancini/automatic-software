@@ -192,6 +192,12 @@ export const TORNADO_SPIN_FORCE = 0.15; // tangential spin
 export const TORNADO_FLING_SPEED = 10; // ejection speed when orbs reach center
 export const TORNADO_DEBRIS_MAX = 80; // max visual debris particles
 
+// ── Double-tap explosion ────────────────────────────────────────────
+export const DOUBLE_TAP_WINDOW = 300;  // ms — max time between taps
+export const DOUBLE_TAP_RADIUS = 40;   // px — max distance between taps
+export const DOUBLE_TAP_BURST_COUNT = 8; // orbs spawned in ring
+export const DOUBLE_TAP_BURST_SPEED = 7; // outward velocity
+
 // ── Tap streak / combo system ───────────────────────────────────────
 export const STREAK_WINDOW = 600; // ms between taps to continue a streak
 export const STREAK_DECAY_DELAY = 1200; // ms after last tap before streak counter fades

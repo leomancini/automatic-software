@@ -33,6 +33,7 @@ import {
   AURORA_BAND_COUNT, AURORA_BASE_ALPHA, AURORA_ACTIVITY_BOOST, AURORA_SMOOTHING, AURORA_COLORS,
   TORNADO_DURATION, TORNADO_RADIUS, TORNADO_PULL, TORNADO_SPIN_FORCE,
   TORNADO_FLING_SPEED, TORNADO_DEBRIS_MAX,
+  DOUBLE_TAP_WINDOW, DOUBLE_TAP_RADIUS, DOUBLE_TAP_BURST_COUNT, DOUBLE_TAP_BURST_SPEED,
   STREAK_WINDOW, STREAK_DECAY_DELAY, STREAK_FIREWORK, STREAK_LIGHTNING,
   STREAK_METEOR, STREAK_SUPERNOVA, STREAK_CASCADE, COMBO_FLASH_DURATION,
   STREAK_SUPERMASSIVE, STREAK_NOVA_CHAIN, NOVA_CHAIN_DELAY,
@@ -218,6 +219,7 @@ function App() {
   const audioEnabledRef = useRef(true);
   const streakRef = useRef(0);
   const lastTapTimeRef = useRef(0);
+  const lastTapPosRef = useRef({ x: 0, y: 0 }); // for double-tap detection
   const tapTimesRef = useRef([]); // recent tap timestamps for beat detection
   const beatRef = useRef({ interval: 0, strength: 0 }); // detected rhythm state
   const [streakDisplay, setStreakDisplay] = useState(0);
@@ -866,6 +868,61 @@ function App() {
           catalystCooldownRef.current = now + 25000 + Math.random() * 15000;
           setOrbCount(orbsRef.current.length);
         }
+      }
+
+      // ── Double-tap explosion ──
+      const dtDx = pos.x - lastTapPosRef.current.x;
+      const dtDy = pos.y - lastTapPosRef.current.y;
+      const dtDist = Math.sqrt(dtDx * dtDx + dtDy * dtDy);
+      const isDoubleTap = timeSinceLast < DOUBLE_TAP_WINDOW && dtDist < DOUBLE_TAP_RADIUS;
+      lastTapPosRef.current = { x: pos.x, y: pos.y };
+
+      if (isDoubleTap) {
+        haptic([15, 25]);
+        // Shockwave from tap point
+        wavesRef.current.push({
+          cx: pos.x, cy: pos.y, radius: 0,
+          color: randomColor(), generation: 0, hitOrbs: new Set(), delay: 0,
+        });
+        // Ring of orbs bursting outward
+        for (let i = 0; i < DOUBLE_TAP_BURST_COUNT; i++) {
+          const angle = (Math.PI * 2 * i) / DOUBLE_TAP_BURST_COUNT;
+          const orb = createOrb(pos.x + Math.cos(angle) * 15, pos.y + Math.sin(angle) * 15);
+          orb.vx = Math.cos(angle) * DOUBLE_TAP_BURST_SPEED;
+          orb.vy = Math.sin(angle) * DOUBLE_TAP_BURST_SPEED;
+          orb.radius = 5 + Math.random() * 3;
+          orbsRef.current.push(orb);
+        }
+        // Push existing nearby orbs away
+        for (const orb of orbsRef.current) {
+          const dx = orb.x - pos.x, dy = orb.y - pos.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 0 && dist < 150) {
+            const force = (1 - dist / 150) * 5;
+            orb.vx += (dx / dist) * force;
+            orb.vy += (dy / dist) * force;
+          }
+        }
+        // Visual feedback
+        screenFlashesRef.current.push({ cx: pos.x, cy: pos.y, color: "#4facfe", born: now });
+        shakeRef.current = Math.max(shakeRef.current, 10);
+        comboFlashRef.current.push({ text: "BOOM", x: pos.x, y: pos.y - 30, born: now, color: "#4facfe" });
+        // Burst particles
+        for (let i = 0; i < 12; i++) {
+          const angle = (Math.PI * 2 * i) / 12 + Math.random() * 0.3;
+          burstsRef.current.push({
+            x: pos.x, y: pos.y,
+            vx: Math.cos(angle) * (3 + Math.random() * 4),
+            vy: Math.sin(angle) * (3 + Math.random() * 4),
+            color: randomColor(), born: now,
+          });
+        }
+        setOrbCount(orbsRef.current.length);
+        ensureAudio();
+        playBoom();
+        // Still update lastTapPosRef but skip normal spawn
+        lastTapPosRef.current = { x: -999, y: -999 }; // prevent triple-tap chain
+        return;
       }
 
       // ── Scale effects by streak ──
@@ -9946,16 +10003,6 @@ function App() {
           <ActionButton onClick={handleLightning} title="Chain lightning">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleSurprise} title="Surprise — random hidden effect">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="3" />
-              <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
-              <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" />
-              <circle cx="8.5" cy="15.5" r="1.5" fill="currentColor" />
-              <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor" />
-              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleEruption} title="Eruption">
