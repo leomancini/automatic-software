@@ -9731,30 +9731,6 @@ function App() {
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleEruption} title="Eruption">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2 L10 8 L8 5 L7 9" />
-              <path d="M12 2 L14 7 L16 4 L17 9" />
-              <path d="M5 22 L8 14 L12 16 L16 14 L19 22" />
-              <line x1="12" y1="10" x2="12" y2="16" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleBarrage} title="Barrage">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="6" cy="6" r="2" />
-              <circle cx="18" cy="8" r="2" />
-              <circle cx="10" cy="14" r="2" />
-              <circle cx="17" cy="18" r="2" />
-              <line x1="6" y1="4" x2="6" y2="2" />
-              <line x1="4" y1="6" x2="2" y2="6" />
-              <line x1="18" y1="6" x2="18" y2="4" />
-              <line x1="20" y1="8" x2="22" y2="8" />
-              <line x1="10" y1="12" x2="10" y2="10" />
-              <line x1="8" y1="14" x2="6" y2="14" />
-              <line x1="17" y1="16" x2="17" y2="14" />
-              <line x1="19" y1="18" x2="21" y2="18" />
-            </svg>
-          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handlePlaceWell} title="Place gravity well">
