@@ -304,6 +304,8 @@ function App() {
   const waveModeRef = useRef(false);
   const [bounceMode, setBounceMode] = useState(false);
   const bounceModeRef = useRef(false);
+  const [magmaMode, setMagmaMode] = useState(false);
+  const magmaModeRef = useRef(false);
   const barriersRef = useRef([]); // user-drawn bounce walls [{x1, y1, x2, y2, color}]
   const [barrierMode, setBarrierMode] = useState(false);
   const barrierModeRef = useRef(false);
@@ -3352,6 +3354,24 @@ function App() {
         if (!isFinite(orb.x)) orb.x = W / 2;
         if (!isFinite(orb.y)) orb.y = H / 2;
 
+        // magma mode: orbs heat up over time and emit embers
+        if (magmaModeRef.current) {
+          orb.magma = Math.min((orb.magma || 0) + 0.0004, 1);
+          if (orb.magma > 0.5 && Math.random() < orb.magma * 0.012 && mergeSparksRef.current.length < 400) {
+            mergeSparksRef.current.push({
+              x: orb.x + (Math.random() - 0.5) * orb.radius,
+              y: orb.y - orb.radius * 0.4,
+              vx: (Math.random() - 0.5) * 1.2,
+              vy: -Math.random() * 2 - 0.3,
+              color: orb.magma > 0.8 ? '#ffdd44' : '#ff6600',
+              size: 1.2 + Math.random() * 1.8,
+              born: now,
+            });
+          }
+        } else if (orb.magma) {
+          orb.magma = Math.max(orb.magma - 0.002, 0);
+        }
+
         // track idle time for drowsy eye expression
         {
           const spd = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
@@ -3977,6 +3997,8 @@ function App() {
       const toRemove = new Set();
       const volatileFrags = [];
       const volatileRemove = new Set();
+      const magmaEruptFrags = [];
+      const magmaEruptRemove = new Set();
       for (let i = 0; i < orbs.length; i++) {
         if (toRemove.has(i)) continue;
         for (let j = i + 1; j < orbs.length; j++) {
@@ -4125,6 +4147,43 @@ function App() {
               }
             }
           } else if (dist < smaller * MERGE_DIST_FACTOR) {
+            // magma eruption: two very hot orbs collide and explode into cold fragments
+            if (magmaModeRef.current && (a.magma || 0) > 0.75 && (b.magma || 0) > 0.75 && orbsRef.current.length < 500) {
+              const cx = (a.x + b.x) / 2;
+              const cy = (a.y + b.y) / 2;
+              const combinedArea = Math.PI * (a.radius * a.radius + b.radius * b.radius);
+              const fragCount = 5 + Math.floor(Math.random() * 4);
+              const hotColors = ['#ff4400', '#ff8800', '#ffcc00', '#ffffff'];
+              for (let f = 0; f < fragCount; f++) {
+                const angle = (Math.PI * 2 * f) / fragCount + (Math.random() - 0.5) * 0.5;
+                const spd = 4 + Math.random() * 5;
+                magmaEruptFrags.push({
+                  id: Date.now() + Math.random() + f,
+                  x: cx + Math.cos(angle) * 5,
+                  y: cy + Math.sin(angle) * 5,
+                  vx: Math.cos(angle) * spd,
+                  vy: Math.sin(angle) * spd,
+                  radius: Math.sqrt(combinedArea / (fragCount * Math.PI)) * (0.7 + Math.random() * 0.6),
+                  color: hotColors[Math.floor(Math.random() * hotColors.length)],
+                  pulsePhase: Math.random() * Math.PI * 2,
+                  polarity: Math.random() < 0.5 ? 1 : -1,
+                  born: now,
+                  magma: 0,
+                });
+              }
+              flashesRef.current.push({ x: cx, y: cy, color: '#ff6600', radius: Math.max(a.radius, b.radius) * 3, born: now });
+              ripplesRef.current.push({ x: cx, y: cy, color: '#ff8800', born: now });
+              shakeRef.current = Math.max(shakeRef.current, 12);
+              for (let s = 0; s < 14; s++) {
+                const sa = Math.random() * Math.PI * 2;
+                const ss = 3 + Math.random() * 5;
+                mergeSparksRef.current.push({ x: cx, y: cy, vx: Math.cos(sa) * ss, vy: Math.sin(sa) * ss, color: hotColors[Math.floor(Math.random() * 3)], size: 2.5 + Math.random() * 3, born: now });
+              }
+              magmaEruptRemove.add(a);
+              magmaEruptRemove.add(b);
+              playBoom(0.5);
+              continue;
+            }
             // merge b into a (conserve area)
             const newArea = Math.PI * a.radius * a.radius + Math.PI * b.radius * b.radius;
             const bigger = a.radius >= b.radius ? a : b;
@@ -4215,6 +4274,12 @@ function App() {
       if (volatileRemove.size > 0) {
         orbsRef.current = orbsRef.current.filter((o) => !volatileRemove.has(o));
         orbsRef.current.push(...volatileFrags);
+        setOrbCount(orbsRef.current.length);
+      }
+      // magma eruption: apply deferred eruptions
+      if (magmaEruptRemove.size > 0) {
+        orbsRef.current = orbsRef.current.filter((o) => !magmaEruptRemove.has(o));
+        orbsRef.current.push(...magmaEruptFrags);
         setOrbCount(orbsRef.current.length);
       }
       // fission mode: apply deferred speed-splits
@@ -5457,6 +5522,10 @@ function App() {
         const r = orb.radius * pulse * spawnScale * (1 + proximityBoost * 0.3);
         if (r < 0.5) continue; // skip nearly-invisible orbs
 
+        // magma mode: shift orb color toward orange/white as heat increases
+        const mc = magmaModeRef.current ? (orb.magma || 0) : 0;
+        const orbColor = mc > 0.1 ? blendHexColors(orb.color, mc < 0.7 ? '#ff6600' : '#ffcc44', Math.min(mc * 1.1, 0.85)) : orb.color;
+
         const speed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
 
         // Mitosis wobble: large orbs near split threshold elongate and pulse
@@ -5532,11 +5601,11 @@ function App() {
         if (hitGlow > 0.01) orb.hitGlow = hitGlow * 0.9;
         else orb.hitGlow = 0;
 
-        // outer glow (expands + brightens with speed and collision flash)
-        const heat = Math.min(speed / 8 + hitGlow * 0.6, 1);
+        // outer glow (expands + brightens with speed, collision flash, and magma heat)
+        const heat = Math.min(speed / 8 + hitGlow * 0.6 + mc * 0.4, 1);
         const glowR = r * (3 + heat * 3);
         const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, glowR);
-        grad.addColorStop(0, orb.color + hexAlpha(0x66 + heat * 0x55));
+        grad.addColorStop(0, orbColor + hexAlpha(0x66 + heat * 0x55));
         grad.addColorStop(1, "transparent");
         ctx.beginPath();
         ctx.arc(0, 0, glowR, 0, Math.PI * 2);
@@ -5559,8 +5628,8 @@ function App() {
         // core
         const coreGrad = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 0, 0, 0, r);
         coreGrad.addColorStop(0, "#fff");
-        coreGrad.addColorStop(0.3, orb.color);
-        coreGrad.addColorStop(1, orb.color + "88");
+        coreGrad.addColorStop(0.3, orbColor);
+        coreGrad.addColorStop(1, orbColor + "88");
         ctx.beginPath();
         ctx.arc(0, 0, r, 0, Math.PI * 2);
         ctx.fillStyle = coreGrad;
@@ -8444,6 +8513,17 @@ function App() {
     });
   }, []);
 
+  const handleMagmaMode = useCallback(() => {
+    setMagmaMode((prev) => {
+      magmaModeRef.current = !prev;
+      if (!prev) {
+        // turning on — reset all orb magma heat to 0
+        for (const orb of orbsRef.current) orb.magma = 0;
+      }
+      return !prev;
+    });
+  }, []);
+
   const handleTrailsMode = useCallback(() => {
     setTrailsMode((prev) => {
       trailsModeRef.current = !prev;
@@ -10425,6 +10505,7 @@ function App() {
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {pulseMode && <ModePill $color="#667eea">heartbeat</ModePill>}
           {volatileMode && <ModePill $color="#ef4444">volatile</ModePill>}
+          {magmaMode && <ModePill $color="#f97316">magma</ModePill>}
           {fissionMode && <ModePill $color="#f43f5e">fission</ModePill>}
           {waveMode && <ModePill $color="#38bdf8">wave</ModePill>}
           {trailsMode && <ModePill $color="#c084fc">trails</ModePill>}
@@ -10521,14 +10602,6 @@ function App() {
                 <polyline points="21 3 21 9 15 9" />
               </svg>
             </ActionButton>
-<ActionButton onClick={handleRebound} title="Rebound (Z)">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="1 4 1 10 7 10" />
-                <polyline points="23 20 23 14 17 14" />
-                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10" />
-                <path d="M3.51 15A9 9 0 0 0 18.36 18.36L23 14" />
-              </svg>
-            </ActionButton>
 <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -10558,8 +10631,11 @@ function App() {
         <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#f97316" title="Bounce — ricochet with sparks (.)">
           bounce
         </ModeToggle>
-        <ModeToggle onClick={handleTidalMode} $active={tidalMode} $color="#06b6d4" title="Tidal — orbs breathe in and out">
-          tidal
+        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — orbs leave glowing comet tails (T)">
+          trails
+        </ModeToggle>
+        <ModeToggle onClick={handleMagmaMode} $active={magmaMode} $color="#f97316" title="Magma — orbs heat up and erupt on collision">
+          magma
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
