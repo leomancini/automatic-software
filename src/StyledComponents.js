@@ -1,4 +1,4 @@
-import styled, { keyframes } from "styled-components";
+import styled, { keyframes, css } from "styled-components";
 
 export const Wrapper = styled.div`
   position: fixed;
@@ -145,7 +145,7 @@ export const BestStreak = styled.div`
   color: ${(p) => p.$isNew ? "rgba(255, 215, 100, 0.9)" : "rgba(140, 140, 160, 0.35)"};
   margin-top: 2px;
   transition: color 0.3s ease;
-  ${(p) => p.$isNew && `animation: ${newBestPulse} 2.5s ease-out forwards;`}
+  ${(p) => p.$isNew && css`animation: ${newBestPulse} 2.5s ease-out forwards;`}
 `;
 
 const bpmPulse = keyframes`

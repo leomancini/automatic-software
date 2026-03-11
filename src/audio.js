@@ -31,7 +31,7 @@ export function ensureAudio() {
 }
 
 export function playTone(freq, duration = 0.3, type = "sine", gainVal = 0.15) {
-  if (!audioCtx || !masterGain || audioMuted) return;
+  if (!audioCtx || !masterGain || audioMuted || !isFinite(freq) || !isFinite(duration) || !isFinite(gainVal)) return;
   const t = audioCtx.currentTime;
   const osc = audioCtx.createOscillator();
   const g = audioCtx.createGain();
