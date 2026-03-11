@@ -251,8 +251,8 @@ function App() {
   const kingHeartbeatRingsRef = useRef([]); // active heartbeat rings [{x, y, born, color}]
   const bigBangRef = useRef(null); // {born, detonated, detonateTime}
   const slingshotRef = useRef(null); // {startX, startY} when flick-aiming
-  const [sparklerMode, setSparklerMode] = useState(false);
-  const sparklerModeRef = useRef(false);
+  const [fizzMode, setFizzMode] = useState(false);
+  const fizzModeRef = useRef(false);
   const warpRef = useRef(null); // {born} active warp drive
   const [magnetMode, setMagnetMode] = useState(false);
   const magnetModeRef = useRef(false);
@@ -501,33 +501,6 @@ function App() {
         barrierDrawRef.current.x2 = pos.x;
         barrierDrawRef.current.y2 = pos.y;
       } else if (mouseDownRef.current) {
-        if (sparklerModeRef.current) {
-          // Sparkler mode: continuously spawn tiny sparks at cursor
-          const sdx = pos.x - lastSprayPosRef.current.x;
-          const sdy = pos.y - lastSprayPosRef.current.y;
-          const sDist = Math.sqrt(sdx * sdx + sdy * sdy);
-          if (sDist > SPARK_SPAWN_DIST && orbsRef.current.length < 500) {
-            const sparkCount = Math.min(Math.ceil(sDist / SPARK_SPAWN_DIST), 5);
-            const sNow = performance.now();
-            for (let si = 0; si < sparkCount; si++) {
-              const angle = Math.random() * Math.PI * 2;
-              const speed = 2 + Math.random() * 5;
-              const orb = createOrb(
-                pos.x + (Math.random() - 0.5) * 6,
-                pos.y + (Math.random() - 0.5) * 6
-              );
-              orb.radius = 2 + Math.random() * 2.5;
-              orb.sparkBaseRadius = orb.radius;
-              orb.vx = Math.cos(angle) * speed;
-              orb.vy = Math.sin(angle) * speed;
-              orb.spark = true;
-              orb.sparkBorn = sNow;
-              orbsRef.current.push(orb);
-            }
-            lastSprayPosRef.current = { x: pos.x, y: pos.y };
-            setOrbCount(orbsRef.current.length);
-          }
-        } else {
         const startDx = pos.x - sprayStartRef.current.x;
         const startDy = pos.y - sprayStartRef.current.y;
         const startDist = Math.sqrt(startDx * startDx + startDy * startDy);
@@ -577,7 +550,6 @@ function App() {
             playSpray(pos.y, window.innerHeight);
           }
           }
-        }
         }
       }
       mouseRef.current = { ...pos, onCanvas: true };
@@ -3548,6 +3520,43 @@ function App() {
           if (!orb.trail) orb.trail = [];
           orb.trail.push(orb.x, orb.y);
           if (orb.trail.length > 80) orb.trail.splice(0, 2); // keep last 40 positions
+        }
+
+        // fizz mode: orbs slowly shrink and pop
+        if (fizzModeRef.current && !orb.spark) {
+          const shrinkRate = 0.012 * speed_factor;
+          orb.radius -= shrinkRate;
+          // emit rising bubble particles
+          if (Math.random() < 0.08 * speed_factor && mergeSparksRef.current.length < 400) {
+            mergeSparksRef.current.push({
+              x: orb.x + (Math.random() - 0.5) * orb.radius,
+              y: orb.y - orb.radius,
+              vx: (Math.random() - 0.5) * 0.5,
+              vy: -1.5 - Math.random() * 1.5,
+              size: 1 + Math.random() * 1.5,
+              color: orb.color,
+              born: now,
+              lifetime: 600 + Math.random() * 400,
+            });
+          }
+          // pop when too small
+          if (orb.radius < 3) {
+            // burst of micro-sparks
+            for (let sp = 0; sp < 6; sp++) {
+              const angle = (Math.PI * 2 * sp) / 6;
+              mergeSparksRef.current.push({
+                x: orb.x, y: orb.y,
+                vx: Math.cos(angle) * 3,
+                vy: Math.sin(angle) * 3,
+                size: 2,
+                color: orb.color,
+                born: now,
+                lifetime: 300 + Math.random() * 200,
+              });
+            }
+            ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+            fissionRemove.add(orb);
+          }
         }
 
         // gravity harp: detect string crossings
@@ -8705,9 +8714,9 @@ function App() {
     });
   }, []);
 
-  const handleSparklerMode = useCallback(() => {
-    setSparklerMode((prev) => {
-      sparklerModeRef.current = !prev;
+  const handleFizzMode = useCallback(() => {
+    setFizzMode((prev) => {
+      fizzModeRef.current = !prev;
       return !prev;
     });
   }, []);
@@ -10692,7 +10701,7 @@ function App() {
           {trailsMode && <ModePill $color="#c084fc">trails</ModePill>}
           {bounceMode && <ModePill $color="#f97316">bounce</ModePill>}
           {barrierMode && <ModePill $color="#f59e0b">walls</ModePill>}
-          {sparklerMode && <ModePill $color="#fbbf24">sparkler</ModePill>}
+          {fizzMode && <ModePill $color="#fbbf24">fizz</ModePill>}
           {tiltMode && <ModePill $color="#e879f9">tilt</ModePill>}
         </ModeIndicators>
       </HUD>
@@ -10820,8 +10829,8 @@ function App() {
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — orbs leave glowing comet tails (T)">
           trails
         </ModeToggle>
-        <ModeToggle onClick={handleSparklerMode} $active={sparklerMode} $color="#fbbf24" title="Sparkler — drag to draw sparkling particle streams">
-          sparkler
+        <ModeToggle onClick={handleFizzMode} $active={fizzMode} $color="#fbbf24" title="Fizz — orbs slowly shrink and pop">
+          fizz
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
