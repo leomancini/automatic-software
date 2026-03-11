@@ -205,6 +205,8 @@ function App() {
   const audioEnabledRef = useRef(true);
   const streakRef = useRef(0);
   const lastTapTimeRef = useRef(0);
+  const tapTimesRef = useRef([]); // recent tap timestamps for beat detection
+  const beatRef = useRef({ interval: 0, strength: 0 }); // detected rhythm state
   const [streakDisplay, setStreakDisplay] = useState(0);
   const streakFadeRef = useRef(null);
   const [bestStreak, setBestStreak] = useState(() => {
@@ -765,6 +767,25 @@ function App() {
         streakRef.current = 1;
       }
       lastTapTimeRef.current = now;
+
+      // Beat detection: track tap rhythm
+      tapTimesRef.current.push(now);
+      if (tapTimesRef.current.length > 8) tapTimesRef.current.shift();
+      if (tapTimesRef.current.length >= 3) {
+        const tt = tapTimesRef.current;
+        const ivs = [];
+        for (let i = 1; i < tt.length; i++) ivs.push(tt[i] - tt[i - 1]);
+        const sorted = [...ivs].sort((a, b) => a - b);
+        const median = sorted[Math.floor(sorted.length / 2)];
+        if (median >= 150 && median <= 1500) {
+          const ok = ivs.filter(iv => Math.abs(iv - median) / median < 0.35).length;
+          if (ok >= Math.ceil(ivs.length * 0.6)) {
+            beatRef.current.interval = median;
+            beatRef.current.strength = Math.min(beatRef.current.strength + 0.15, 1);
+          }
+        }
+      }
+
       const streak = streakRef.current;
 
       // Update visible streak counter
@@ -4858,8 +4879,20 @@ function App() {
       }
 
       // draw orbs
+      // pre-compute beat pulse factor for orb size
+      let beatOrbPulse = 0;
+      {
+        const beat = beatRef.current;
+        const taps = tapTimesRef.current;
+        if (beat.strength > 0.1 && beat.interval > 0 && taps.length > 0) {
+          const elapsed = now - taps[taps.length - 1];
+          const fade = Math.max(0, 1 - elapsed / (beat.interval * 6));
+          const phase = (elapsed % beat.interval) / beat.interval;
+          beatOrbPulse = Math.exp(-phase * 4) * beat.strength * fade * 0.08;
+        }
+      }
       for (const orb of orbs) {
-        const pulse = 1 + 0.12 * Math.sin(time * 1.5 + orb.pulsePhase);
+        const pulse = 1 + 0.12 * Math.sin(time * 1.5 + orb.pulsePhase) + beatOrbPulse;
 
         // spawn materialization: scale from 0 → full with elastic bounce
         const spawnAge = orb.born ? now - orb.born : SPAWN_DURATION;
@@ -7221,6 +7254,33 @@ function App() {
         edgeGrad.addColorStop(1, `rgba(${sr}, ${sg}, ${sb}, ${edgeAlpha.toFixed(3)})`);
         ctx.fillStyle = edgeGrad;
         ctx.fillRect(0, 0, W, H);
+      }
+
+      // ── Beat sync pulse: rhythm detection drives ambient glow ──
+      {
+        const beat = beatRef.current;
+        const taps = tapTimesRef.current;
+        if (beat.strength > 0.01 && beat.interval > 0 && taps.length > 0) {
+          const lastTap = taps[taps.length - 1];
+          const elapsed = now - lastTap;
+          // Fade out after 4 missed beats
+          if (elapsed > beat.interval * 4) {
+            beat.strength *= 0.96;
+          }
+          const phase = (elapsed % beat.interval) / beat.interval;
+          const pulse = Math.exp(-phase * 5);
+          const fade = Math.max(0, 1 - elapsed / (beat.interval * 6));
+          const alpha = pulse * beat.strength * fade * 0.14;
+          if (alpha > 0.003) {
+            const maxDim = Math.max(W, H);
+            const grad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, maxDim * 0.55);
+            grad.addColorStop(0, `rgba(167, 139, 250, ${alpha.toFixed(4)})`);
+            grad.addColorStop(0.4, `rgba(240, 147, 251, ${(alpha * 0.5).toFixed(4)})`);
+            grad.addColorStop(1, 'transparent');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+          }
+        }
       }
 
       // restore shake transform
