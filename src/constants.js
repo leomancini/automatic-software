@@ -529,3 +529,10 @@ export const WAVE_FEAR_FORCE = 0.35;  // base flee acceleration (quadratic fallo
 export const EDGE_GLOW_RANGE = 150;    // px from edge to detect orbs
 export const EDGE_GLOW_DEPTH = 60;     // how far glow extends inward from edge
 export const EDGE_GLOW_ALPHA = 0.035;  // per-frame alpha (accumulates via background persistence)
+
+// ── King's heartbeat (largest orb pulses, pushing nearby orbs) ──
+export const KING_HEARTBEAT_INTERVAL = 2200;  // ms between pulses
+export const KING_HEARTBEAT_RANGE = 160;      // px radius of the push wave
+export const KING_HEARTBEAT_FORCE = 1.2;      // outward push strength
+export const KING_HEARTBEAT_RING_DURATION = 700; // ms for the visual ring to expand and fade
+export const KING_HEARTBEAT_MIN_RADIUS = 20;  // king must be at least this big to pulse

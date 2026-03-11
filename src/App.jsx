@@ -95,6 +95,8 @@ import {
   FISSION_SPEED_THRESHOLD, FISSION_MIN_RADIUS, FISSION_FRAG_COUNT, FISSION_COOLDOWN,
   SCORCH_DURATION, SCORCH_MAX, SCORCH_SPEED_MIN, SCORCH_RADIUS_MIN, SCORCH_RADIUS_MAX,
   MAELSTROM_SPIRAL_MS, MAELSTROM_RELEASE_MS, MAELSTROM_PULL, MAELSTROM_TANGENT, MAELSTROM_RELEASE_SPEED,
+  KING_HEARTBEAT_INTERVAL, KING_HEARTBEAT_RANGE, KING_HEARTBEAT_FORCE,
+  KING_HEARTBEAT_RING_DURATION, KING_HEARTBEAT_MIN_RADIUS,
 } from './constants.js';
 import {
   PENTATONIC, ensureAudio, setAudioMuted, playTone, playSpawn, playMergeSound, playBoom, playBounce, playCollisionChime,
@@ -241,6 +243,8 @@ function App() {
   const lastSprayPosRef = useRef({ x: 0, y: 0 });
   // showMoreButtons state removed — rarely-used effects culled from UI (still accessible via keyboard)
   const lastMilestoneRef = useRef(0); // last celebrated orb count milestone
+  const kingHeartbeatTimerRef = useRef(0); // last king heartbeat pulse time
+  const kingHeartbeatRingsRef = useRef([]); // active heartbeat rings [{x, y, born, color}]
   const bigBangRef = useRef(null); // {born, detonated, detonateTime}
   const slingshotRef = useRef(null); // {startX, startY} when flick-aiming
   const [sparklerMode, setSparklerMode] = useState(false);
@@ -4079,6 +4083,38 @@ function App() {
         setOrbCount(orbsRef.current.length);
       }
 
+      // ── King's heartbeat: the largest orb periodically pulses, pushing nearby orbs ──
+      if (orbs.length >= 2 && !frozenRef.current) {
+        let kingOrb = null;
+        let maxR = KING_HEARTBEAT_MIN_RADIUS;
+        for (const orb of orbs) {
+          if (!orb.spark && orb.radius > maxR) {
+            maxR = orb.radius;
+            kingOrb = orb;
+          }
+        }
+        if (kingOrb && now - kingHeartbeatTimerRef.current >= KING_HEARTBEAT_INTERVAL) {
+          kingHeartbeatTimerRef.current = now;
+          // push nearby orbs outward
+          const strength = KING_HEARTBEAT_FORCE * Math.min(kingOrb.radius / 30, 1.5);
+          for (const orb of orbs) {
+            if (orb === kingOrb) continue;
+            const dx = orb.x - kingOrb.x;
+            const dy = orb.y - kingOrb.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 0 && dist < KING_HEARTBEAT_RANGE) {
+              const falloff = 1 - dist / KING_HEARTBEAT_RANGE;
+              const push = strength * falloff * falloff;
+              orb.vx += (dx / dist) * push;
+              orb.vy += (dy / dist) * push;
+            }
+          }
+          // spawn visual ring
+          kingHeartbeatRingsRef.current.push({
+            x: kingOrb.x, y: kingOrb.y, born: now, color: kingOrb.color,
+          });
+        }
+      }
 
       // Mitosis: massive orbs split into two daughter orbs
       for (let i = orbsRef.current.length - 1; i >= 0; i--) {
@@ -5761,6 +5797,31 @@ function App() {
 
           ctx.restore();
         }
+      }
+
+      // ── King's heartbeat rings ──
+      kingHeartbeatRingsRef.current = kingHeartbeatRingsRef.current.filter(
+        (r) => now - r.born < KING_HEARTBEAT_RING_DURATION
+      );
+      for (const ring of kingHeartbeatRingsRef.current) {
+        const progress = (now - ring.born) / KING_HEARTBEAT_RING_DURATION;
+        const radius = 10 + progress * KING_HEARTBEAT_RANGE;
+        const alpha = (1 - progress) * (1 - progress); // quadratic fade
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        // outer ring
+        ctx.beginPath();
+        ctx.arc(ring.x, ring.y, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 215, 80, ${(alpha * 0.35).toFixed(3)})`;
+        ctx.lineWidth = 2.5 * (1 - progress);
+        ctx.stroke();
+        // inner glow ring
+        ctx.beginPath();
+        ctx.arc(ring.x, ring.y, radius * 0.7, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 245, 200, ${(alpha * 0.15).toFixed(3)})`;
+        ctx.lineWidth = 1.5 * (1 - progress);
+        ctx.stroke();
+        ctx.restore();
       }
 
       // magnetic polarity rings
