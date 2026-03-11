@@ -10815,18 +10815,6 @@ function App() {
               <polyline points="19 15 19 19 15 19" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleGather} title="Gather orbs">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="5" y1="5" x2="12" y2="12" />
-              <polyline points="9 5 5 5 5 9" />
-              <line x1="19" y1="5" x2="12" y2="12" />
-              <polyline points="15 5 19 5 19 9" />
-              <line x1="5" y1="19" x2="12" y2="12" />
-              <polyline points="5 15 5 19 9 19" />
-              <line x1="19" y1="19" x2="12" y2="12" />
-              <polyline points="19 15 19 19 15 19" />
-            </svg>
-          </ActionButton>
           <ActionButton onClick={handleLightning} title="Chain lightning">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -10883,6 +10871,9 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain — orbs auto-spawn and fall (5)">
           rain
+        </ModeToggle>
+        <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet — orbs follow your cursor (O)">
+          magnet
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
