@@ -10831,8 +10831,8 @@ function App() {
         <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body — mutual gravity orbits (A)">
           n-body
         </ModeToggle>
-        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#f97316" title="Bounce — ricochet with sparks (.)">
-          bounce
+        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flock — boid swarm behavior (K)">
+          flock
         </ModeToggle>
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — orbs leave glowing comet tails (T)">
           trails
