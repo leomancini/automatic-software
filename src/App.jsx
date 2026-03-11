@@ -8294,6 +8294,34 @@ function App() {
     playSwoosh();
   }, []);
 
+  const handleRebound = useCallback(() => {
+    const orbs = orbsRef.current;
+    if (orbs.length === 0) return;
+    haptic(20);
+    applyEffectChain();
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const now = performance.now();
+
+    // Reverse all velocities with a punchy speed boost
+    for (const orb of orbs) {
+      orb.vx = -orb.vx * 1.3;
+      orb.vy = -orb.vy * 1.3;
+    }
+
+    // Shockwave from center
+    wavesRef.current.push({
+      cx: W / 2, cy: H / 2, radius: 0,
+      color: "#00f2fe", generation: 0, hitOrbs: new Set(), delay: 0,
+    });
+
+    // Screen flash
+    screenFlashesRef.current.push({ cx: W / 2, cy: H / 2, color: "#00f2fe", born: now });
+
+    shakeRef.current = Math.max(shakeRef.current, 12);
+    playBoom();
+  }, []);
+
   const handleGravity = useCallback(() => {
     const dirs = ["down", "right", "up", "left", "flow", "spin"];
     if (!gravityRef.current) {
@@ -10165,8 +10193,8 @@ function App() {
           handleRainMode();
           break;
         case "z":
-          handleStorm();
-          flashLabel("STORM", "#4facfe");
+          handleRebound();
+          flashLabel("REBOUND", "#00f2fe");
           break;
         case "`":
           handleMaelstrom();
@@ -10438,6 +10466,14 @@ function App() {
                 <polyline points="21 3 21 9 15 9" />
               </svg>
             </ActionButton>
+<ActionButton onClick={handleRebound} title="Rebound (Z)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="1 4 1 10 7 10" />
+                <polyline points="23 20 23 14 17 14" />
+                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10" />
+                <path d="M3.51 15A9 9 0 0 0 18.36 18.36L23 14" />
+              </svg>
+            </ActionButton>
 <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -10515,6 +10551,7 @@ function App() {
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin (double-tap: centrifuge!)</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
+              <Shortcut><Key>Z</Key><span>Rebound (reverse all velocities)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>0</Key><span>Black hole</span></Shortcut>
               <hr />
