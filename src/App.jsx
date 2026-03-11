@@ -246,6 +246,7 @@ function App() {
   const nebulaRef = useRef([]); // ambient nebula glow points
   const tapSparklesRef = useRef([]); // tiny sparkle particles from taps
   const cursorTrailRef = useRef([]); // cursor comet trail points
+  const cursorWakeRef = useRef([]); // shimmer particles drifting off cursor trail
   const tapWebRef = useRef([]); // recent tap positions for constellation web [{x, y, color, born}]
   const harpVibrationsRef = useRef([]); // gravity harp string pluck visuals
   const formationRef = useRef(null); // {targets, born, type}
@@ -4754,17 +4755,18 @@ function App() {
       // ── Cursor comet trail ──
       {
         const ct = cursorTrailRef.current;
-        const TRAIL_LIFE = 500;
+        const TRAIL_LIFE = 600;
         while (ct.length > 0 && now - ct[0].t > TRAIL_LIFE) ct.shift();
         if (ct.length > 1 && mouseRef.current.onCanvas) {
           ctx.save();
           ctx.lineCap = 'round';
-          const colors = PALETTES[0].colors;
+          ctx.globalCompositeOperation = 'lighter';
+          const colors = PALETTES[paletteIndex].colors;
           for (let i = 1; i < ct.length; i++) {
             const age = now - ct[i].t;
             const life = 1 - age / TRAIL_LIFE;
-            const alpha = life * life * 0.3;
-            const width = life * 2.5 + 0.5;
+            const alpha = life * life * 0.45;
+            const width = life * 3.5 + 0.5;
             if (alpha <= 0) continue;
             const c = colors[i % colors.length];
             ctx.beginPath();
@@ -4773,20 +4775,57 @@ function App() {
             ctx.strokeStyle = c + hexAlpha(alpha * 255);
             ctx.lineWidth = width;
             ctx.stroke();
+            // spawn shimmer particles along trail (sparse)
+            if (i % 4 === 0 && life > 0.5 && cursorWakeRef.current.length < 80) {
+              const angle = Math.random() * Math.PI * 2;
+              const drift = 0.3 + Math.random() * 0.5;
+              cursorWakeRef.current.push({
+                x: ct[i].x, y: ct[i].y,
+                vx: Math.cos(angle) * drift,
+                vy: Math.sin(angle) * drift,
+                born: now, color: c,
+                size: 1 + Math.random() * 1.5,
+              });
+            }
           }
           // soft glow at cursor head
           const head = ct[ct.length - 1];
           const headAge = now - head.t;
           if (headAge < 150) {
-            const ha = (1 - headAge / 150) * 0.2;
-            const hg = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 14);
-            hg.addColorStop(0, `rgba(200, 210, 255, ${ha})`);
-            hg.addColorStop(1, 'rgba(200, 210, 255, 0)');
+            const ha = (1 - headAge / 150) * 0.25;
+            const hg = ctx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 18);
+            hg.addColorStop(0, `rgba(220, 225, 255, ${ha})`);
+            hg.addColorStop(1, 'rgba(220, 225, 255, 0)');
             ctx.beginPath();
-            ctx.arc(head.x, head.y, 14, 0, Math.PI * 2);
+            ctx.arc(head.x, head.y, 18, 0, Math.PI * 2);
             ctx.fillStyle = hg;
             ctx.fill();
           }
+          ctx.restore();
+        }
+        // draw cursor wake shimmer particles
+        const wake = cursorWakeRef.current;
+        const WAKE_LIFE = 900;
+        for (let wi = wake.length - 1; wi >= 0; wi--) {
+          const p = wake[wi];
+          const age = now - p.born;
+          if (age > WAKE_LIFE) { wake.splice(wi, 1); continue; }
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.01; // gentle gravity drift
+          const life = 1 - age / WAKE_LIFE;
+          const alpha = life * life * 0.6;
+          const r = p.size * life;
+          if (alpha <= 0 || r < 0.3) { wake.splice(wi, 1); continue; }
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 3);
+          g.addColorStop(0, p.color + hexAlpha(alpha * 255));
+          g.addColorStop(1, 'transparent');
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r * 3, 0, Math.PI * 2);
+          ctx.fillStyle = g;
+          ctx.fill();
           ctx.restore();
         }
       }
@@ -9314,11 +9353,9 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleBlackHole} title="Black hole" $active={!!blackHoleActive}>
+          <ActionButton onClick={handleLightning} title="Chain lightning">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="2.5" fill="currentColor" />
-              <path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5" />
-              <path d="M12 20.5a8.5 8.5 0 0 1-8.5-8.5" />
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
             </svg>
           </ActionButton>
           {orbCount > 0 && (
@@ -9332,9 +9369,11 @@ function App() {
                 <circle cx="16" cy="16" r="2" opacity="0.3" />
               </svg>
             </ActionButton>
-            <ActionButton onClick={handleLightning} title="Chain lightning">
+            <ActionButton onClick={handleBlackHole} title="Black hole" $active={!!blackHoleActive}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+                <path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5" />
+                <path d="M12 20.5a8.5 8.5 0 0 1-8.5-8.5" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleScatter} title="Scatter orbs">
