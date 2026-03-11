@@ -181,6 +181,8 @@ function App() {
   const [saveFlash, setSaveFlash] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
   const autoplayModeRef = useRef(false);
+  const [theaterMode, setTheaterMode] = useState(false);
+  const theaterModeRef = useRef(false);
   const [longExposure, setLongExposure] = useState(false);
   const longExposureRef = useRef(false);
   const [repelMode, setRepelMode] = useState(false);
@@ -345,6 +347,14 @@ function App() {
 
   const handleDown = useCallback(
     (e) => {
+      // Exit theater mode on any canvas interaction
+      if (theaterModeRef.current) {
+        theaterModeRef.current = false;
+        setTheaterMode(false);
+        autoplayModeRef.current = false;
+        setAutoPlay(false);
+        return;
+      }
       // Multi-touch: start pinch gesture
       if (e.touches && e.touches.length >= 2) {
         if (dragRef.current) dragRef.current = null;
@@ -8913,6 +8923,31 @@ function App() {
     };
     const handleKey = (e) => {
       if (e.repeat) return;
+      // Theater mode: Escape toggles in/out, any other key exits
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (theaterModeRef.current) {
+          theaterModeRef.current = false;
+          setTheaterMode(false);
+          autoplayModeRef.current = false;
+          setAutoPlay(false);
+        } else {
+          theaterModeRef.current = true;
+          setTheaterMode(true);
+          autoplayModeRef.current = true;
+          setAutoPlay(true);
+          autoplayTimersRef.current = { lastSpawn: performance.now(), lastEffect: performance.now() + 1500 };
+          setShowHelp(false);
+        }
+        return;
+      }
+      if (theaterModeRef.current) {
+        theaterModeRef.current = false;
+        setTheaterMode(false);
+        autoplayModeRef.current = false;
+        setAutoPlay(false);
+        return;
+      }
       switch (e.key.toLowerCase()) {
         case " ":
           e.preventDefault();
@@ -9110,6 +9145,7 @@ function App() {
         onMouseEnter={() => { mouseRef.current = { ...mouseRef.current, onCanvas: true }; }}
         onMouseLeave={() => { mouseRef.current = { ...mouseRef.current, onCanvas: false }; }}
       />
+      <div style={{ opacity: theaterMode ? 0 : 1, pointerEvents: theaterMode ? 'none' : 'auto', transition: 'opacity 0.8s ease' }}>
       <HUD>
         <Title>Automatic Software</Title>
         <Hint style={{ opacity: tipFading ? 0 : 1, transition: 'opacity 0.4s ease' }}>
@@ -9232,15 +9268,6 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleCrossfire} title="Crossfire">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="2" y1="12" x2="8" y2="12" /><polyline points="6 10 8 12 6 14" />
-              <line x1="22" y1="12" x2="16" y2="12" /><polyline points="18 14 16 12 18 10" />
-              <line x1="12" y1="2" x2="12" y2="8" /><polyline points="10 6 12 8 14 6" />
-              <line x1="12" y1="22" x2="12" y2="16" /><polyline points="14 18 12 16 10 18" />
-              <circle cx="12" cy="12" r="2" fill="currentColor" />
-            </svg>
-          </ActionButton>
           <ActionButton onClick={handleFinale} title="Finale" $highlight>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -9283,12 +9310,13 @@ function App() {
                 <polyline points="21 3 21 9 15 9" />
               </svg>
             </ActionButton>
-<ActionButton onClick={handleSlam} title="Slam">
+<ActionButton onClick={handleShuffle} title="Shuffle colors">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="2" x2="12" y2="16" />
-                <polyline points="6 10 12 16 18 10" />
-                <line x1="4" y1="20" x2="20" y2="20" />
-                <line x1="6" y1="22" x2="18" y2="22" opacity="0.5" />
+                <polyline points="16 3 21 3 21 8" />
+                <line x1="4" y1="20" x2="21" y2="3" />
+                <polyline points="21 16 21 21 16 21" />
+                <line x1="15" y1="15" x2="21" y2="21" />
+                <line x1="4" y1="4" x2="9" y2="9" />
               </svg>
             </ActionButton>
 <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
@@ -9389,6 +9417,7 @@ function App() {
               <Shortcut><Key>-</Key><span>Wave mode</span></Shortcut>
               <Shortcut><Key>.</Key><span>Bounce mode</span></Shortcut>
               <Shortcut><Key>;</Key><span>Finale</span></Shortcut>
+              <Shortcut><Key>Esc</Key><span>Theater mode (screensaver)</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
             </ShortcutList>
@@ -9396,6 +9425,7 @@ function App() {
           </HelpPanel>
         </HelpOverlay>
       )}
+      </div>
     </Wrapper>
   );
 }
