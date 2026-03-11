@@ -10461,11 +10461,11 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet — orbs follow your cursor (O)">
-          magnet
+        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body — mutual gravity orbits (A)">
+          n-body
         </ModeToggle>
-        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — light trails follow orbs (T)">
-          trails
+        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#f97316" title="Bounce — ricochet with sparks (.)">
+          bounce
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
