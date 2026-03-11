@@ -9904,6 +9904,21 @@ function App() {
               <line x1="12" y1="22" x2="12" y2="16" /><polyline points="10 18 12 16 14 18" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleEruption} title="Eruption">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22V16" />
+              <path d="M8 22V18" />
+              <path d="M16 22V18" />
+              <path d="M12 16L9 8" />
+              <path d="M12 16L15 8" />
+              <path d="M9 8L6 2" />
+              <path d="M15 8L18 2" />
+              <path d="M12 16L12 10" />
+              <circle cx="6" cy="2" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="8" r="1.5" fill="currentColor" />
+              <circle cx="18" cy="2" r="1.5" fill="currentColor" />
+            </svg>
+          </ActionButton>
           {orbCount > 0 && (
             <>
             <ActionButton onClick={handlePlaceWell} title="Place gravity well">
@@ -9959,9 +9974,6 @@ function App() {
         <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet — orbs follow your cursor (O)">
           magnet
         </ModeToggle>
-        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Swarm — orbs flock like birds (K)">
-          swarm
-        </ModeToggle>
         <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="Orbit — orbs attract each other (A)">
           orbit
         </ModeToggle>
@@ -9973,9 +9985,6 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#34d399" title="Bounce — orbs bounce off walls (.)">
           bounce
-        </ModeToggle>
-        <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain — continuous gentle rain of orbs">
-          rain
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
