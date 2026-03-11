@@ -981,7 +981,7 @@ function App() {
         }
       }
 
-      // ── Tap impulse: gently push nearby orbs away from tap ──
+      // ── Tap impulse: push nearby orbs away with visible splash ──
       for (const orb of orbsRef.current) {
         const idx = orb.x - pos.x;
         const idy = orb.y - pos.y;
@@ -991,6 +991,11 @@ function App() {
           const force = TAP_IMPULSE_FORCE * falloff * falloff;
           orb.vx += (idx / idist) * force;
           orb.vy += (idy / idist) * force;
+          // Tap splash: flash pushed orbs and emit ripples from closest ones
+          orb.hitGlow = Math.max(orb.hitGlow || 0, falloff * 0.9);
+          if (falloff > 0.4) {
+            ripplesRef.current.push({ x: orb.x, y: orb.y, color: orb.color, born: now });
+          }
         }
       }
 
