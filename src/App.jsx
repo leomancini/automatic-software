@@ -5009,6 +5009,22 @@ function App() {
           ? Math.min((orb.radius - MITOSIS_WOBBLE_START) / (COLLAPSE_RADIUS - MITOSIS_WOBBLE_START), 1)
           : 0;
 
+        // Speed afterimage: fast-moving orbs leave ghostly trail copies
+        if (speed > 3 && spawnT >= 1 && !orb.spark) {
+          const trailN = Math.min(Math.floor(speed / 2), 5);
+          for (let ti = trailN; ti >= 1; ti--) {
+            const frac = ti / (trailN + 1);
+            const gx = orb.x - orb.vx * ti * 2;
+            const gy = orb.y - orb.vy * ti * 2;
+            const ga = (1 - frac) * 0.18;
+            const gr = r * (1 - frac * 0.3);
+            ctx.beginPath();
+            ctx.arc(gx, gy, gr, 0, Math.PI * 2);
+            ctx.fillStyle = orb.color + hexAlpha(ga * 255);
+            ctx.fill();
+          }
+        }
+
         ctx.save();
         ctx.translate(orb.x, orb.y);
 
