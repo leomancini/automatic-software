@@ -10774,6 +10774,18 @@ function App() {
               <polyline points="19 15 19 19 15 19" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleGather} title="Gather orbs">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="5" x2="12" y2="12" />
+              <polyline points="9 5 5 5 5 9" />
+              <line x1="19" y1="5" x2="12" y2="12" />
+              <polyline points="15 5 19 5 19 9" />
+              <line x1="5" y1="19" x2="12" y2="12" />
+              <polyline points="5 15 5 19 9 19" />
+              <line x1="19" y1="19" x2="12" y2="12" />
+              <polyline points="19 15 19 19 15 19" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleLightning} title="Chain lightning">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -10837,8 +10849,8 @@ function App() {
         <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — orbs leave glowing comet tails (T)">
           trails
         </ModeToggle>
-        <ModeToggle onClick={handleAttractMode} $active={attractMode} $color="#f093fb" title="Attract — cursor pulls nearby orbs">
-          attract
+        <ModeToggle onClick={handleWrapMode} $active={wrapMode} $color="#38bdf8" title="Wrap — orbs loop around screen edges (I)">
+          wrap
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
