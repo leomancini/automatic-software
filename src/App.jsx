@@ -9536,6 +9536,7 @@ function App() {
       { fn: handleEruption, label: "ERUPTION", color: "#f97316", needsOrbs: false },
       { fn: handlePulse, label: "PULSE", color: "#667eea", needsOrbs: true },
       { fn: handleEcho, label: "ECHO", color: "#a78bfa", needsOrbs: true },
+      { fn: handleMaelstrom, label: "MAELSTROM", color: "#78c8ff", needsOrbs: true },
     ];
     const hasOrbs = orbsRef.current.length >= 3;
     const pool = hasOrbs ? effects : effects.filter(e => !e.needsOrbs);
@@ -9544,7 +9545,7 @@ function App() {
     const W = window.innerWidth;
     const H = window.innerHeight;
     comboFlashRef.current.push({ text: pick.label, x: W / 2, y: H / 2, born: performance.now(), color: pick.color });
-  }, [handleBlackHole, handleGalaxy, handleComet, handleCrossfire, handleFireworkShow, handleTide, handleNovaChain, handleEruption, handlePulse, handleEcho]);
+  }, [handleBlackHole, handleGalaxy, handleComet, handleCrossfire, handleFireworkShow, handleTide, handleNovaChain, handleEruption, handlePulse, handleEcho, handleMaelstrom]);
 
   const handleSaveCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -9947,21 +9948,14 @@ function App() {
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleComet} title="Comet (Z)">
+          <ActionButton onClick={handleSurprise} title="Surprise — random hidden effect">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="17" cy="7" r="4" fill="currentColor" />
-              <path d="M15 9C12 12 8 15 3 18" />
-              <path d="M13 11C10 13 7 15 2 16" />
-              <path d="M17 11C14 14 10 17 5 20" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleCrossfire} title="Crossfire — orbs from all edges (4)">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="2" fill="currentColor" />
-              <line x1="2" y1="12" x2="8" y2="12" /><polyline points="6 10 8 12 6 14" />
-              <line x1="22" y1="12" x2="16" y2="12" /><polyline points="18 10 16 12 18 14" />
-              <line x1="12" y1="2" x2="12" y2="8" /><polyline points="10 6 12 8 14 6" />
-              <line x1="12" y1="22" x2="12" y2="16" /><polyline points="10 18 12 16 14 18" />
+              <rect x="3" y="3" width="18" height="18" rx="3" />
+              <circle cx="8.5" cy="8.5" r="1.5" fill="currentColor" />
+              <circle cx="15.5" cy="8.5" r="1.5" fill="currentColor" />
+              <circle cx="8.5" cy="15.5" r="1.5" fill="currentColor" />
+              <circle cx="15.5" cy="15.5" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleEruption} title="Eruption">
@@ -9993,18 +9987,6 @@ function App() {
                 <path d="M12 2a10 10 0 0 0-7.07 2.93" />
                 <path d="M12 22a10 10 0 0 0 7.07-2.93" />
                 <path d="M12 22a10 10 0 0 1-7.07-2.93" />
-              </svg>
-            </ActionButton>
-<ActionButton onClick={handleMaelstrom} title="Maelstrom — spiral in, burst out">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 3a9 9 0 0 1 6.36 2.64" />
-                <path d="M19 8a7 7 0 0 1 .5 4" />
-                <path d="M18 14a6 6 0 0 1-3 4" />
-                <path d="M13 19a5 5 0 0 1-4-.5" />
-                <path d="M7 17a4 4 0 0 1-1-3" />
-                <path d="M7 11a3 3 0 0 1 2-2.5" />
-                <path d="M10 10a1.5 1.5 0 0 1 2 0" />
-                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
               </svg>
             </ActionButton>
 <ActionButton onClick={handleSpin} title="Spin orbs">
