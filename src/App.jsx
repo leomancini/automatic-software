@@ -9838,6 +9838,9 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
+        <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet — orbs follow your cursor (O)">
+          magnet
+        </ModeToggle>
         <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Swarm — orbs flock like birds (K)">
           swarm
         </ModeToggle>
