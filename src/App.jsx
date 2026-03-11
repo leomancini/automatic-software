@@ -9358,15 +9358,20 @@ function App() {
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleFinale} title="Finale — chain all effects">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+          </ActionButton>
           {orbCount > 0 && (
             <>
-            <ActionButton onClick={handleEcho} title="Echo — ghost snapshot">
+            <ActionButton onClick={handlePlaceWell} title="Place gravity well">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3" />
-                <circle cx="12" cy="12" r="7" opacity="0.5" />
-                <circle cx="12" cy="12" r="11" opacity="0.25" />
-                <circle cx="8" cy="8" r="2" opacity="0.3" />
-                <circle cx="16" cy="16" r="2" opacity="0.3" />
+                <circle cx="12" cy="12" r="3" fill="currentColor" />
+                <path d="M12 2a10 10 0 0 1 7.07 2.93" />
+                <path d="M12 2a10 10 0 0 0-7.07 2.93" />
+                <path d="M12 22a10 10 0 0 0 7.07-2.93" />
+                <path d="M12 22a10 10 0 0 1-7.07-2.93" />
               </svg>
             </ActionButton>
             <ActionButton onClick={handleScatter} title="Scatter orbs">
@@ -9484,6 +9489,7 @@ function App() {
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Comet</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
+              <Shortcut><Key>;</Key><span>Finale (chain all effects!)</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin / vortex</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
@@ -9506,7 +9512,6 @@ function App() {
               <Shortcut><Key>7</Key><span>Heartbeat pulse</span></Shortcut>
               <Shortcut><Key>-</Key><span>Wave mode</span></Shortcut>
               <Shortcut><Key>.</Key><span>Bounce mode</span></Shortcut>
-              <Shortcut><Key>;</Key><span>Finale</span></Shortcut>
               <Shortcut><Key>Esc</Key><span>Theater mode (screensaver)</span></Shortcut>
               <Shortcut><Key>V</Key><span>Toggle sound</span></Shortcut>
               <Shortcut><Key>X</Key><span>Clear all</span></Shortcut>
