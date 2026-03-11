@@ -10607,8 +10607,8 @@ function App() {
           setShowHelp((prev) => !prev);
           break;
         case "'":
-          handleEruption();
-          flashLabel("ERUPTION", "#f97316");
+          handleComet();
+          flashLabel("COMET", "#4facfe");
           break;
         case "\\":
           handleGravityPulse();
@@ -10643,7 +10643,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleEruption, handleGrandFinale, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleSmash, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleFissionMode, handleBarrage, handleEcho, handleMaelstrom, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleComet, handleGrandFinale, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleSmash, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleFissionMode, handleBarrage, handleEcho, handleMaelstrom, paletteIndex, setShowHelp]);
 
 
   return (
@@ -10795,14 +10795,12 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleEruption} title="Eruption">
+          <ActionButton onClick={handleComet} title="Comet">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22v-6" />
-              <path d="M12 12V2" />
-              <path d="M8 6l4-4 4 4" />
-              <path d="M6 18c0-2 2-4 6-4s6 2 6 4" />
-              <circle cx="8" cy="8" r="1" fill="currentColor" opacity="0.5" />
-              <circle cx="16" cy="6" r="1" fill="currentColor" opacity="0.5" />
+              <circle cx="8" cy="8" r="3" fill="currentColor" />
+              <line x1="10" y1="10" x2="22" y2="22" />
+              <line x1="12" y1="8" x2="22" y2="18" opacity="0.5" />
+              <line x1="8" y1="12" x2="18" y2="22" opacity="0.5" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleScatter} title="Scatter orbs">
