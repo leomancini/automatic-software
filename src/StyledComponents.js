@@ -62,6 +62,42 @@ export const PaletteLink = styled.span`
   }
 `;
 
+export const PaletteStrip = styled.div`
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 4px;
+  pointer-events: auto;
+`;
+
+export const PaletteOption = styled.button`
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  padding: 3px 5px;
+  border: 1.5px solid ${(p) => (p.$active ? "rgba(240, 147, 251, 0.6)" : "rgba(255, 255, 255, 0.1)")};
+  border-radius: 10px;
+  background: ${(p) => (p.$active ? "rgba(240, 147, 251, 0.1)" : "transparent")};
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  &:hover {
+    border-color: rgba(240, 147, 251, 0.5);
+    transform: scale(1.1);
+  }
+  &:active {
+    transform: scale(0.95);
+  }
+`;
+
+export const PaletteDot = styled.span`
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: ${(p) => p.$color};
+`;
+
 export const ModeIndicators = styled.div`
   display: flex;
   gap: 6px;

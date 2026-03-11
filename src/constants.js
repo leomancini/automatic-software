@@ -176,6 +176,10 @@ export const TIDAL_PERIOD = 3.5;         // seconds per full breathe cycle
 export const TIDAL_FORCE = 0.065;        // radial force amplitude per frame
 export const TIDAL_DAMPING = 3.5;        // gentle speed cap during tidal
 
+export const SWIRL_FORCE = 0.07;         // tangential force per frame (perpendicular to radius)
+export const SWIRL_INWARD = 0.015;       // gentle inward pull to keep orbs corralled
+export const SWIRL_SPEED_CAP = 5;        // damping kicks in above this speed
+
 // ── Aurora borealis ─────────────────────────────────────────────────
 export const AURORA_BAND_COUNT = 5;         // number of overlapping curtain bands
 export const AURORA_BASE_ALPHA = 0.018;     // minimum opacity (visible even with 0 orbs)

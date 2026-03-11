@@ -79,6 +79,7 @@ import {
   FLOCK_MAX_SPEED, FLOCK_CURSOR_FLEE_DIST, FLOCK_CURSOR_FLEE_FORCE,
   CURRENT_STRENGTH, CURRENT_SCALE, CURRENT_SPEED,
   TIDAL_PERIOD, TIDAL_FORCE, TIDAL_DAMPING,
+  SWIRL_FORCE, SWIRL_INWARD, SWIRL_SPEED_CAP,
   GALAXY_SPIRAL_MS, GALAXY_SPIN_MS, GALAXY_EXPLODE_MS, GALAXY_ARM_COUNT,
   GALAXY_PULL_FORCE, GALAXY_SPIN_ACCEL, GALAXY_MAX_SPIN, GALAXY_DAMPING,
   GALAXY_EXPLODE_SPEED, GALAXY_RING_COUNT,
@@ -291,6 +292,8 @@ function App() {
   const flowModeRef = useRef(false);
   const [tidalMode, setTidalMode] = useState(false);
   const tidalModeRef = useRef(false);
+  const [swirlMode, setSwirlMode] = useState(false);
+  const swirlModeRef = useRef(false);
   const [linksMode, setLinksMode] = useState(false);
   const linksModeRef = useRef(false);
   const [volatileMode, setVolatileMode] = useState(false);
@@ -3167,6 +3170,24 @@ function App() {
           orb.vy += (tdy / tDist) * TIDAL_FORCE * tidalPhase;
           const tSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
           if (tSpeed > TIDAL_DAMPING) {
+            orb.vx *= 0.97;
+            orb.vy *= 0.97;
+          }
+        }
+
+        // swirl: persistent tangential vortex around canvas center
+        if (swirlModeRef.current) {
+          const swdx = orb.x - W * 0.5;
+          const swdy = orb.y - H * 0.5;
+          const swDist = Math.sqrt(swdx * swdx + swdy * swdy) || 1;
+          // tangential force (perpendicular to radius vector)
+          orb.vx += (-swdy / swDist) * SWIRL_FORCE;
+          orb.vy += (swdx / swDist) * SWIRL_FORCE;
+          // gentle inward pull to keep orbs from flying out
+          orb.vx -= (swdx / swDist) * SWIRL_INWARD;
+          orb.vy -= (swdy / swDist) * SWIRL_INWARD;
+          const swSpeed = Math.sqrt(orb.vx * orb.vx + orb.vy * orb.vy);
+          if (swSpeed > SWIRL_SPEED_CAP) {
             orb.vx *= 0.97;
             orb.vy *= 0.97;
           }
@@ -8791,6 +8812,13 @@ function App() {
     });
   }, []);
 
+  const handleSwirlMode = useCallback(() => {
+    setSwirlMode((prev) => {
+      swirlModeRef.current = !prev;
+      return !prev;
+    });
+  }, []);
+
   const handleLinksMode = useCallback(() => {
     setLinksMode((prev) => {
       linksModeRef.current = !prev;
@@ -10390,6 +10418,7 @@ function App() {
           {flockingMode && <ModePill $color="#22d3ee">flock</ModePill>}
           {flowMode && <ModePill $color="#38bdf8">flow</ModePill>}
           {tidalMode && <ModePill $color="#06b6d4">tidal</ModePill>}
+          {swirlMode && <ModePill $color="#818cf8">swirl</ModePill>}
           {linksMode && <ModePill $color="#f0abfc">links</ModePill>}
           {rainMode && <ModePill $color="#60a5fa">rain</ModePill>}
           {kaleidoscopeMode && <ModePill $color="#f0abfc">mirror</ModePill>}
@@ -10517,8 +10546,8 @@ function App() {
         <ModeToggle onClick={handleGravity} $active={gravityOn} $color="#43e97b" title="Toggle gravity">
           gravity
         </ModeToggle>
-        <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode">
-          paint
+        <ModeToggle onClick={handleSwirlMode} $active={swirlMode} $color="#818cf8" title="Swirl — persistent vortex whirlpool">
+          swirl
         </ModeToggle>
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
