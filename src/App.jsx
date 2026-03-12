@@ -5612,6 +5612,42 @@ function App() {
         ctx.restore();
       }
 
+      // draw flock connections — subtle threads showing flock cohesion
+      if (flockingModeRef.current && orbs.length >= 2 && orbs.length < 200) {
+        const FLOCK_RANGE_SQ = FLOCK_COHESION_DIST * FLOCK_COHESION_DIST;
+        ctx.save();
+        ctx.lineCap = "round";
+        for (let i = 0; i < orbs.length; i++) {
+          const a = orbs[i];
+          if (a.spark) continue;
+          for (let j = i + 1; j < orbs.length; j++) {
+            const b = orbs[j];
+            if (b.spark) continue;
+            const dx = a.x - b.x;
+            const dy = a.y - b.y;
+            const distSq = dx * dx + dy * dy;
+            if (distSq > FLOCK_RANGE_SQ) continue;
+            const dist = Math.sqrt(distSq);
+            const t = 1 - dist / FLOCK_COHESION_DIST;
+            // alignment: orbs moving in similar direction get brighter lines
+            const speedA = Math.sqrt(a.vx * a.vx + a.vy * a.vy);
+            const speedB = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+            const alignment = speedA > 0.5 && speedB > 0.5
+              ? Math.max(0, (a.vx * b.vx + a.vy * b.vy) / (speedA * speedB))
+              : 0.3;
+            const alpha = t * alignment * 0.3;
+            if (alpha < 0.02) continue;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.strokeStyle = a.color + hexAlpha(alpha * 255);
+            ctx.lineWidth = t * 1.2;
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+      }
+
       // draw impact scorch marks
       scorchMarksRef.current = scorchMarksRef.current.filter((s) => now - s.born < SCORCH_DURATION);
       for (const scorch of scorchMarksRef.current) {
@@ -10827,8 +10863,14 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
+        <ModeToggle onClick={handleAttractMode} $active={attractMode} $color="#f093fb" title="Attract mode">
+          attract
+        </ModeToggle>
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode — orbs leave trails on canvas (P)">
           paint
+        </ModeToggle>
+        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flock mode">
+          flock
         </ModeToggle>
         <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#f97316" title="Bounce — elastic billiard collisions (.)">
           bounce
