@@ -262,6 +262,7 @@ function App() {
   const nebulaRef = useRef([]); // ambient nebula glow points
   const tapSparklesRef = useRef([]); // tiny sparkle particles from taps
   const cursorTrailRef = useRef([]); // cursor comet trail points
+  const lastMouseShakeRef = useRef(0); // desktop mouse shake cooldown
   const cursorWakeRef = useRef([]); // shimmer particles drifting off cursor trail
   const tapWebRef = useRef([]); // recent tap positions for constellation web [{x, y, color, born}]
   const harpVibrationsRef = useRef([]); // gravity harp string pluck visuals
@@ -559,6 +560,39 @@ function App() {
       if (!last || Math.abs(pos.x - last.x) + Math.abs(pos.y - last.y) > 3) {
         ct.push({ x: pos.x, y: pos.y, t: performance.now() });
         if (ct.length > 60) ct.shift();
+      }
+      // ── Desktop mouse shake detection: rapid oscillation → shockwave ──
+      if (!e.touches && ct.length >= 6) {
+        const nowMs = performance.now();
+        if (nowMs - lastMouseShakeRef.current > 800) {
+          const recent = [];
+          for (let i = ct.length - 1; i >= 0 && recent.length < 8; i--) {
+            if (nowMs - ct[i].t < 400) recent.unshift(ct[i]);
+            else break;
+          }
+          if (recent.length >= 5) {
+            let reversals = 0, totalDist = 0;
+            for (let i = 1; i < recent.length; i++) {
+              const dx = recent[i].x - recent[i - 1].x;
+              const dy = recent[i].y - recent[i - 1].y;
+              totalDist += Math.abs(dx) + Math.abs(dy);
+              if (i >= 2) {
+                const pdx = recent[i - 1].x - recent[i - 2].x;
+                const pdy = recent[i - 1].y - recent[i - 2].y;
+                if ((dx * pdx < 0 && Math.abs(dx) > 5) || (dy * pdy < 0 && Math.abs(dy) > 5)) reversals++;
+              }
+            }
+            if (reversals >= 3 && totalDist > 150) {
+              lastMouseShakeRef.current = nowMs;
+              const color = randomColor();
+              wavesRef.current.push({ cx: pos.x, cy: pos.y, radius: 0, color, generation: 0, hitOrbs: new Set(), delay: 0 });
+              shakeRef.current = Math.max(shakeRef.current, 12);
+              comboFlashRef.current.push({ text: "SHAKE!", x: pos.x, y: pos.y - 40, born: nowMs, color });
+              ensureAudio();
+              playBoom();
+            }
+          }
+        }
       }
     },
     [getPos]
@@ -10734,7 +10768,7 @@ function App() {
         <Hint style={{ opacity: tipFading ? 0 : 1, transition: 'opacity 0.4s ease' }}>
           {(() => {
             const tips = orbCount === 0
-              ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "big flick = rocket firework!", "right-click for a surprise", "shake your phone for a shockwave"]
+              ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "big flick = rocket firework!", "right-click for a surprise", "shake mouse or phone for a shockwave"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
               : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try vortex (`) \u00b7 spiral in & burst out", "rebound (Z) \u00b7 reverse all velocities", "cycle gravity (G) \u00b7 try spin mode"];
@@ -10990,7 +11024,7 @@ function App() {
               <Shortcut><Key>right-click</Key><span>Split orb / random effect</span></Shortcut>
               <Shortcut><Key>rapid taps</Key><span>Combo streaks → bonus effects</span></Shortcut>
               <Shortcut><Key>pinch</Key><span>Gather / spread / spin orbs</span></Shortcut>
-              <Shortcut><Key>shake</Key><span>Shockwave (mobile)</span></Shortcut>
+              <Shortcut><Key>shake</Key><span>Shockwave (mouse or phone)</span></Shortcut>
               <hr />
               <Shortcut><Key>B</Key><span>Burst spawn</span></Shortcut>
               <Shortcut><Key>Q</Key><span>Meteor shower</span></Shortcut>
