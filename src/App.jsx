@@ -10880,8 +10880,8 @@ function App() {
         <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain — orbs auto-spawn and fall (5)">
           rain
         </ModeToggle>
-        <ModeToggle onClick={handleMagnetCursor} $active={magnetCursorMode} $color="#f59e0b" title="Magnet — orbs follow your cursor (O)">
-          magnet
+        <ModeToggle onClick={handleVolatileMode} $active={volatileMode} $color="#ef4444" title="Volatile — orbs shatter on impact (;)">
+          volatile
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
