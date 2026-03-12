@@ -9427,6 +9427,34 @@ function App() {
     ripplesRef.current.push({ x: launchX, y: peakY, color: burstColor, born: now });
     flashesRef.current.push({ x: launchX, y: peakY, color: burstColor, radius: 30, born: now });
 
+    // Crackle: delayed secondary pops around the burst area
+    const crackleCount = 6 + Math.floor(Math.random() * 3);
+    for (let c = 0; c < crackleCount; c++) {
+      const delay = 250 + Math.random() * 350;
+      const cAngle = Math.random() * Math.PI * 2;
+      const cDist = 20 + Math.random() * 50;
+      const cx = launchX + Math.cos(cAngle) * cDist;
+      const cy = peakY + Math.sin(cAngle) * cDist;
+      setTimeout(() => {
+        const t = performance.now();
+        // Small flash
+        flashesRef.current.push({ x: cx, y: cy, color: burstColor, radius: 10 + Math.random() * 8, born: t });
+        // Tiny burst particles
+        for (let p = 0; p < 4; p++) {
+          const pa = Math.random() * Math.PI * 2;
+          const ps = 1 + Math.random() * 2;
+          burstsRef.current.push({
+            x: cx, y: cy,
+            vx: Math.cos(pa) * ps, vy: Math.sin(pa) * ps,
+            color: burstColor, radius: 0.8 + Math.random() * 1,
+            born: t,
+          });
+        }
+        // Crackle sound — short high-pitched pop
+        playTone(cx / window.innerWidth, 0.08);
+      }, delay);
+    }
+
     setOrbCount(orbsRef.current.length);
     shakeRef.current = 10;
     playBurstSound();
@@ -10833,13 +10861,17 @@ function App() {
           </ActionButton>
           {orbCount > 0 && (
             <>
-            <ActionButton onClick={handlePlaceWell} title="Place gravity well">
+            <ActionButton onClick={handleFireworkShow} title="Firework show">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3" fill="currentColor" />
-                <path d="M12 2a10 10 0 0 1 7.07 2.93" />
-                <path d="M12 2a10 10 0 0 0-7.07 2.93" />
-                <path d="M12 22a10 10 0 0 0 7.07-2.93" />
-                <path d="M12 22a10 10 0 0 1-7.07-2.93" />
+                <line x1="6" y1="22" x2="6" y2="14" />
+                <line x1="6" y1="10" x2="3" y2="6" />
+                <line x1="6" y1="10" x2="9" y2="6" />
+                <line x1="6" y1="10" x2="6" y2="6" />
+                <line x1="18" y1="22" x2="18" y2="12" />
+                <line x1="18" y1="8" x2="15" y2="4" />
+                <line x1="18" y1="8" x2="21" y2="4" />
+                <line x1="18" y1="8" x2="18" y2="4" />
+                <circle cx="12" cy="3" r="1" fill="currentColor" />
               </svg>
             </ActionButton>
 <ActionButton onClick={handleSpin} title="Spin orbs">
