@@ -268,6 +268,7 @@ function App() {
   const harpVibrationsRef = useRef([]); // gravity harp string pluck visuals
   const formationRef = useRef(null); // {targets, born, type}
   const formationIndexRef = useRef(0);
+  const helixRef = useRef(null); // {born, strandA[], strandB[]} — double helix choreography
   const tornadoRef = useRef(null); // {x, y, born, dir, debris[]}
   const holdChargeRef = useRef(null); // {x, y, born} when hold-to-attract is active
   const holdChargeTimerRef = useRef(null);
@@ -3052,6 +3053,58 @@ function App() {
         }
       }
 
+      // helix — rotating double helix choreography
+      if (helixRef.current) {
+        const hx = helixRef.current;
+        const hxElapsed = now - hx.born;
+        const HELIX_HOLD_MS = 4000;
+        if (hxElapsed > HELIX_HOLD_MS) {
+          // Scatter burst on completion
+          for (const o of orbs) {
+            const dx = o.x - W / 2;
+            const dy = o.y - H / 2;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            o.vx += (dx / dist) * 8;
+            o.vy += (dy / dist) * 8;
+          }
+          shakeRef.current = Math.max(shakeRef.current, 15);
+          wavesRef.current.push({ cx: W / 2, cy: H / 2, radius: 0, color: randomColor(), generation: 0, hitOrbs: new Set(), delay: 0 });
+          helixRef.current = null;
+        } else {
+          const hxEase = Math.min(hxElapsed / 500, 1);
+          const rotation = hxElapsed * 0.0025;
+          const R = Math.min(W, H) * 0.15;
+          const cx = W / 2;
+          const margin = H * 0.1;
+          const usableH = H - 2 * margin;
+          const totalTwists = 2.5;
+          const orbById = new Map();
+          for (const o of orbs) orbById.set(o.id, o);
+          // Strand A
+          for (let i = 0; i < hx.strandA.length; i++) {
+            const o = orbById.get(hx.strandA[i]);
+            if (!o || o === dragRef.current) continue;
+            const t = hx.strandA.length > 1 ? i / (hx.strandA.length - 1) : 0.5;
+            const phase = t * totalTwists * Math.PI * 2 + rotation;
+            const tx = cx + R * Math.cos(phase);
+            const ty = margin + t * usableH;
+            o.vx = (o.vx + (tx - o.x) * FORMATION_SPRING * hxEase) * FORMATION_DAMPING;
+            o.vy = (o.vy + (ty - o.y) * FORMATION_SPRING * hxEase) * FORMATION_DAMPING;
+          }
+          // Strand B (π offset)
+          for (let i = 0; i < hx.strandB.length; i++) {
+            const o = orbById.get(hx.strandB[i]);
+            if (!o || o === dragRef.current) continue;
+            const t = hx.strandB.length > 1 ? i / (hx.strandB.length - 1) : 0.5;
+            const phase = t * totalTwists * Math.PI * 2 + rotation + Math.PI;
+            const tx = cx + R * Math.cos(phase);
+            const ty = margin + t * usableH;
+            o.vx = (o.vx + (tx - o.x) * FORMATION_SPRING * hxEase) * FORMATION_DAMPING;
+            o.vy = (o.vy + (ty - o.y) * FORMATION_SPRING * hxEase) * FORMATION_DAMPING;
+          }
+        }
+      }
+
       // precompute hue + RGB for color affinity & contagion
       for (const orb of orbs) {
         orb._hue = hexToHsl(orb.color)[0];
@@ -5202,6 +5255,51 @@ function App() {
               }
             }
           }
+        }
+      }
+
+      // ── Helix backbone lines ──
+      if (helixRef.current) {
+        const hx = helixRef.current;
+        const hxElapsed = now - hx.born;
+        const hxAlpha = Math.min(hxElapsed / 600, 0.6);
+        const orbById = new Map();
+        for (const o of orbs) orbById.set(o.id, o);
+        ctx.lineCap = "round";
+        // Draw each strand
+        for (const strand of [hx.strandA, hx.strandB]) {
+          for (let i = 0; i < strand.length - 1; i++) {
+            const a = orbById.get(strand[i]);
+            const b = orbById.get(strand[i + 1]);
+            if (!a || !b) continue;
+            const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+            grad.addColorStop(0, a.color + hexAlpha(hxAlpha * 255));
+            grad.addColorStop(1, b.color + hexAlpha(hxAlpha * 255));
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          }
+        }
+        // Cross-rungs between strands at matching indices (DNA base pairs)
+        const minLen = Math.min(hx.strandA.length, hx.strandB.length);
+        for (let i = 0; i < minLen; i++) {
+          const a = orbById.get(hx.strandA[i]);
+          const b = orbById.get(hx.strandB[i]);
+          if (!a || !b) continue;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > Math.min(W, H) * 0.25) continue; // only draw rungs when strands cross
+          const rungAlpha = hxAlpha * 0.4 * (1 - dist / (Math.min(W, H) * 0.25));
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.strokeStyle = `rgba(255, 255, 255, ${rungAlpha})`;
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
         }
       }
 
@@ -10553,6 +10651,25 @@ function App() {
     setTimeout(() => { finaleActiveRef.current = false; }, 3500);
   }, [handleBurst, handleWave, handleLightning, handleFirework, handleMeteorShower, handleSupernova]);
 
+  const handleHelix = useCallback(() => {
+    const orbs = orbsRef.current;
+    if (orbs.length < 4) return;
+    haptic(30);
+    // Assign orbs alternately to two strands
+    const strandA = [];
+    const strandB = [];
+    // Sort by vertical position so strands are spatially coherent
+    const sorted = [...orbs].sort((a, b) => a.y - b.y);
+    for (let i = 0; i < sorted.length; i++) {
+      if (i % 2 === 0) strandA.push(sorted[i].id);
+      else strandB.push(sorted[i].id);
+    }
+    helixRef.current = { born: performance.now(), strandA, strandB };
+    shakeRef.current = Math.max(shakeRef.current, 6);
+    comboFlashRef.current.push({ text: "HELIX", x: window.innerWidth / 2, y: window.innerHeight / 2, born: performance.now(), color: "#a78bfa" });
+    playBurstSound();
+  }, []);
+
   const handleTide = useCallback(() => {
     const dir = tideDirRef.current;
     tideDirRef.current *= -1;
@@ -10705,6 +10822,9 @@ function App() {
           handleMaelstrom();
           flashLabel("VORTEX", "#78c8ff");
           break;
+        case "i":
+          handleHelix();
+          break;
         case ".":
           handleBounceMode();
           break;
@@ -10748,7 +10868,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handleLightning, handleMeteorShower, handleSupernova, handleToggleAudio, handleCyclePalette, handleGrandFinale, handleTrailsMode, handleBounceMode, handleMaelstrom, handleWrapMode, handleFlockingMode, handleSlam, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handleLightning, handleMeteorShower, handleSupernova, handleToggleAudio, handleCyclePalette, handleGrandFinale, handleTrailsMode, handleBounceMode, handleMaelstrom, handleWrapMode, handleFlockingMode, handleSlam, handleHelix, paletteIndex, setShowHelp]);
 
 
   return (
@@ -10904,6 +11024,14 @@ function App() {
           <ActionButton onClick={handleLightning} title="Chain lightning">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
+          </ActionButton>
+          <ActionButton onClick={handleHelix} title="Helix — DNA double helix (I)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 3c0 4 12 4 12 8s-12 4-12 8" />
+              <path d="M18 3c0 4-12 4-12 8s12 4 12 8" />
+              <line x1="7" y1="7" x2="17" y2="7" opacity="0.5" />
+              <line x1="7" y1="17" x2="17" y2="17" opacity="0.5" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleShuffle} title="Shuffle colors" $highlight>
