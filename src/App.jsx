@@ -10869,6 +10869,30 @@ function App() {
                 <polyline points="21 3 21 9 15 9" />
               </svg>
             </ActionButton>
+<ActionButton onClick={handleScatter} title="Scatter orbs (S)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="12" x2="5" y2="5" />
+                <polyline points="5 9 5 5 9 5" />
+                <line x1="12" y1="12" x2="19" y2="5" />
+                <polyline points="15 5 19 5 19 9" />
+                <line x1="12" y1="12" x2="5" y2="19" />
+                <polyline points="9 19 5 19 5 15" />
+                <line x1="12" y1="12" x2="19" y2="19" />
+                <polyline points="19 15 19 19 15 19" />
+              </svg>
+            </ActionButton>
+<ActionButton onClick={handleGather} title="Gather orbs (C)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="5" x2="12" y2="12" />
+                <polyline points="12 8 12 12 8 12" />
+                <line x1="19" y1="5" x2="12" y2="12" />
+                <polyline points="12 8 12 12 16 12" />
+                <line x1="5" y1="19" x2="12" y2="12" />
+                <polyline points="8 12 12 12 12 16" />
+                <line x1="19" y1="19" x2="12" y2="12" />
+                <polyline points="16 12 12 12 12 16" />
+              </svg>
+            </ActionButton>
 <ActionButton onClick={handleClearAll} title="Clear all orbs" $danger>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
