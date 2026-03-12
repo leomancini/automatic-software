@@ -10549,7 +10549,7 @@ function App() {
           break;
         case "`":
           handleMaelstrom();
-          flashLabel("MAELSTROM", "#78c8ff");
+          flashLabel("VORTEX", "#78c8ff");
           break;
         case "k":
           handleFlockingMode();
@@ -10796,17 +10796,16 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleCrossfire} title="Collide">
+          <ActionButton onClick={handleMaelstrom} title="Vortex">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="2" y1="12" x2="8" y2="12" />
-              <polyline points="6 9 9 12 6 15" />
-              <line x1="22" y1="12" x2="16" y2="12" />
-              <polyline points="18 9 15 12 18 15" />
-              <circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.6" />
-              <line x1="12" y1="2" x2="12" y2="7" />
-              <polyline points="10 5 12 8 14 5" />
-              <line x1="12" y1="22" x2="12" y2="17" />
-              <polyline points="10 19 12 16 14 19" />
+              <path d="M12 3a9 9 0 0 1 6.36 2.64" />
+              <path d="M19 8a7 7 0 0 1 .5 4" />
+              <path d="M18.36 14.36A7 7 0 0 1 14 18" />
+              <path d="M10 18.5a5 5 0 0 1-3-3" />
+              <path d="M6.5 13a5 5 0 0 1 .5-4" />
+              <path d="M9 7.5A3 3 0 0 1 12 6" />
+              <path d="M14 8a2 2 0 0 1 1 2" />
+              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleScatter} title="Scatter orbs">
@@ -10935,7 +10934,7 @@ function App() {
               <Shortcut><Key>\</Key><span>Gravity pulse (implode → explode)</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Rebound (reverse all velocities)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
-              <Shortcut><Key>0</Key><span>Black hole</span></Shortcut>
+              <Shortcut><Key>`</Key><span>Vortex (spiral in → burst out)</span></Shortcut>
               <hr />
               <Shortcut><Key>G</Key><span>Cycle gravity (↓→↑←↻)</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
