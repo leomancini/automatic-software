@@ -10817,30 +10817,6 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleMaelstrom} title="Vortex">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3a9 9 0 0 1 6.36 2.64" />
-              <path d="M19 8a7 7 0 0 1 .5 4" />
-              <path d="M18.36 14.36A7 7 0 0 1 14 18" />
-              <path d="M10 18.5a5 5 0 0 1-3-3" />
-              <path d="M6.5 13a5 5 0 0 1 .5-4" />
-              <path d="M9 7.5A3 3 0 0 1 12 6" />
-              <path d="M14 8a2 2 0 0 1 1 2" />
-              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-            </svg>
-          </ActionButton>
-          <ActionButton onClick={handleCrossfire} title="Crossfire">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="2" y1="12" x2="10" y2="12" />
-              <polyline points="7 9 10 12 7 15" />
-              <line x1="22" y1="12" x2="14" y2="12" />
-              <polyline points="17 9 14 12 17 15" />
-              <line x1="12" y1="2" x2="12" y2="10" />
-              <polyline points="9 7 12 10 15 7" />
-              <line x1="12" y1="22" x2="12" y2="14" />
-              <polyline points="9 17 12 14 15 17" />
-            </svg>
-          </ActionButton>
           <ActionButton onClick={handleLightning} title="Chain lightning">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
