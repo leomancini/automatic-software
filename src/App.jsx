@@ -10858,14 +10858,12 @@ function App() {
           </ActionButton>
           {orbCount > 0 && (
             <>
-            <ActionButton onClick={handleMaelstrom} title="Vortex — spiral in & burst out (`)">
+            <ActionButton onClick={handleComet} title="Comet — streaks across leaving orbs behind">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 3c-4.97 0-9 4.03-9 9" />
-                <path d="M12 7c-2.76 0-5 2.24-5 5" />
-                <path d="M12 11c-.55 0-1 .45-1 1" />
-                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-                <path d="M12 21c4.97 0 9-4.03 9-9" />
-                <path d="M12 17c2.76 0 5-2.24 5-5" />
+                <circle cx="18" cy="6" r="3" fill="currentColor" />
+                <path d="M16 8 L4 20" />
+                <path d="M15 9 L6 18" strokeOpacity="0.5" />
+                <path d="M14 10 L8 16" strokeOpacity="0.3" />
               </svg>
             </ActionButton>
 <ActionButton onClick={handleSpin} title="Spin orbs">
@@ -10985,7 +10983,7 @@ function App() {
               <Shortcut><Key>Z</Key><span>Rebound (reverse all velocities)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>!</Key><span>Grand finale (chain all effects)</span></Shortcut>
-              <Shortcut><Key>` / btn</Key><span>Vortex (spiral in → burst out)</span></Shortcut>
+              <Shortcut><Key>`</Key><span>Vortex (spiral in → burst out)</span></Shortcut>
               <hr />
               <Shortcut><Key>G</Key><span>Cycle gravity (↓→↑←↻)</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
