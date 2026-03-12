@@ -987,12 +987,29 @@ function App() {
       haptic(streak >= 5 ? 15 : 6);
 
       for (let i = 0; i < spawnCount; i++) {
-        const angle = spawnCount > 1 ? (Math.PI * 2 * i) / spawnCount : 0;
-        const spread = spawnCount > 1 ? 12 + streak : 0;
-        const ox = pos.x + Math.cos(angle) * spread;
-        const oy = pos.y + Math.sin(angle) * spread;
-        const ovx = spawnCount > 1 ? Math.cos(angle) * (1 + streak * 0.3) : 0;
-        const ovy = spawnCount > 1 ? Math.sin(angle) * (1 + streak * 0.3) : 0;
+        let ox, oy, ovx, ovy;
+        // Trail spawn: bonus orbs trace the path between consecutive taps
+        const useTrail = i > 0 && dtDist > 30 && dtDist < 500;
+        if (useTrail) {
+          const t = i / spawnCount;
+          ox = pos.x - dtDx * t * 0.6;
+          oy = pos.y - dtDy * t * 0.6;
+          // Slight perpendicular wobble for organic feel
+          const perpX = -dtDy / dtDist;
+          const perpY = dtDx / dtDist;
+          ox += perpX * (Math.random() - 0.5) * 8;
+          oy += perpY * (Math.random() - 0.5) * 8;
+          const speed = (1 + streak * 0.2) * (1 - t * 0.4);
+          ovx = (dtDx / dtDist) * speed;
+          ovy = (dtDy / dtDist) * speed;
+        } else {
+          const angle = spawnCount > 1 ? (Math.PI * 2 * i) / spawnCount : 0;
+          const spread = spawnCount > 1 ? 12 + streak : 0;
+          ox = pos.x + Math.cos(angle) * spread;
+          oy = pos.y + Math.sin(angle) * spread;
+          ovx = spawnCount > 1 ? Math.cos(angle) * (1 + streak * 0.3) : 0;
+          ovy = spawnCount > 1 ? Math.sin(angle) * (1 + streak * 0.3) : 0;
+        }
 
         {
           const orb = createOrb(ox, oy);
