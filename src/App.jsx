@@ -10868,8 +10868,8 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleChainReact} $active={chainReactMode} $color="#f97316" title="Cascade — shockwaves chain-react through orbs">
-          cascade
+        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flock — orbs swarm like birds (K)">
+          flock
         </ModeToggle>
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode — orbs leave trails on canvas (P)">
           paint
@@ -10927,7 +10927,7 @@ function App() {
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin (double-tap: centrifuge!)</span></Shortcut>
-              <Shortcut><Key>4</Key><span>Crossfire (orbs from all edges)</span></Shortcut>
+              <Shortcut><Key>K</Key><span>Flock mode (swarm like birds)</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
               <Shortcut><Key>\</Key><span>Gravity pulse (implode → explode)</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Rebound (reverse all velocities)</span></Shortcut>
