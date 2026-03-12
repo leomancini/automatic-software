@@ -10911,16 +10911,14 @@ function App() {
               <line x1="4" y1="4" x2="9" y2="9" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleGrandFinale} title="Grand finale — chains all effects (!)" $highlight>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26" fill="currentColor" opacity="0.3" />
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26" />
+            </svg>
+          </ActionButton>
           {orbCount > 0 && (
             <>
-            <ActionButton onClick={handleComet} title="Comet — streaks across leaving orbs behind">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="18" cy="6" r="3" fill="currentColor" />
-                <path d="M16 8 L4 20" />
-                <path d="M15 9 L6 18" strokeOpacity="0.5" />
-                <path d="M14 10 L8 16" strokeOpacity="0.3" />
-              </svg>
-            </ActionButton>
 <ActionButton onClick={handleSpin} title="Spin orbs">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 12a9 9 0 1 1-6.22-8.56" />
