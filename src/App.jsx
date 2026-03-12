@@ -10868,17 +10868,14 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flock — orbs swarm like birds (K)">
-          flock
-        </ModeToggle>
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode — orbs leave trails on canvas (P)">
           paint
         </ModeToggle>
-        <ModeToggle onClick={handleEchoMode} $active={echoMode} $color="#60a5fa" title="Echo — taps repeat with delayed echoes (5)">
-          echo
+        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#f97316" title="Bounce — elastic billiard collisions (.)">
+          bounce
         </ModeToggle>
-        <ModeToggle onClick={handleVolatileMode} $active={volatileMode} $color="#ef4444" title="Volatile — orbs shatter on impact (;)">
-          volatile
+        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — orbs leave comet tails (T)">
+          trails
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
