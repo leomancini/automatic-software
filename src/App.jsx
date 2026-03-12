@@ -10714,6 +10714,7 @@ function App() {
           {magnetCursorMode && <ModePill $color="#f59e0b">magnet</ModePill>}
           {attractMode && <ModePill $color="#f093fb">attract</ModePill>}
           {repelMode && <ModePill $color="#fa709a">repel</ModePill>}
+          {chainReactMode && <ModePill $color="#f97316">cascade</ModePill>}
           {paintMode && <ModePill $color="#feb47b">paint</ModePill>}
           {wrapMode && <ModePill $color="#38bdf8">wrap</ModePill>}
           {nbodyMode && <ModePill $color="#a78bfa">n-body</ModePill>}
@@ -10865,6 +10866,9 @@ function App() {
         </ModeToggle>
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
+        </ModeToggle>
+        <ModeToggle onClick={handleChainReact} $active={chainReactMode} $color="#f97316" title="Cascade — shockwaves chain-react through orbs">
+          cascade
         </ModeToggle>
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode — orbs leave trails on canvas (P)">
           paint
