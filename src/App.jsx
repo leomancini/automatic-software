@@ -10796,12 +10796,17 @@ function App() {
               <line x1="17.66" y1="6.34" x2="19.78" y2="4.22" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleComet} title="Comet">
+          <ActionButton onClick={handleCrossfire} title="Collide">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="8" cy="8" r="3" fill="currentColor" />
-              <line x1="10" y1="10" x2="22" y2="22" />
-              <line x1="12" y1="8" x2="22" y2="18" opacity="0.5" />
-              <line x1="8" y1="12" x2="18" y2="22" opacity="0.5" />
+              <line x1="2" y1="12" x2="8" y2="12" />
+              <polyline points="6 9 9 12 6 15" />
+              <line x1="22" y1="12" x2="16" y2="12" />
+              <polyline points="18 9 15 12 18 15" />
+              <circle cx="12" cy="12" r="2" fill="currentColor" opacity="0.6" />
+              <line x1="12" y1="2" x2="12" y2="7" />
+              <polyline points="10 5 12 8 14 5" />
+              <line x1="12" y1="22" x2="12" y2="17" />
+              <polyline points="10 19 12 16 14 19" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleScatter} title="Scatter orbs">
