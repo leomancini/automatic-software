@@ -456,6 +456,14 @@ export const ModeToggle = styled.button`
   }
 `;
 
+
+export const StripDivider = styled.div`
+  width: 1px;
+  height: 20px;
+  background: rgba(102, 126, 234, 0.2);
+  align-self: center;
+`;
+
 export const HelpClose = styled.button`
   display: block;
   width: 100%;

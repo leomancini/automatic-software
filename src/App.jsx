@@ -10561,10 +10561,6 @@ function App() {
         case "t":
           handleTrailsMode();
           break;
-        case "n":
-          handlePulse();
-          flashLabel("PULSE", "#667eea");
-          break;
         case "l":
           handleLightning();
           flashLabel("LIGHTNING", "#4facfe");
@@ -10584,31 +10580,6 @@ function App() {
           handleCyclePalette();
           flashLabel(PALETTES[(paletteIndex + 1) % PALETTES.length].name.toUpperCase(), "#f093fb");
           break;
-        case "0":
-          handleBlackHole();
-          flashLabel("BLACK HOLE", "#a855f7");
-          break;
-        case "1":
-          handleFireworkShow();
-          break;
-        case "2":
-          handleTide();
-          flashLabel("TIDE", "#00f2fe");
-          break;
-        case "3":
-          handleGalaxy();
-          if (orbsRef.current.length >= 3) flashLabel("GALAXY", "#c084fc");
-          break;
-        case "4":
-          handleCrossfire();
-          flashLabel("CROSSFIRE", "#fa709a");
-          break;
-        case "a":
-          handleNbodyMode();
-          break;
-        case "5":
-          handleEchoMode();
-          break;
         case "z":
           handleRebound();
           flashLabel("REBOUND", "#00f2fe");
@@ -10617,64 +10588,11 @@ function App() {
           handleMaelstrom();
           flashLabel("VORTEX", "#78c8ff");
           break;
-        case "k":
-          handleFlockingMode();
-          break;
-        case "u":
-          handleKaleidoscopeMode();
-          break;
-        case "i":
-          handleWrapMode();
-          break;
-        case "j":
-          handleFlowMode();
-          break;
-        case "6":
-          handleLinksMode();
-          break;
-        case "7":
-          handlePulseMode();
-          break;
-        case "8":
-          handleAutoplay();
-          break;
-        case "9":
-          handleVolatileMode();
-          flashLabel(volatileModeRef.current ? "VOLATILE OFF" : "VOLATILE ON", "#ef4444");
-          break;
-        case ";":
-          handleSmash();
-          break;
-        case "-":
-          handleWaveMode();
-          break;
         case ".":
           handleBounceMode();
           break;
-        case "=":
-          handleFissionMode();
-          break;
-        case ",":
-          handleBarrage();
-          flashLabel("BARRAGE", "#f093fb");
-          break;
-        case "]":
-          handleNovaChain();
-          flashLabel("NOVA CHAIN", "#fbbf24");
-          break;
-        case "[":
-          handleEcho();
-          flashLabel("ECHO", "#a78bfa");
-          break;
-        case "/":
-          handleBarrierMode();
-          break;
         case "?":
           setShowHelp((prev) => !prev);
-          break;
-        case "'":
-          handleComet();
-          flashLabel("COMET", "#4facfe");
           break;
         case "\\":
           handleGravityPulse();
@@ -10709,7 +10627,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handlePlaceWell, handleLightning, handleMeteorShower, handleSupernova, handleBlackHole, handleToggleAudio, handleCyclePalette, handlePulse, handleFireworkShow, handleTide, handleGalaxy, handleCrossfire, handleComet, handleGrandFinale, handleNbodyMode, handleFlockingMode, handleKaleidoscopeMode, handleWrapMode, handleFlowMode, handleSmash, handleTrailsMode, handleVolatileMode, handleWaveMode, handleBounceMode, handleFissionMode, handleBarrage, handleEcho, handleMaelstrom, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handleLightning, handleMeteorShower, handleSupernova, handleToggleAudio, handleCyclePalette, handleGrandFinale, handleTrailsMode, handleBounceMode, handleMaelstrom, paletteIndex, setShowHelp]);
 
 
   return (
@@ -10736,7 +10654,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "big flick = rocket firework!", "right-click for a surprise", "shake your phone for a shockwave"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try crossfire \u00b7 orbs collide from all edges", "try echo mode \u00b7 taps repeat with delay", "cycle gravity (G) \u00b7 try spin mode"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try vortex (`) \u00b7 spiral in & burst out", "rebound (Z) \u00b7 reverse all velocities", "cycle gravity (G) \u00b7 try spin mode"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -10965,7 +10883,6 @@ function App() {
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin (double-tap: centrifuge!)</span></Shortcut>
-              <Shortcut><Key>K</Key><span>Flock mode (swarm like birds)</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
               <Shortcut><Key>\</Key><span>Gravity pulse (implode → explode)</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Rebound (reverse all velocities)</span></Shortcut>
@@ -10979,7 +10896,6 @@ function App() {
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>T</Key><span>Trails mode</span></Shortcut>
-              <Shortcut><Key>A</Key><span>N-body orbit</span></Shortcut>
               <Shortcut><Key>.</Key><span>Bounce mode</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>Esc</Key><span>Theater mode (screensaver)</span></Shortcut>
