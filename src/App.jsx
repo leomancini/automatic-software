@@ -1930,6 +1930,33 @@ function App() {
         ctx.restore();
       }
 
+      // ── Wrap mode portal edges: pulsing border glow signals teleport edges ──
+      if (wrapModeRef.current) {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        const portalPulse = 0.25 + 0.15 * Math.sin(time * 3);
+        const portalDepth = 6;
+        const portalColor = `rgba(56, 189, 254, ${portalPulse})`;
+        const portalFade = "rgba(56, 189, 254, 0)";
+        // Left
+        let pg = ctx.createLinearGradient(0, 0, portalDepth, 0);
+        pg.addColorStop(0, portalColor); pg.addColorStop(1, portalFade);
+        ctx.fillStyle = pg; ctx.fillRect(0, 0, portalDepth, H);
+        // Right
+        pg = ctx.createLinearGradient(W, 0, W - portalDepth, 0);
+        pg.addColorStop(0, portalColor); pg.addColorStop(1, portalFade);
+        ctx.fillStyle = pg; ctx.fillRect(W - portalDepth, 0, portalDepth, H);
+        // Top
+        pg = ctx.createLinearGradient(0, 0, 0, portalDepth);
+        pg.addColorStop(0, portalColor); pg.addColorStop(1, portalFade);
+        ctx.fillStyle = pg; ctx.fillRect(0, 0, W, portalDepth);
+        // Bottom
+        pg = ctx.createLinearGradient(0, H, 0, H - portalDepth);
+        pg.addColorStop(0, portalColor); pg.addColorStop(1, portalFade);
+        ctx.fillStyle = pg; ctx.fillRect(0, H - portalDepth, W, portalDepth);
+        ctx.restore();
+      }
+
       // ── Ambient nebula update + render ──
       const nebulae = nebulaRef.current;
       for (const neb of nebulae) {
@@ -10597,6 +10624,9 @@ function App() {
         case "t":
           handleTrailsMode();
           break;
+        case "n":
+          handleWrapMode();
+          break;
         case "l":
           handleLightning();
           flashLabel("LIGHTNING", "#4facfe");
@@ -10663,7 +10693,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handleLightning, handleMeteorShower, handleSupernova, handleToggleAudio, handleCyclePalette, handleGrandFinale, handleTrailsMode, handleBounceMode, handleMaelstrom, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handleLightning, handleMeteorShower, handleSupernova, handleToggleAudio, handleCyclePalette, handleGrandFinale, handleTrailsMode, handleBounceMode, handleMaelstrom, handleWrapMode, paletteIndex, setShowHelp]);
 
 
   return (
@@ -10863,8 +10893,8 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleAttractMode} $active={attractMode} $color="#f093fb" title="Attract mode">
-          attract
+        <ModeToggle onClick={handleWrapMode} $active={wrapMode} $color="#38bdf8" title="Wrap — orbs teleport across edges (N)">
+          wrap
         </ModeToggle>
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode — orbs leave trails on canvas (P)">
           paint
@@ -10938,6 +10968,7 @@ function App() {
               <Shortcut><Key>P</Key><span>Paint mode</span></Shortcut>
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>T</Key><span>Trails mode</span></Shortcut>
+              <Shortcut><Key>N</Key><span>Wrap mode (teleport edges)</span></Shortcut>
               <Shortcut><Key>.</Key><span>Bounce mode</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>Esc</Key><span>Theater mode (screensaver)</span></Shortcut>
