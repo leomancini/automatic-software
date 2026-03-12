@@ -5639,9 +5639,10 @@ function App() {
         ctx.restore();
       }
 
-      // draw flock connections — subtle threads showing flock cohesion
-      if (flockingModeRef.current && orbs.length >= 2 && orbs.length < 200) {
-        const FLOCK_RANGE_SQ = FLOCK_COHESION_DIST * FLOCK_COHESION_DIST;
+      // draw gravity threads — show n-body attraction between nearby orbs
+      if (nbodyModeRef.current && orbs.length >= 2 && orbs.length < 200) {
+        const VIS_RANGE = 140;
+        const VIS_RANGE_SQ = VIS_RANGE * VIS_RANGE;
         ctx.save();
         ctx.lineCap = "round";
         for (let i = 0; i < orbs.length; i++) {
@@ -5653,22 +5654,17 @@ function App() {
             const dx = a.x - b.x;
             const dy = a.y - b.y;
             const distSq = dx * dx + dy * dy;
-            if (distSq > FLOCK_RANGE_SQ) continue;
+            if (distSq > VIS_RANGE_SQ) continue;
             const dist = Math.sqrt(distSq);
-            const t = 1 - dist / FLOCK_COHESION_DIST;
-            // alignment: orbs moving in similar direction get brighter lines
-            const speedA = Math.sqrt(a.vx * a.vx + a.vy * a.vy);
-            const speedB = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
-            const alignment = speedA > 0.5 && speedB > 0.5
-              ? Math.max(0, (a.vx * b.vx + a.vy * b.vy) / (speedA * speedB))
-              : 0.3;
-            const alpha = t * alignment * 0.3;
+            const t = 1 - dist / VIS_RANGE;
+            // gravity ∝ 1/r² — closer orbs get brighter threads
+            const alpha = t * t * 0.35;
             if (alpha < 0.02) continue;
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);
             ctx.lineTo(b.x, b.y);
             ctx.strokeStyle = a.color + hexAlpha(alpha * 255);
-            ctx.lineWidth = t * 1.2;
+            ctx.lineWidth = t * 1.5;
             ctx.stroke();
           }
         }
@@ -10899,8 +10895,8 @@ function App() {
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode — orbs leave trails on canvas (P)">
           paint
         </ModeToggle>
-        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flock mode">
-          flock
+        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body — mutual gravity between all orbs">
+          n-body
         </ModeToggle>
         <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#f97316" title="Bounce — elastic billiard collisions (.)">
           bounce
