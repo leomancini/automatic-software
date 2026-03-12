@@ -1332,6 +1332,27 @@ function App() {
       // ── Tap pulse wave — concentric ripples from every tap ──
       tapWavesRef.current.push({ x: pos.x, y: pos.y, born: now, color: rippleColor, streak, hitOrbs: new Set() });
 
+      // ── Echo mode: delayed repeat spawns at same position ──
+      if (echoModeRef.current) {
+        const ex = pos.x, ey = pos.y;
+        setTimeout(() => {
+          const echoOrb = createOrb(ex, ey);
+          echoOrb.radius *= 0.75;
+          orbsRef.current.push(echoOrb);
+          ripplesRef.current.push({ x: ex, y: ey, color: echoOrb.color, born: performance.now() });
+          setOrbCount(orbsRef.current.length);
+          playSpawn(ex, window.innerWidth);
+        }, 300);
+        setTimeout(() => {
+          const echoOrb = createOrb(ex, ey);
+          echoOrb.radius *= 0.55;
+          orbsRef.current.push(echoOrb);
+          ripplesRef.current.push({ x: ex, y: ey, color: echoOrb.color, born: performance.now() });
+          setOrbCount(orbsRef.current.length);
+          playSpawn(ex, window.innerWidth);
+        }, 550);
+      }
+
       setOrbCount(orbsRef.current.length);
       if (streak >= 2) {
         playStreakTone(streak, pos.x, window.innerWidth);
@@ -10541,7 +10562,7 @@ function App() {
           handleNbodyMode();
           break;
         case "5":
-          handleRainMode();
+          handleEchoMode();
           break;
         case "z":
           handleRebound();
@@ -10670,7 +10691,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "big flick = rocket firework!", "right-click for a surprise", "shake your phone for a shockwave"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try crossfire \u00b7 orbs collide from all edges", "try rain mode \u00b7 mesmerizing with paint", "cycle gravity (G) \u00b7 try spin mode"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try crossfire \u00b7 orbs collide from all edges", "try echo mode \u00b7 taps repeat with delay", "cycle gravity (G) \u00b7 try spin mode"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -10724,7 +10745,7 @@ function App() {
           {swirlMode && <ModePill $color="#818cf8">swirl</ModePill>}
           {stringMode && <ModePill $color="#818cf8">strings</ModePill>}
           {linksMode && <ModePill $color="#f0abfc">links</ModePill>}
-          {rainMode && <ModePill $color="#60a5fa">rain</ModePill>}
+          {echoMode && <ModePill $color="#60a5fa">echo</ModePill>}
           {kaleidoscopeMode && <ModePill $color="#f0abfc">mirror</ModePill>}
           {slowMo && <ModePill $color="#00f2fe">slow-mo</ModePill>}
           {pulseMode && <ModePill $color="#667eea">heartbeat</ModePill>}
@@ -10877,8 +10898,8 @@ function App() {
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode — orbs leave trails on canvas (P)">
           paint
         </ModeToggle>
-        <ModeToggle onClick={handleRainMode} $active={rainMode} $color="#60a5fa" title="Rain — orbs auto-spawn and fall (5)">
-          rain
+        <ModeToggle onClick={handleEchoMode} $active={echoMode} $color="#60a5fa" title="Echo — taps repeat with delayed echoes (5)">
+          echo
         </ModeToggle>
         <ModeToggle onClick={handleVolatileMode} $active={volatileMode} $color="#ef4444" title="Volatile — orbs shatter on impact (;)">
           volatile
