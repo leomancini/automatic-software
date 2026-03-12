@@ -10861,17 +10861,9 @@ function App() {
           </ActionButton>
           {orbCount > 0 && (
             <>
-            <ActionButton onClick={handleFireworkShow} title="Firework show">
+            <ActionButton onClick={handleGrandFinale} title="Grand finale" $highlight>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="6" y1="22" x2="6" y2="14" />
-                <line x1="6" y1="10" x2="3" y2="6" />
-                <line x1="6" y1="10" x2="9" y2="6" />
-                <line x1="6" y1="10" x2="6" y2="6" />
-                <line x1="18" y1="22" x2="18" y2="12" />
-                <line x1="18" y1="8" x2="15" y2="4" />
-                <line x1="18" y1="8" x2="21" y2="4" />
-                <line x1="18" y1="8" x2="18" y2="4" />
-                <circle cx="12" cy="3" r="1" fill="currentColor" />
+                <polygon points="12,2 14.4,9.4 22,9.4 15.8,13.9 18.2,21.3 12,16.8 5.8,21.3 8.2,13.9 2,9.4 9.6,9.4" fill="currentColor" />
               </svg>
             </ActionButton>
 <ActionButton onClick={handleSpin} title="Spin orbs">
@@ -10961,6 +10953,7 @@ function App() {
               <Shortcut><Key>\</Key><span>Gravity pulse (implode → explode)</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Rebound (reverse all velocities)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
+              <Shortcut><Key>!</Key><span>Grand finale (chain all effects)</span></Shortcut>
               <Shortcut><Key>`</Key><span>Vortex (spiral in → burst out)</span></Shortcut>
               <hr />
               <Shortcut><Key>G</Key><span>Cycle gravity (↓→↑←↻)</span></Shortcut>
