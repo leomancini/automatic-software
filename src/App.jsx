@@ -10858,9 +10858,14 @@ function App() {
           </ActionButton>
           {orbCount > 0 && (
             <>
-            <ActionButton onClick={handleGrandFinale} title="Grand finale" $highlight>
+            <ActionButton onClick={handleMaelstrom} title="Vortex — spiral in & burst out (`)">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="12,2 14.4,9.4 22,9.4 15.8,13.9 18.2,21.3 12,16.8 5.8,21.3 8.2,13.9 2,9.4 9.6,9.4" fill="currentColor" />
+                <path d="M12 3c-4.97 0-9 4.03-9 9" />
+                <path d="M12 7c-2.76 0-5 2.24-5 5" />
+                <path d="M12 11c-.55 0-1 .45-1 1" />
+                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+                <path d="M12 21c4.97 0 9-4.03 9-9" />
+                <path d="M12 17c2.76 0 5-2.24 5-5" />
               </svg>
             </ActionButton>
 <ActionButton onClick={handleSpin} title="Spin orbs">
@@ -10980,7 +10985,7 @@ function App() {
               <Shortcut><Key>Z</Key><span>Rebound (reverse all velocities)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>!</Key><span>Grand finale (chain all effects)</span></Shortcut>
-              <Shortcut><Key>`</Key><span>Vortex (spiral in → burst out)</span></Shortcut>
+              <Shortcut><Key>` / btn</Key><span>Vortex (spiral in → burst out)</span></Shortcut>
               <hr />
               <Shortcut><Key>G</Key><span>Cycle gravity (↓→↑←↻)</span></Shortcut>
               <Shortcut><Key>D</Key><span>Repel mode</span></Shortcut>
