@@ -10922,6 +10922,14 @@ function App() {
               <line x1="4" y1="21" x2="20" y2="21" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleRebound} title="Rebound — reverse all velocities (Z)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="1 4 1 10 7 10" />
+              <polyline points="23 20 23 14 17 14" />
+              <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10" />
+              <path d="M3.51 15A9 9 0 0 0 18.36 18.36L23 14" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleGrandFinale} title="Grand finale — chains all effects (!)" $highlight>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26" fill="currentColor" opacity="0.3" />
@@ -10980,20 +10988,8 @@ function App() {
         <ModeToggle onClick={handleRepelMode} $active={repelMode} $color="#fa709a" title="Repel mode (D)">
           repel
         </ModeToggle>
-        <ModeToggle onClick={handleWrapMode} $active={wrapMode} $color="#38bdf8" title="Wrap — orbs teleport across edges (N)">
-          wrap
-        </ModeToggle>
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode — orbs leave trails on canvas (P)">
           paint
-        </ModeToggle>
-        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flock — boids swarm, flee your cursor (K)">
-          flock
-        </ModeToggle>
-        <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#f97316" title="Bounce — elastic billiard collisions (.)">
-          bounce
-        </ModeToggle>
-        <ModeToggle onClick={handleTrailsMode} $active={trailsMode} $color="#c084fc" title="Trails — orbs leave comet tails (T)">
-          trails
         </ModeToggle>
       </ModeStrip>
       {saveFlash && <SaveFlash />}
