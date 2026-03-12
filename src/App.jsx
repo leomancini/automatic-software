@@ -10670,7 +10670,7 @@ function App() {
               ? ["tap anywhere to create orbs", "hold to charge \u00b7 release to detonate", "drag to aim & launch", "big flick = rocket firework!", "right-click for a surprise", "shake your phone for a shockwave"]
               : orbCount < 6
               ? ["double-tap for burst spawn", "rapid taps unlock combos", "try shockwave (W) or firework (F)"]
-              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try collide \u00b7 two swarms crash together", "try rain mode \u00b7 mesmerizing with paint", "cycle gravity (G) \u00b7 try spin mode"];
+              : ["rapid taps unlock combo streaks", "supernova (E) \u00b7 chain lightning (L)", "scatter (S) \u00b7 gather (C)", "toggle modes in the bottom left", "try crossfire \u00b7 orbs collide from all edges", "try rain mode \u00b7 mesmerizing with paint", "cycle gravity (G) \u00b7 try spin mode"];
             return tips[tipCycle % tips.length];
           })()}
         </Hint>
@@ -10808,16 +10808,16 @@ function App() {
               <circle cx="12" cy="12" r="1.5" fill="currentColor" />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleScatter} title="Scatter orbs">
+          <ActionButton onClick={handleCrossfire} title="Crossfire">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="12" x2="5" y2="5" />
-              <polyline points="5 9 5 5 9 5" />
-              <line x1="12" y1="12" x2="19" y2="5" />
-              <polyline points="15 5 19 5 19 9" />
-              <line x1="12" y1="12" x2="5" y2="19" />
-              <polyline points="9 19 5 19 5 15" />
-              <line x1="12" y1="12" x2="19" y2="19" />
-              <polyline points="19 15 19 19 15 19" />
+              <line x1="2" y1="12" x2="10" y2="12" />
+              <polyline points="7 9 10 12 7 15" />
+              <line x1="22" y1="12" x2="14" y2="12" />
+              <polyline points="17 9 14 12 17 15" />
+              <line x1="12" y1="2" x2="12" y2="10" />
+              <polyline points="9 7 12 10 15 7" />
+              <line x1="12" y1="22" x2="12" y2="14" />
+              <polyline points="9 17 12 14 15 17" />
             </svg>
           </ActionButton>
           <ActionButton onClick={handleLightning} title="Chain lightning">
@@ -10930,6 +10930,7 @@ function App() {
               <Shortcut><Key>E</Key><span>Supernova</span></Shortcut>
               <Shortcut><Key>L</Key><span>Chain lightning</span></Shortcut>
               <Shortcut><Key>R</Key><span>Spin (double-tap: centrifuge!)</span></Shortcut>
+              <Shortcut><Key>4</Key><span>Crossfire (orbs from all edges)</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
               <Shortcut><Key>\</Key><span>Gravity pulse (implode → explode)</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Rebound (reverse all velocities)</span></Shortcut>
