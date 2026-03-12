@@ -8810,8 +8810,26 @@ function App() {
 
   const handleFlockingMode = useCallback(() => {
     setFlockingMode((prev) => {
-      flockingModeRef.current = !prev;
-      return !prev;
+      const next = !prev;
+      flockingModeRef.current = next;
+      // auto-populate: boids need density to look good
+      if (next && orbsRef.current.filter(o => !o.spark).length < 15) {
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        const cx = W / 2, cy = H / 2;
+        const need = 20 - orbsRef.current.filter(o => !o.spark).length;
+        for (let i = 0; i < need; i++) {
+          const orb = createOrb(
+            cx + (Math.random() - 0.5) * W * 0.4,
+            cy + (Math.random() - 0.5) * H * 0.4
+          );
+          orb.vx = (Math.random() - 0.5) * 3;
+          orb.vy = (Math.random() - 0.5) * 3;
+          orbsRef.current.push(orb);
+        }
+        playBurstSound();
+      }
+      return next;
     });
   }, []);
 
@@ -10623,6 +10641,9 @@ function App() {
         case "n":
           handleWrapMode();
           break;
+        case "k":
+          handleFlockingMode();
+          break;
         case "l":
           handleLightning();
           flashLabel("LIGHTNING", "#4facfe");
@@ -10689,7 +10710,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handleLightning, handleMeteorShower, handleSupernova, handleToggleAudio, handleCyclePalette, handleGrandFinale, handleTrailsMode, handleBounceMode, handleMaelstrom, handleWrapMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handleLightning, handleMeteorShower, handleSupernova, handleToggleAudio, handleCyclePalette, handleGrandFinale, handleTrailsMode, handleBounceMode, handleMaelstrom, handleWrapMode, handleFlockingMode, paletteIndex, setShowHelp]);
 
 
   return (
@@ -10922,8 +10943,8 @@ function App() {
         <ModeToggle onClick={handlePaintMode} $active={paintMode} $color="#feb47b" title="Paint mode — orbs leave trails on canvas (P)">
           paint
         </ModeToggle>
-        <ModeToggle onClick={handleNbodyMode} $active={nbodyMode} $color="#a78bfa" title="N-body — mutual gravity between all orbs">
-          n-body
+        <ModeToggle onClick={handleFlockingMode} $active={flockingMode} $color="#22d3ee" title="Flock — boids swarm, flee your cursor (K)">
+          flock
         </ModeToggle>
         <ModeToggle onClick={handleBounceMode} $active={bounceMode} $color="#f97316" title="Bounce — elastic billiard collisions (.)">
           bounce
@@ -10992,6 +11013,7 @@ function App() {
               <Shortcut><Key>M</Key><span>Slow motion</span></Shortcut>
               <Shortcut><Key>T</Key><span>Trails mode</span></Shortcut>
               <Shortcut><Key>N</Key><span>Wrap mode (teleport edges)</span></Shortcut>
+              <Shortcut><Key>K</Key><span>Flock mode (boids swarm)</span></Shortcut>
               <Shortcut><Key>.</Key><span>Bounce mode</span></Shortcut>
               <Shortcut><Key>Space</Key><span>Freeze / unfreeze</span></Shortcut>
               <Shortcut><Key>Esc</Key><span>Theater mode (screensaver)</span></Shortcut>
