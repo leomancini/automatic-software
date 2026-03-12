@@ -514,7 +514,10 @@ function App() {
           }
           if (!paintModeRef.current && !gravityPaintModeRef.current && !holdChargeRef.current) {
             // Flick aiming mode — show trajectory line, launch on release
-            slingshotRef.current = { startX: sprayStartRef.current.x, startY: sprayStartRef.current.y };
+            if (!slingshotRef.current) {
+              slingshotRef.current = { startX: sprayStartRef.current.x, startY: sprayStartRef.current.y, path: [] };
+            }
+            slingshotRef.current.path.push({ x: pos.x, y: pos.y });
           } else {
           // spray mode: drag on empty space to paint orb trails
           const dx = pos.x - lastSprayPosRef.current.x;
@@ -765,6 +768,41 @@ function App() {
         const fdx = releasePos.x - sling.startX;
         const fdy = releasePos.y - sling.startY;
         const fDist = Math.sqrt(fdx * fdx + fdy * fdy);
+
+        // ── Circle gesture detection → whirlpool ──
+        const circlePath = sling.path || [];
+        if (circlePath.length >= 10 && fDist < 60) {
+          // Calculate centroid of drawn path
+          let ccx = sling.startX, ccy = sling.startY;
+          for (const p of circlePath) { ccx += p.x; ccy += p.y; }
+          ccx /= (circlePath.length + 1);
+          ccy /= (circlePath.length + 1);
+
+          // Measure total angular sweep around centroid
+          const allPts = [{ x: sling.startX, y: sling.startY }, ...circlePath];
+          let totalAngle = 0;
+          for (let ci = 1; ci < allPts.length; ci++) {
+            const a1 = Math.atan2(allPts[ci - 1].y - ccy, allPts[ci - 1].x - ccx);
+            const a2 = Math.atan2(allPts[ci].y - ccy, allPts[ci].x - ccx);
+            let da = a2 - a1;
+            if (da > Math.PI) da -= Math.PI * 2;
+            if (da < -Math.PI) da += Math.PI * 2;
+            totalAngle += da;
+          }
+
+          // Need at least ~270° sweep to count as a circle
+          if (Math.abs(totalAngle) > Math.PI * 1.5 && !maelstromRef.current && orbsRef.current.length >= 2) {
+            haptic([15, 25, 35]);
+            maelstromRef.current = { cx: ccx, cy: ccy, born: performance.now(), phase: "spiral" };
+            screenFlashesRef.current.push({ cx: ccx, cy: ccy, color: "#78c8ff", born: performance.now() });
+            const label = totalAngle > 0 ? "WHIRLPOOL" : "WHIRLPOOL";
+            comboFlashRef.current.push({ text: label, x: ccx, y: ccy - 40, born: performance.now(), color: "#78c8ff" });
+            playSwoosh();
+            shakeRef.current = Math.max(shakeRef.current, 6);
+            return;
+          }
+        }
+
         if (fDist > 30) {
           const maxSpeed = 18;
           const speed = Math.min(fDist * 0.12, maxSpeed);
@@ -8342,6 +8380,51 @@ function App() {
         const sdx = mx - sling.startX;
         const sdy = my - sling.startY;
         const sDist = Math.sqrt(sdx * sdx + sdy * sdy);
+
+        // Check if path looks circular (cursor near start point)
+        const circPath = sling.path || [];
+        const isCircling = circPath.length >= 8 && sDist < 60;
+
+        if (isCircling) {
+          // Draw glowing circle trace
+          ctx.beginPath();
+          ctx.moveTo(sling.startX, sling.startY);
+          for (const p of circPath) ctx.lineTo(p.x, p.y);
+          ctx.lineTo(mx, my);
+          ctx.save();
+          ctx.strokeStyle = `rgba(120, 200, 255, 0.5)`;
+          ctx.lineWidth = 3;
+          ctx.shadowColor = "rgba(120, 200, 255, 0.5)";
+          ctx.shadowBlur = 12;
+          ctx.stroke();
+          ctx.restore();
+
+          // Draw whirlpool hint at center
+          let ccx = sling.startX, ccy = sling.startY;
+          for (const p of circPath) { ccx += p.x; ccy += p.y; }
+          ccx /= (circPath.length + 1);
+          ccy /= (circPath.length + 1);
+          const hintGrad = ctx.createRadialGradient(ccx, ccy, 0, ccx, ccy, 20);
+          hintGrad.addColorStop(0, `rgba(120, 200, 255, 0.5)`);
+          hintGrad.addColorStop(1, "transparent");
+          ctx.fillStyle = hintGrad;
+          ctx.beginPath();
+          ctx.arc(ccx, ccy, 20, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Spinning indicator
+          const spinAngle = (now * 0.004) % (Math.PI * 2);
+          for (let si = 0; si < 3; si++) {
+            const sa = spinAngle + (Math.PI * 2 * si) / 3;
+            const spx = ccx + Math.cos(sa) * 12;
+            const spy = ccy + Math.sin(sa) * 12;
+            ctx.beginPath();
+            ctx.arc(spx, spy, 2, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(120, 200, 255, 0.7)`;
+            ctx.fill();
+          }
+        } else {
+
         const sAngle = Math.atan2(sdy, sdx);
         const sSpeed = Math.min(sDist * 0.12, 18);
         const powerPct = Math.min(sSpeed / 18, 1);
@@ -8472,6 +8555,7 @@ function App() {
           ctx.fillText(label, sling.startX, sling.startY - previewR - 10);
           ctx.restore();
         }
+        } // end else (non-circle trajectory rendering)
       }
 
       // ── System energy: total kinetic energy drives atmosphere reactivity ──
@@ -11152,6 +11236,7 @@ function App() {
             <ShortcutList>
               <Shortcut><Key>click</Key><span>Create orb</span></Shortcut>
               <Shortcut><Key>drag</Key><span>Flick to launch (big flick = rocket!)</span></Shortcut>
+              <Shortcut><Key>circle</Key><span>Draw a circle → whirlpool!</span></Shortcut>
               <Shortcut><Key>dbl-click</Key><span>Burst (empty) / remove (orb)</span></Shortcut>
               <Shortcut><Key>hold</Key><span>Charge → release to detonate</span></Shortcut>
               <Shortcut><Key>right-click</Key><span>Split orb / random effect</span></Shortcut>
