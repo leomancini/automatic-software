@@ -10718,6 +10718,10 @@ function App() {
         case "!":
           handleGrandFinale();
           break;
+        case "a":
+          handleSlam();
+          flashLabel("SLAM", "#f59e0b");
+          break;
         case "arrowdown":
         case "arrowup":
         case "arrowleft":
@@ -10744,7 +10748,7 @@ function App() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handleLightning, handleMeteorShower, handleSupernova, handleToggleAudio, handleCyclePalette, handleGrandFinale, handleTrailsMode, handleBounceMode, handleMaelstrom, handleWrapMode, handleFlockingMode, paletteIndex, setShowHelp]);
+  }, [handleFreeze, handleGravity, handleScatter, handleGather, handleSpin, handleBurst, handleWave, handleClearAll, handlePaintMode, handleShuffle, handleSlowMo, handleFirework, handleRepelMode, handleMagnetCursor, handleLightning, handleMeteorShower, handleSupernova, handleToggleAudio, handleCyclePalette, handleGrandFinale, handleTrailsMode, handleBounceMode, handleMaelstrom, handleWrapMode, handleFlockingMode, handleSlam, paletteIndex, setShowHelp]);
 
 
   return (
@@ -10911,6 +10915,13 @@ function App() {
               <line x1="4" y1="4" x2="9" y2="9" />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleSlam} title="Slam (A)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="2" x2="12" y2="16" />
+              <polyline points="6 10 12 16 18 10" />
+              <line x1="4" y1="21" x2="20" y2="21" />
+            </svg>
+          </ActionButton>
           <ActionButton onClick={handleGrandFinale} title="Grand finale — chains all effects (!)" $highlight>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26" fill="currentColor" opacity="0.3" />
@@ -11033,6 +11044,7 @@ function App() {
               <Shortcut><Key>R</Key><span>Spin (double-tap: centrifuge!)</span></Shortcut>
               <Shortcut><Key>S / C</Key><span>Scatter / Gather</span></Shortcut>
               <Shortcut><Key>\</Key><span>Gravity pulse (implode → explode)</span></Shortcut>
+              <Shortcut><Key>A</Key><span>Slam (gravity wave down)</span></Shortcut>
               <Shortcut><Key>Z</Key><span>Rebound (reverse all velocities)</span></Shortcut>
               <Shortcut><Key>H</Key><span>Shuffle colors</span></Shortcut>
               <Shortcut><Key>!</Key><span>Grand finale (chain all effects)</span></Shortcut>
